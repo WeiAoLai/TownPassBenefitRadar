@@ -22,7 +22,8 @@ class BadgeServiceTest {
             assertThat(badge).isNull();
         } else {
             assertThat(badge.level()).isEqualTo(expectedLevel);
-            assertThat(badge.iconUrl()).startsWith("https://assets.example/badges/");
+            assertThat(badge.iconUrl()).isEqualTo(
+                    "https://assets.example/badges/%d/badge.png".formatted(expectedLevel));
         }
     }
 

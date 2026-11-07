@@ -116,6 +116,18 @@ class FlywayMigrationTest {
         assertThat(availableOnBaselineDate).containsExactly("10");
     }
 
+    @Test
+    void seedsTheDeliveredBackgroundAsset() throws SQLException {
+        var background = queryStrings("""
+                SELECT CONCAT(name, ':', image_object_key, ':', unlock_threshold, ':', is_active)
+                  FROM backgrounds
+                 ORDER BY id
+                """);
+
+        assertThat(background).containsExactly(
+                "台北晨曦:backgrounds/taipei-sunrise.png:0:1");
+    }
+
     private static List<String> queryStrings(String sql) throws SQLException {
         try (Connection connection = DriverManager.getConnection(
                         MARIADB.getJdbcUrl(), MARIADB.getUsername(), MARIADB.getPassword());
