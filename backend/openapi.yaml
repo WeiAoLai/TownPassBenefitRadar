@@ -10,10 +10,15 @@ servers:
     description: 與前端同網域的 API base path
 tags:
   - name: Me
+    description: 目前登入的 Demo 使用者、徽章與個人作品。
   - name: Backgrounds
+    description: 長輩圖背景素材與依作品數計算的解鎖狀態。
   - name: Policies
+    description: 可用政策類別、政策內容與編輯器宣傳標語。
   - name: Artworks
+    description: 公開作品、圖片上傳、按讚與下載。
   - name: Leaderboard
+    description: 依作品按讚數及下載數計算的全期間排行榜。
 security:
   - DemoUser: []
 paths:
@@ -22,6 +27,7 @@ paths:
       tags: [Me]
       operationId: getCurrentUser
       summary: 取得目前使用者與徽章資訊
+      description: 依 `X-Demo-User` 取得使用者基本資料、目前作品數，以及作品數對應的最高徽章。
       responses:
         "200":
           description: 目前使用者
@@ -39,6 +45,7 @@ paths:
       tags: [Me, Artworks]
       operationId: listMyArtworks
       summary: 取得目前使用者的作品
+      description: 回傳目前使用者建立的作品分頁，依建立時間由新到舊排列。
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
@@ -61,6 +68,7 @@ paths:
       tags: [Backgrounds]
       operationId: listBackgrounds
       summary: 取得所有啟用中的背景與目前使用者的解鎖狀態
+      description: "`unlocked` 依目前使用者的作品數與背景解鎖門檻即時計算；未解鎖背景仍會列出供前端展示。"
       responses:
         "200":
           description: 背景清單
@@ -80,6 +88,7 @@ paths:
       tags: [Policies]
       operationId: listPolicyCategories
       summary: 取得目前可選政策的類別
+      description: 只回傳至少包含一筆目前有效政策的類別，名稱可直接帶入 `GET /v1/policies` 的 `category`。
       responses:
         "200":
           description: 政策類別名稱清單
@@ -102,6 +111,7 @@ paths:
       tags: [Policies]
       operationId: listPolicies
       summary: 依類別取得目前可選的政策
+      description: 只回傳管理者已啟用且符合申辦起訖日條件的政策；類別名稱必須完整相符。
       parameters:
         - name: category
           in: query
@@ -111,6 +121,7 @@ paths:
             type: string
             minLength: 1
             maxLength: 50
+            example: 老人
       responses:
         "200":
           description: 政策清單
@@ -155,6 +166,7 @@ paths:
       tags: [Artworks]
       operationId: listArtworks
       summary: 取得公開作品
+      description: 回傳公開作品分頁，依建立時間由新到舊；`likedByMe` 與 `ownedByMe` 依目前使用者計算。
       parameters:
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/Size"
@@ -220,6 +232,7 @@ paths:
       tags: [Artworks]
       operationId: getArtwork
       summary: 取得作品詳情
+      description: 取得單一公開作品、作者摘要、目前按讚／下載統計，以及目前使用者的互動狀態。
       parameters:
         - $ref: "#/components/parameters/ArtworkId"
       responses:
@@ -351,10 +364,12 @@ components:
       name: artworkId
       in: path
       required: true
+      description: 作品唯一識別碼。
       schema:
         type: integer
         format: int64
         minimum: 1
+        example: 123
     Page:
       name: page
       in: query
@@ -363,6 +378,7 @@ components:
         type: integer
         minimum: 0
         default: 0
+        example: 0
     Size:
       name: size
       in: query
@@ -372,6 +388,209 @@ components:
         minimum: 1
         maximum: 100
         default: 20
+        example: 20
+
+  examples:
+    ValidationFailed:
+      summary: 欄位驗證失敗
+      value:
+        type: about:blank
+        title: Bad Request
+        status: 400
+        detail: Request validation failed
+        instance: /api/v1/artworks
+        code: VALIDATION_FAILED
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    RequestInvalid:
+      summary: 參數型別、必要欄位或 request body 不合法
+      value:
+        type: about:blank
+        title: Bad Request
+        status: 400
+        detail: Request is invalid
+        instance: /api/v1/artworks
+        code: REQUEST_INVALID
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    ArtworkImageInvalid:
+      summary: 上傳內容不是有效 PNG
+      value:
+        type: about:blank
+        title: Bad Request
+        status: 400
+        detail: Artwork image must be a valid PNG
+        instance: /api/v1/artworks
+        code: ARTWORK_IMAGE_INVALID
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    ArtworkImageDimensionsInvalid:
+      summary: PNG 尺寸不是 1080 x 1080
+      value:
+        type: about:blank
+        title: Bad Request
+        status: 400
+        detail: Artwork image must be 1080 x 1080 pixels
+        instance: /api/v1/artworks
+        code: ARTWORK_IMAGE_DIMENSIONS_INVALID
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    PageInvalid:
+      summary: 分頁參數不合法
+      value:
+        type: about:blank
+        title: Bad Request
+        status: 400
+        detail: Page must not exceed the available range
+        instance: /api/v1/artworks
+        code: PAGE_INVALID
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    AuthRequired:
+      summary: 缺少 Demo 使用者 header
+      value:
+        type: about:blank
+        title: Unauthorized
+        status: 401
+        detail: X-Demo-User header is required
+        instance: /api/v1/me
+        code: AUTH_REQUIRED
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    AuthInvalid:
+      summary: Demo 使用者不在 allowlist
+      value:
+        type: about:blank
+        title: Unauthorized
+        status: 401
+        detail: X-Demo-User is not allowed
+        instance: /api/v1/me
+        code: AUTH_INVALID
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    BackgroundLocked:
+      summary: 作品數尚未達到背景解鎖門檻
+      value:
+        type: about:blank
+        title: Forbidden
+        status: 403
+        detail: Background is not unlocked for the current user
+        instance: /api/v1/artworks
+        code: BACKGROUND_LOCKED
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    BackgroundUnavailable:
+      summary: 背景已停用
+      value:
+        type: about:blank
+        title: Forbidden
+        status: 403
+        detail: Background is unavailable
+        instance: /api/v1/artworks
+        code: BACKGROUND_UNAVAILABLE
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    PolicyUnavailable:
+      summary: 政策已停用或不在有效期間
+      value:
+        type: about:blank
+        title: Forbidden
+        status: 403
+        detail: Policy is unavailable
+        instance: /api/v1/artworks
+        code: POLICY_UNAVAILABLE
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    ArtworkNotFound:
+      summary: 找不到指定作品
+      value:
+        type: about:blank
+        title: Not Found
+        status: 404
+        detail: Artwork was not found
+        instance: /api/v1/artworks/123
+        code: ARTWORK_NOT_FOUND
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    BackgroundNotFound:
+      summary: 找不到指定背景
+      value:
+        type: about:blank
+        title: Not Found
+        status: 404
+        detail: Background was not found
+        instance: /api/v1/artworks
+        code: BACKGROUND_NOT_FOUND
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    PolicyNotFound:
+      summary: 找不到指定政策
+      value:
+        type: about:blank
+        title: Not Found
+        status: 404
+        detail: Policy was not found
+        instance: /api/v1/artworks
+        code: POLICY_NOT_FOUND
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    ResourceNotFound:
+      summary: 找不到指定資源或目前沒有可用政策
+      value:
+        type: about:blank
+        title: Not Found
+        status: 404
+        detail: The requested resource was not found
+        instance: /api/v1/policies/random
+        code: RESOURCE_NOT_FOUND
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    SelfLikeNotAllowed:
+      summary: 作者不能對自己的作品按愛心
+      value:
+        type: about:blank
+        title: Conflict
+        status: 409
+        detail: Authors cannot like their own artwork
+        instance: /api/v1/artworks/123/like
+        code: SELF_LIKE_NOT_ALLOWED
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    RequestRejected:
+      summary: Request 與目前業務狀態衝突
+      value:
+        type: about:blank
+        title: Conflict
+        status: 409
+        detail: Request conflicts with the current resource state
+        instance: /api/v1/artworks/123/like
+        code: REQUEST_REJECTED
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    ArtworkImageTooLarge:
+      summary: 圖片超過 10 MB
+      value:
+        type: about:blank
+        title: Content Too Large
+        status: 413
+        detail: Artwork image must not exceed 10 MB
+        instance: /api/v1/artworks
+        code: ARTWORK_IMAGE_TOO_LARGE
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    RateLimited:
+      summary: AWS WAF rate limit
+      value:
+        type: about:blank
+        title: Too Many Requests
+        status: 429
+        detail: Too many download requests
+        instance: /api/v1/artworks/123/download
+        code: RATE_LIMITED
+        traceId: waf-generated-request-id
+    InternalError:
+      summary: 未預期的後端錯誤
+      value:
+        type: about:blank
+        title: Internal Server Error
+        status: 500
+        detail: An unexpected error occurred
+        instance: /api/v1/artworks
+        code: INTERNAL_ERROR
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
+    StorageUnavailable:
+      summary: S3 暫時不可用
+      value:
+        type: about:blank
+        title: Service Unavailable
+        status: 503
+        detail: Artwork storage is temporarily unavailable
+        instance: /api/v1/artworks
+        code: STORAGE_UNAVAILABLE
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc
 
   responses:
     BadRequest:
@@ -380,36 +599,76 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+          examples:
+            validationFailed:
+              $ref: "#/components/examples/ValidationFailed"
+            requestInvalid:
+              $ref: "#/components/examples/RequestInvalid"
+            artworkImageInvalid:
+              $ref: "#/components/examples/ArtworkImageInvalid"
+            artworkImageDimensionsInvalid:
+              $ref: "#/components/examples/ArtworkImageDimensionsInvalid"
+            pageInvalid:
+              $ref: "#/components/examples/PageInvalid"
     Unauthorized:
       description: 缺少或無效的 X-Demo-User
       content:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+          examples:
+            authRequired:
+              $ref: "#/components/examples/AuthRequired"
+            authInvalid:
+              $ref: "#/components/examples/AuthInvalid"
     Forbidden:
       description: 目前使用者無權執行，例如使用未解鎖背景
       content:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+          examples:
+            backgroundLocked:
+              $ref: "#/components/examples/BackgroundLocked"
+            backgroundUnavailable:
+              $ref: "#/components/examples/BackgroundUnavailable"
+            policyUnavailable:
+              $ref: "#/components/examples/PolicyUnavailable"
     NotFound:
       description: 指定資源不存在
       content:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+          examples:
+            artworkNotFound:
+              $ref: "#/components/examples/ArtworkNotFound"
+            backgroundNotFound:
+              $ref: "#/components/examples/BackgroundNotFound"
+            policyNotFound:
+              $ref: "#/components/examples/PolicyNotFound"
+            resourceNotFound:
+              $ref: "#/components/examples/ResourceNotFound"
     Conflict:
       description: 業務狀態衝突，例如作者對自己的作品按愛心
       content:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+          examples:
+            selfLikeNotAllowed:
+              $ref: "#/components/examples/SelfLikeNotAllowed"
+            requestRejected:
+              $ref: "#/components/examples/RequestRejected"
     PayloadTooLarge:
       description: 上傳圖片超過 10 MB
       content:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+          examples:
+            artworkImageTooLarge:
+              $ref: "#/components/examples/ArtworkImageTooLarge"
     TooManyRequests:
       description: 超過 API rate limit
       headers:
@@ -422,22 +681,32 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+          examples:
+            rateLimited:
+              $ref: "#/components/examples/RateLimited"
     InternalServerError:
       description: 未預期的後端錯誤
       content:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+          examples:
+            internalError:
+              $ref: "#/components/examples/InternalError"
     ServiceUnavailable:
       description: S3 或資料庫暫時不可用
       content:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/Problem"
+          examples:
+            storageUnavailable:
+              $ref: "#/components/examples/StorageUnavailable"
 
   schemas:
     CurrentUser:
       type: object
+      description: 目前 Demo 使用者的基本資料、作品數與最高等級徽章。
       required:
         - id
         - account
@@ -449,23 +718,29 @@ components:
           type: integer
           format: int64
           minimum: 1
+          description: 系統內部使用者 ID。
         account:
           type: string
           maxLength: 64
+          description: Demo 帳號代號，對應 `X-Demo-User`。
         displayName:
           type: string
           maxLength: 100
+          description: 前端顯示名稱。
         artworkCount:
           type: integer
           format: int64
           minimum: 0
+          description: 使用者目前已建立的作品總數，用於計算徽章與背景解鎖。
         badge:
+          description: 依作品數取得的最高等級徽章；尚未達第一級門檻時為 null。
           oneOf:
             - $ref: "#/components/schemas/Badge"
             - type: "null"
         createdAt:
           type: string
           format: date-time
+          description: 使用者首次建立於系統的 UTC 時間。
       example:
         id: 1
         account: user-a
@@ -479,30 +754,40 @@ components:
 
     Badge:
       type: object
+      description: 使用者依累積作品數獲得的最高等級徽章。
       required: [level, name, iconUrl]
       properties:
         level:
           type: integer
           minimum: 1
           maximum: 10
+          description: 徽章等級，數字越大代表累積作品越多。
         name:
           type: string
+          description: 徽章中文名稱。
         iconUrl:
           type: string
           format: uri
           description: 有效期 15 分鐘的 S3 presigned URL
+      example:
+        level: 3
+        name: 四方送暖
+        iconUrl: https://assets.example.com/badges/3/badge.png?X-Amz-Expires=900
 
     Background:
       type: object
+      description: 長輩圖可用的背景素材與目前使用者的解鎖狀態。
       required: [id, name, imageUrl, unlockThreshold, unlocked]
       properties:
         id:
           type: integer
           format: int64
           minimum: 1
+          description: 背景唯一識別碼。
         name:
           type: string
           maxLength: 100
+          description: 背景中文名稱。
         imageUrl:
           type: string
           format: uri
@@ -510,30 +795,44 @@ components:
         unlockThreshold:
           type: integer
           minimum: 0
+          description: 解鎖此背景所需的最少作品數；0 表示所有使用者皆可使用。
         unlocked:
           type: boolean
+          description: 目前使用者是否已達到解鎖門檻。
+      example:
+        id: 1
+        name: 台北晨曦
+        imageUrl: https://assets.example.com/backgrounds/taipei-sunrise.png?X-Amz-Expires=900
+        unlockThreshold: 0
+        unlocked: true
 
     Policy:
       type: object
+      description: 可載入長輩圖編輯器的政策內容與官方來源。
       required: [id, category, title, slogan, sourceUrl, startDate, endDate]
       properties:
         id:
           type: integer
           format: int64
           minimum: 1
+          description: 政策唯一識別碼。
         category:
           type: string
           maxLength: 50
+          description: 政策類別名稱，例如民生費用、生育或老人。
         title:
           type: string
           maxLength: 255
+          description: 政策正式名稱。
         slogan:
           type: string
           maxLength: 255
+          description: 載入編輯器的自訂宣傳文案，並非政府官方標語。
         sourceUrl:
           type: string
           format: uri
           pattern: "^https://"
+          description: QR Code 指向的政府官方政策或服務頁面。
         startDate:
           type: [string, "null"]
           format: date
@@ -542,25 +841,45 @@ components:
           type: [string, "null"]
           format: date
           description: 政策結束日期，包含當日；null 表示無截止日限制
+      example:
+        id: 9
+        category: 老人
+        title: 臺北市中低收入老人生活津貼
+        slogan: 長者生活有津貼，符合資格來申請！
+        sourceUrl: https://dosw.gov.taipei/cp.aspx?n=FCF3DAE98DDA289F
+        startDate: "2026-10-07"
+        endDate: null
 
     AuthorSummary:
       type: object
+      description: 作品作者的公開顯示資料。
       required: [id, displayName]
       properties:
         id:
           type: integer
           format: int64
           minimum: 1
+          description: 作者的系統內部使用者 ID。
         displayName:
           type: string
           maxLength: 100
+          description: 作者公開顯示名稱。
         badge:
+          description: 作者目前的最高等級徽章；尚無徽章時為 null。
           oneOf:
             - $ref: "#/components/schemas/Badge"
             - type: "null"
+      example:
+        id: 1
+        displayName: 小明
+        badge:
+          level: 3
+          name: 四方送暖
+          iconUrl: https://assets.example.com/badges/3/badge.png?X-Amz-Expires=900
 
     Artwork:
       type: object
+      description: 已建立並公開展示的長輩圖作品及目前使用者的互動狀態。
       required:
         - id
         - owner
@@ -578,19 +897,24 @@ components:
           type: integer
           format: int64
           minimum: 1
+          description: 作品唯一識別碼。
         owner:
           $ref: "#/components/schemas/AuthorSummary"
+          description: 作品作者公開摘要。
         backgroundId:
           type: integer
           format: int64
           minimum: 1
+          description: 建立作品時選用的背景 ID。
         policyId:
           type: integer
           format: int64
           minimum: 1
+          description: 建立作品時選用的政策 ID。
         sloganText:
           type: string
           maxLength: 500
+          description: 實際寫入作品的宣傳文案，可能由使用者修改過。
         imageUrl:
           type: string
           format: uri
@@ -599,43 +923,93 @@ components:
           type: integer
           format: int64
           minimum: 0
+          description: 目前愛心總數，重複按愛心不會重複累加。
         downloadCount:
           type: integer
           format: int64
           minimum: 0
+          description: 非作者成功下載的累積次數；作者自行下載不計入。
         likedByMe:
           type: boolean
+          description: 目前使用者是否已對此作品按愛心。
         ownedByMe:
           type: boolean
+          description: 此作品是否由目前使用者建立。
         createdAt:
           type: string
           format: date-time
+          description: 作品建立完成的 UTC 時間。
+      example:
+        id: 123
+        owner:
+          id: 1
+          displayName: 小明
+          badge:
+            level: 3
+            name: 四方送暖
+            iconUrl: https://assets.example.com/badges/3/badge.png?X-Amz-Expires=900
+        backgroundId: 1
+        policyId: 9
+        sloganText: 長者生活有津貼，符合資格來申請！
+        imageUrl: https://assets.example.com/artworks/1/example.png?X-Amz-Expires=900
+        likeCount: 12
+        downloadCount: 8
+        likedByMe: true
+        ownedByMe: false
+        createdAt: "2026-11-07T08:30:00Z"
 
     ArtworkPage:
       type: object
+      description: 作品分頁結果；page 從 0 開始。
       required: [content, page, size, totalElements, totalPages]
       properties:
         content:
           type: array
+          description: 本頁作品，依建立時間由新到舊。
           items:
             $ref: "#/components/schemas/Artwork"
         page:
           type: integer
           minimum: 0
+          description: 目前頁碼，從 0 開始。
         size:
           type: integer
           minimum: 1
           maximum: 100
+          description: 每頁要求的最大筆數。
         totalElements:
           type: integer
           format: int64
           minimum: 0
+          description: 符合條件的作品總筆數。
         totalPages:
           type: integer
           minimum: 0
+          description: 依 size 計算的總頁數；沒有資料時為 0。
+      example:
+        content:
+          - id: 123
+            owner:
+              id: 1
+              displayName: 小明
+              badge: null
+            backgroundId: 1
+            policyId: 9
+            sloganText: 長者生活有津貼，符合資格來申請！
+            imageUrl: https://assets.example.com/artworks/1/example.png?X-Amz-Expires=900
+            likeCount: 12
+            downloadCount: 8
+            likedByMe: false
+            ownedByMe: true
+            createdAt: "2026-11-07T08:30:00Z"
+        page: 0
+        size: 20
+        totalElements: 1
+        totalPages: 1
 
     CreateArtworkRequest:
       type: object
+      description: 建立作品的 multipart/form-data 欄位。
       required: [image, backgroundId, policyId, sloganText]
       properties:
         image:
@@ -647,67 +1021,137 @@ components:
           type: integer
           format: int64
           minimum: 1
+          description: 已啟用且目前使用者已解鎖的背景 ID。
         policyId:
           type: integer
           format: int64
           minimum: 1
+          description: 已啟用且目前日期落在有效期間內的政策 ID。
         sloganText:
           type: string
           minLength: 1
           maxLength: 500
+          description: 要保存及顯示在作品上的宣傳文案。
+      example:
+        image: (binary PNG file)
+        backgroundId: 1
+        policyId: 9
+        sloganText: 長者生活有津貼，符合資格來申請！
 
     LikeState:
       type: object
+      description: 按愛心或取消愛心後的最新狀態。
       required: [artworkId, liked, likeCount]
       properties:
         artworkId:
           type: integer
           format: int64
           minimum: 1
+          description: 被操作的作品 ID。
         liked:
           type: boolean
+          description: 目前使用者操作後是否已按愛心。
         likeCount:
           type: integer
           format: int64
           minimum: 0
+          description: 操作完成後的作品愛心總數。
+      example:
+        artworkId: 123
+        liked: true
+        likeCount: 13
 
     LeaderboardEntry:
       type: object
+      description: 單筆排行榜名次與對應作品。
       required: [rank, score, artwork]
       properties:
         rank:
           type: integer
           minimum: 1
+          description: Competition ranking 名次；同分同名次，例如 1、2、2、4。
         score:
           type: integer
           format: int64
           minimum: 0
+          description: "`max(likeCount, downloadCount)`。"
         artwork:
           $ref: "#/components/schemas/Artwork"
+          description: 此名次對應的完整作品資料。
+      example:
+        rank: 1
+        score: 12
+        artwork:
+          id: 123
+          owner:
+            id: 1
+            displayName: 小明
+            badge: null
+          backgroundId: 1
+          policyId: 9
+          sloganText: 長者生活有津貼，符合資格來申請！
+          imageUrl: https://assets.example.com/artworks/1/example.png?X-Amz-Expires=900
+          likeCount: 12
+          downloadCount: 8
+          likedByMe: false
+          ownedByMe: false
+          createdAt: "2026-11-07T08:30:00Z"
 
     Problem:
       type: object
       description: RFC 9457 Problem Details，加上穩定業務錯誤碼與 trace ID。
-      required: [type, title, status, code, traceId]
+      required: [title, status, detail, instance, code, traceId]
       properties:
         type:
           type: string
           format: uri-reference
+          description: 問題類型 URI；使用 `about:blank` 時 response 可能省略此欄位。
         title:
           type: string
+          description: 對應 HTTP status 的簡短標題。
         status:
           type: integer
           minimum: 400
           maximum: 599
+          description: HTTP status code。
         detail:
           type: string
+          description: 可供人員閱讀的錯誤說明；前端流程判斷應使用 code。
         instance:
           type: string
           format: uri-reference
+          description: 發生錯誤的 request path。
         code:
           type: string
           description: 前端可依賴的穩定業務錯誤碼
-          example: ARTWORK_IMAGE_INVALID
+          enum:
+            - ARTWORK_IMAGE_DIMENSIONS_INVALID
+            - ARTWORK_IMAGE_INVALID
+            - ARTWORK_IMAGE_TOO_LARGE
+            - ARTWORK_NOT_FOUND
+            - AUTH_INVALID
+            - AUTH_REQUIRED
+            - BACKGROUND_LOCKED
+            - BACKGROUND_NOT_FOUND
+            - BACKGROUND_UNAVAILABLE
+            - INTERNAL_ERROR
+            - PAGE_INVALID
+            - POLICY_NOT_FOUND
+            - POLICY_UNAVAILABLE
+            - RATE_LIMITED
+            - REQUEST_INVALID
+            - REQUEST_REJECTED
+            - RESOURCE_NOT_FOUND
+            - SELF_LIKE_NOT_ALLOWED
+            - STORAGE_UNAVAILABLE
+            - VALIDATION_FAILED
         traceId:
           type: string
           description: 用於查詢後端 log，不包含個資
+      example:
+        title: Not Found
+        status: 404
+        detail: Artwork was not found
+        instance: /api/v1/artworks/123
+        code: ARTWORK_NOT_FOUND
+        traceId: 6f44d183-f415-4c2c-9b2f-c35b657a15dc

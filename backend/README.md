@@ -17,6 +17,7 @@ bash scripts/monitoring-smoke-test.sh
 - API v1 base URL：`http://localhost:8080/api/v1`
 - Management health：`http://localhost:8081/actuator/health`
 - Swagger UI：`http://localhost:8080/api/swagger-ui.html`
+- Swagger 使用的 OpenAPI YAML：`http://localhost:8080/api/contract/openapi.yaml`
 - Checked-in contract：`openapi.yaml`
 
 Demo API 必須帶 `X-Demo-User: user-a`、`user-b` 或 `user-c`。Spring Boot 只接受 10 MB 圖片。AWS 正式入口的下載 rate limit 由 WAF rate-based rule 負責，本機 Compose 不模擬 WAF。
@@ -28,11 +29,47 @@ docker compose exec -T api env -u SPRING_FLYWAY_URL -u SPRING_FLYWAY_USER -u SPR
 ruby scripts/check-openapi.rb
 bash scripts/check-db-schema.sh
 ruby scripts/check-grafana-dashboards.rb
+ruby scripts/check-k6.rb
 bash scripts/smoke-test.sh
 bash scripts/monitoring-smoke-test.sh
 ```
 
 完整測試包含 Flyway、MariaDB repository、併發按讚、S3、OpenAPI 契約、QR Code 解碼與 controller/service 測試。
+
+## k6 階梯式壓測
+
+k6 使用官方 `grafana/k6:2.3.0` image，並行執行約 80% 查詢與 20% 完整作品流程。預設 read VUs 為 `5 → 20 → 50 → 0`，write VUs 為 `1 → 4 → 10 → 0`，階段時間依序為 `30s → 1m → 2m → 30s`。
+
+本機 Compose 壓測：
+
+```bash
+docker compose --profile performance run --rm k6-local
+```
+
+AWS ALB 壓測，`BASE_URL` 必須包含 `/api`：
+
+```bash
+BASE_URL=https://api.example.com/api \
+  docker compose --profile performance run --rm k6-aws
+```
+
+預設驗收門檻為整體 HTTP 失敗率小於 1%、checks 成功率高於 99%、查詢 p95 小於 500ms、寫入 p95 小於 2 秒。任一門檻失敗時 k6 會回傳非零 exit code。執行時可同時查看 Grafana 的 Demo 總覽與維運排查 Dashboard。
+
+所有設定可透過 `K6_` 前綴的 Compose 環境變數覆寫。例如以下短測試只使用 1 個 read VU 與 1 個 write VU：
+
+```bash
+K6_WARMUP_DURATION=2s \
+K6_NORMAL_DURATION=2s \
+K6_PEAK_DURATION=2s \
+K6_COOLDOWN_DURATION=1s \
+K6_READ_WARMUP_VUS=1 K6_READ_NORMAL_VUS=1 K6_READ_PEAK_VUS=1 \
+K6_WRITE_WARMUP_VUS=1 K6_WRITE_NORMAL_VUS=1 K6_WRITE_PEAK_VUS=1 \
+  docker compose --profile performance run --rm k6-local
+```
+
+本機與 AWS summary 分別輸出至 `performance/results/local-summary.json`、`performance/results/aws-summary.json`。write scenario 會真的建立作品並寫入 MariaDB 與 S3，也會執行按讚、下載與取消讚；由於目前沒有刪除作品 API，壓測資料不會自動清除。
+
+2026-11-08 的完整地端基準結果請見 [`docs/reports/2026-11-08-local-load-test-report.md`](docs/reports/2026-11-08-local-load-test-report.md)。
 
 ## Prometheus 與 Grafana
 
@@ -69,6 +106,8 @@ Grafana Alloy 透過唯讀 Docker socket 收集 `good-morning` Compose project �
 ```
 
 Alloy、Loki 與 API 彼此解耦；logging pipeline 暫時故障不會中斷業務 API。Loki `3100` 與 Alloy `12345` 不映射到 host，也不應加入 ALB target group。
+
+單台 EC2、production service 名稱為 `backend` 的完整部署與排查步驟，請見 [`docs/deployment/ec2-grafana-logs-setup.md`](docs/deployment/ec2-grafana-logs-setup.md)。
 
 ## Logging 與問題追蹤
 

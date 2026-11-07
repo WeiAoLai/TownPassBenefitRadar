@@ -33,6 +33,7 @@ springdoc:
     path: /openapi
   swagger-ui:
     path: /swagger-ui.html
+    url: /api/contract/openapi.yaml
 
 management:
   server:

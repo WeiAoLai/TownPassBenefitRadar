@@ -1,5 +1,35 @@
 name: good-morning
 
+x-k6-common: &k6-common
+  image: grafana/k6:2.3.0
+  profiles: [performance]
+  working_dir: /scripts
+  user: "0:0"
+  volumes:
+    - ./performance/k6:/scripts:ro
+    - ./performance/results:/results
+
+x-k6-environment: &k6-environment
+  WARMUP_DURATION: ${K6_WARMUP_DURATION:-30s}
+  NORMAL_DURATION: ${K6_NORMAL_DURATION:-1m}
+  PEAK_DURATION: ${K6_PEAK_DURATION:-2m}
+  COOLDOWN_DURATION: ${K6_COOLDOWN_DURATION:-30s}
+  READ_WARMUP_VUS: ${K6_READ_WARMUP_VUS:-5}
+  READ_NORMAL_VUS: ${K6_READ_NORMAL_VUS:-20}
+  READ_PEAK_VUS: ${K6_READ_PEAK_VUS:-50}
+  READ_COOLDOWN_VUS: ${K6_READ_COOLDOWN_VUS:-0}
+  WRITE_WARMUP_VUS: ${K6_WRITE_WARMUP_VUS:-1}
+  WRITE_NORMAL_VUS: ${K6_WRITE_NORMAL_VUS:-4}
+  WRITE_PEAK_VUS: ${K6_WRITE_PEAK_VUS:-10}
+  WRITE_COOLDOWN_VUS: ${K6_WRITE_COOLDOWN_VUS:-0}
+  READ_P95_MS: ${K6_READ_P95_MS:-500}
+  WRITE_P95_MS: ${K6_WRITE_P95_MS:-2000}
+  MAX_FAILURE_RATE: ${K6_MAX_FAILURE_RATE:-0.01}
+  MIN_CHECK_RATE: ${K6_MIN_CHECK_RATE:-0.99}
+  ITERATION_SLEEP_SECONDS: ${K6_ITERATION_SLEEP_SECONDS:-1}
+  K6_USER_A: ${K6_USER_A:-user-a}
+  K6_USER_B: ${K6_USER_B:-user-b}
+
 services:
   api:
     build:
@@ -162,6 +192,23 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  k6-local:
+    <<: *k6-common
+    environment:
+      <<: *k6-environment
+      BASE_URL: ${K6_LOCAL_BASE_URL:-http://api:8080/api}
+    command: ["run", "--include-system-env-vars", "/scripts/local.js"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  k6-aws:
+    <<: *k6-common
+    environment:
+      <<: *k6-environment
+      BASE_URL: ${BASE_URL:-}
+    command: ["run", "--include-system-env-vars", "/scripts/aws.js"]
 
 volumes:
   mariadb-data:
