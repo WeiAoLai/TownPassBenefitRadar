@@ -139,7 +139,7 @@ test.describe('製作長輩圖', () => {
     await expect.poll(async () => (await draft(page)).layers[1].text).toBe('接到可疑電話\n先掛斷再查證\n撥打165')
   })
 
-  test('文字可直接拖曳，縮放把手會連同字體一起縮放', async ({ page }) => {
+  test('文字可拖曳，縮放把手會連同字體一起縮放', async ({ page }) => {
     await openEditor(page)
     await randomize(page)
     await page.getByRole('tab', { name: '樣式' }).click()

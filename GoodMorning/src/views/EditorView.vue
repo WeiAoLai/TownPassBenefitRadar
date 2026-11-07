@@ -817,7 +817,7 @@ const canvasLabel = computed(() => {
         @pointerup="onUp"
         @pointercancel="onUp"
       />
-      <p class="drag-hint small muted">直接拖曳文字調整位置，拖右下角圓點縮放</p>
+      <p class="drag-hint small muted">拖曳文字調整位置，拖右下角圓點縮放</p>
     </div>
 
     <div v-if="createStep === 'preview'" class="preview-panel">
