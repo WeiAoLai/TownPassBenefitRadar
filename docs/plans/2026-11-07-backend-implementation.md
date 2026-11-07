@@ -4,7 +4,7 @@
 
 **Goal:** Build the complete container-only Spring Boot backend defined by `openapi.yaml` and the backend technical design.
 
-**Architecture:** A Spring Boot 4.1.2 REST API runs in a development container and connects to MariaDB 11.4 plus a local S3-compatible LocalStack container. The application uses layered packages (`web`, `application`, `domain`, `infrastructure`), Flyway owns the schema, JPA owns persistence mapping, and AWS SDK 2.x owns S3 access. Demo authentication is isolated behind a request filter so a future SSO adapter can replace it without changing business services.
+**Architecture:** A Spring Boot 4.1.2 REST API runs in a development container and connects to MariaDB 11.4 plus a local S3-compatible LocalStack container. Application code is separated into `controller`, `dto`, `service`, `entity`, and `repository` packages, with supporting `config`, `security`, and `exception` packages. Flyway owns the schema, JPA owns persistence mapping, and AWS SDK 2.x owns S3 access. Controllers exchange DTOs rather than entities. Demo authentication is isolated behind a request filter so a future SSO adapter can replace it without changing business services. `GlobalExceptionHandler` is the single REST error mapping boundary.
 
 **Tech Stack:** Java 21, Spring Boot 4.1.2, Maven, Spring Data JPA, MariaDB 11.4, Flyway, AWS SDK for Java 2.x, ZXing, springdoc-openapi 3.2.0, JUnit 5, Testcontainers, Docker Compose, LocalStack.
 
@@ -90,7 +90,7 @@ git commit -m "chore: scaffold containerized Spring Boot service"
 
 **Files:**
 - Modify: `src/main/resources/db/migration/V1__create_schema.sql`
-- Create: `src/test/java/tw/gov/taipei/goodmorning/infrastructure/database/FlywayMigrationTest.java`
+- Create: `src/test/java/tw/gov/taipei/goodmorning/repository/FlywayMigrationTest.java`
 - Modify: `scripts/check-db-schema.sh`
 
 **Step 1: Write a failing Testcontainers migration test**
@@ -137,13 +137,9 @@ git commit -m "test: verify Flyway schema on MariaDB"
 ### Task 3: Map entities and repositories
 
 **Files:**
-- Create: `src/main/java/tw/gov/taipei/goodmorning/domain/user/User.java`
-- Create: `src/main/java/tw/gov/taipei/goodmorning/domain/background/Background.java`
-- Create: `src/main/java/tw/gov/taipei/goodmorning/domain/policy/Policy.java`
-- Create: `src/main/java/tw/gov/taipei/goodmorning/domain/artwork/Artwork.java`
-- Create: `src/main/java/tw/gov/taipei/goodmorning/domain/artwork/ArtworkLike.java`
-- Create: matching Spring Data repositories under `infrastructure/database`
-- Create: repository integration tests under `src/test/java/.../infrastructure/database`
+- Create: entities under `src/main/java/tw/gov/taipei/goodmorning/entity`
+- Create: matching Spring Data repositories under `src/main/java/tw/gov/taipei/goodmorning/repository`
+- Create: repository integration tests under `src/test/java/.../repository`
 
 **Steps:**
 
@@ -163,8 +159,9 @@ git commit -m "test: verify Flyway schema on MariaDB"
 - Create: `security/DemoUserFilter.java`
 - Create: `security/CurrentUser.java`
 - Create: `security/SecurityConfiguration.java`
-- Create: `application/user/CurrentUserService.java`
-- Create: `web/MeController.java`
+- Create: `service/CurrentUserService.java`
+- Create: `controller/MeController.java`
+- Create: current-user records under `dto`
 - Create: controller and filter tests
 
 **Steps:**
@@ -181,12 +178,10 @@ git commit -m "test: verify Flyway schema on MariaDB"
 ### Task 5: Implement badge rules, backgrounds, and policies
 
 **Files:**
-- Create: `application/badge/BadgeService.java`
-- Create: `application/background/BackgroundService.java`
-- Create: `application/policy/PolicyService.java`
-- Create: `web/BackgroundController.java`
-- Create: `web/PolicyController.java`
-- Create: DTO records for `Badge`, `Background`, and `Policy`
+- Create: services under `service`
+- Create: `controller/BackgroundController.java`
+- Create: `controller/PolicyController.java`
+- Create: DTO records for `Badge`, `Background`, and `Policy` under `dto`
 - Create: unit and MockMvc tests
 
 **Steps:**
@@ -203,10 +198,10 @@ git commit -m "test: verify Flyway schema on MariaDB"
 ### Task 6: Implement S3 storage and PNG validation
 
 **Files:**
-- Create: `application/storage/ObjectStorage.java`
-- Create: `infrastructure/s3/S3ObjectStorage.java`
+- Create: `service/ObjectStorage.java`
+- Create: `repository/s3/S3ObjectStorage.java`
 - Create: `config/S3Properties.java`
-- Create: `application/artwork/PngArtworkValidator.java`
+- Create: `service/PngArtworkValidator.java`
 - Create: unit tests and LocalStack integration test
 - Create: `docker/localstack/init-s3.sh`
 
@@ -224,9 +219,9 @@ git commit -m "test: verify Flyway schema on MariaDB"
 ### Task 7: Implement artwork creation and compensation
 
 **Files:**
-- Create: `application/artwork/CreateArtworkService.java`
-- Create: `web/ArtworkController.java`
-- Create: request/response DTO records and mapper
+- Create: `service/CreateArtworkService.java`
+- Create: `controller/ArtworkController.java`
+- Create: request/response records under `dto`
 - Create: service and MockMvc tests
 
 **Steps:**
@@ -244,8 +239,8 @@ git commit -m "test: verify Flyway schema on MariaDB"
 ### Task 8: Implement artwork lists and details
 
 **Files:**
-- Modify: `web/ArtworkController.java`
-- Create: `application/artwork/ArtworkQueryService.java`
+- Modify: `controller/ArtworkController.java`
+- Create: `service/ArtworkQueryService.java`
 - Create: paging and mapping tests
 
 **Steps:**
@@ -260,8 +255,8 @@ git commit -m "test: verify Flyway schema on MariaDB"
 ### Task 9: Implement idempotent likes
 
 **Files:**
-- Create: `application/artwork/ArtworkLikeService.java`
-- Modify: `web/ArtworkController.java`
+- Create: `service/ArtworkLikeService.java`
+- Modify: `controller/ArtworkController.java`
 - Create: transaction and concurrency tests
 
 **Steps:**
@@ -276,9 +271,9 @@ git commit -m "test: verify Flyway schema on MariaDB"
 ### Task 10: Implement QR download and download counting
 
 **Files:**
-- Create: `application/artwork/QrCodeComposer.java`
-- Create: `application/artwork/DownloadArtworkService.java`
-- Modify: `web/ArtworkController.java`
+- Create: `service/QrCodeComposer.java`
+- Create: `service/DownloadArtworkService.java`
+- Modify: `controller/ArtworkController.java`
 - Create: image/QR decoding tests
 
 **Steps:**
@@ -294,10 +289,10 @@ git commit -m "test: verify Flyway schema on MariaDB"
 ### Task 11: Implement leaderboard and errors
 
 **Files:**
-- Create: `application/leaderboard/LeaderboardService.java`
-- Create: `web/LeaderboardController.java`
+- Create: `service/LeaderboardService.java`
+- Create: `controller/LeaderboardController.java`
 - Create: native ranking projection/query
-- Create: `web/ApiExceptionHandler.java`
+- Create: `exception/GlobalExceptionHandler.java`
 - Create: ranking and ProblemDetail tests
 
 **Steps:**

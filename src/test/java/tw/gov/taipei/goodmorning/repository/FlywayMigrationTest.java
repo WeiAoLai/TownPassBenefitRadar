@@ -1,4 +1,4 @@
-package tw.gov.taipei.goodmorning.infrastructure.database;
+package tw.gov.taipei.goodmorning.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
