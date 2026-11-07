@@ -50,9 +50,12 @@ describe('文字對比 ≥ 4.5:1', () => {
     ['#ffffff', '--c-danger-strong', '錯誤 toast、警示按鈕'],
     ['--c-like', '--c-surface', '已按愛心的數字 on 白'],
     ['--tp-secondary-800', '--c-accent-soft', '徽章標籤、提示框'],
-    ['--tp-grey-950', '--tp-secondary-500', '金色按鈕／第一名'],
-    ['--tp-grey-950', '--tp-grey-200', '第二名'],
-    ['--tp-grey-950', '--tp-orange-300', '第三名'],
+    ['--tp-grey-950', '--tp-secondary-500', '金色按鈕'],
+    // 排行榜名次吊旗：深色字在漸層的上、下緣色上都要夠
+    ...[1, 2, 3].flatMap((n): [string, string, string][] => [
+      [`--c-rank-${n}-ink`, `--c-rank-${n}-mid`, `第 ${n} 名吊旗：字 on 上緣色`],
+      [`--c-rank-${n}-ink`, `--c-rank-${n}-deep`, `第 ${n} 名吊旗：字 on 下緣色`],
+    ]),
     ['--tp-grey-800', '--c-surface', '導覽與標籤文字'],
   ]
   it.each(pairs)('%s on %s（%s）', (fg, bg) => {
