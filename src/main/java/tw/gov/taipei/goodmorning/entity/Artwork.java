@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import org.hibernate.annotations.Generated;
 
 @Entity
 @Table(name = "artworks")
@@ -47,6 +48,7 @@ public class Artwork {
     private long downloadCount;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
+    @Generated
     private Instant createdAt;
 
     protected Artwork() {

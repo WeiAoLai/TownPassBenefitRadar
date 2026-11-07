@@ -11,6 +11,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
@@ -32,6 +36,16 @@ public class GlobalExceptionHandler {
                 exception.getMessage());
     }
 
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    ResponseEntity<ProblemDetail> handleUploadTooLarge(
+            MaxUploadSizeExceededException exception, HttpServletRequest request) {
+        return response(
+                request,
+                HttpStatus.CONTENT_TOO_LARGE,
+                "ARTWORK_IMAGE_TOO_LARGE",
+                "Artwork image must not exceed 10 MB");
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ProblemDetail> handleValidation(
             MethodArgumentNotValidException exception, HttpServletRequest request) {
@@ -40,6 +54,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({
         MissingServletRequestParameterException.class,
+        MissingServletRequestPartException.class,
+        MethodArgumentTypeMismatchException.class,
+        HandlerMethodValidationException.class,
         HttpMessageNotReadableException.class,
         ConstraintViolationException.class
     })

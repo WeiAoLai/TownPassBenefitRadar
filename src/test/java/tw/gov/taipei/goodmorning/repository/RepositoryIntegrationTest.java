@@ -108,6 +108,18 @@ class RepositoryIntegrationTest {
     }
 
     @Test
+    void returnsTheDatabaseGeneratedArtworkTimestampAfterInsert() {
+        var fixtures = createArtworkFixtures();
+
+        var artwork = artworks.saveAndFlush(new Artwork(
+                fixtures.owner(), fixtures.background(), fixtures.policy(),
+                "早安台北", fixtures.policy().getSourceUrl(),
+                "artworks/test/generated-timestamp.png"));
+
+        assertThat(artwork.getCreatedAt()).isNotNull();
+    }
+
+    @Test
     void userCanLikeAnArtworkOnlyOnce() {
         var fixtures = createArtworkFixtures();
         var artwork = artworks.saveAndFlush(new Artwork(

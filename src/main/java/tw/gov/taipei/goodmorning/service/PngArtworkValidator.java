@@ -24,7 +24,7 @@ public class PngArtworkValidator {
         }
         if (content.length > MAX_BYTES) {
             throw new ApiException(
-                    HttpStatus.PAYLOAD_TOO_LARGE,
+                    HttpStatus.CONTENT_TOO_LARGE,
                     "ARTWORK_IMAGE_TOO_LARGE",
                     "Artwork image must not exceed 10 MB");
         }
