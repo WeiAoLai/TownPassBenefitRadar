@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
@@ -42,15 +42,31 @@ function backgroundImport(): Plugin {
   }
 }
 
-export default defineConfig({
+/**
+ * 開發時的 /api 代理。API_PROXY_TARGET 可以帶路徑，例如後端在 ALB 的 /api/v1：
+ *   API_PROXY_TARGET=http://xxx.elb.amazonaws.com/api/v1  →  /api/me 轉成 /api/v1/me
+ * 不帶路徑（http://localhost:8080）就原樣轉發 /api/...。
+ */
+function apiProxy(target: string | undefined) {
+  if (!target) return undefined
+  const url = new URL(target)
+  const prefix = url.pathname.replace(/\/$/, '')
+  return {
+    '/api': {
+      target: url.origin,
+      changeOrigin: true,
+      rewrite: prefix ? (p: string) => p.replace(/^\/api/, prefix) : undefined,
+    },
+  }
+}
+
+export default defineConfig(({ mode }) => ({
   plugins: [vue(), backgroundImport()],
   // 相對路徑：打包後放在任何網址底下都能開
   base: './',
   server: {
-    // 串接真後端時：VITE_API_MODE=http，並把 /api 代理到後端
-    proxy: process.env.API_PROXY_TARGET
-      ? { '/api': { target: process.env.API_PROXY_TARGET, changeOrigin: true } }
-      : undefined,
+    // 串接真後端時：VITE_API_MODE=http，並把 /api 代理到後端（也可寫在 .env.local；ALB 設定見 package.json 的 dev:alb）
+    proxy: apiProxy(process.env.API_PROXY_TARGET || loadEnv(mode, process.cwd(), '').API_PROXY_TARGET),
   },
   build: {
     // 台北通 iOS 最低支援 15.0（taipei-doit/TownPass IPHONEOS_DEPLOYMENT_TARGET）
@@ -60,4 +76,4 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
   },
-})
+}))

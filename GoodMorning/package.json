@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "dev:alb": "VITE_API_MODE=http API_PROXY_TARGET=http://taipei-code-fest-alb-747927445.ap-southeast-2.elb.amazonaws.com/api/v1 vite --host",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview --host",
     "typecheck": "vue-tsc --noEmit",

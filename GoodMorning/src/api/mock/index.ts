@@ -337,7 +337,7 @@ export function createMockApi(
         renderScene(c.getContext('2d')!, { background: null, layers: defaultLayers('早安', row.sloganText) })
         image = await new Promise<Blob>((r) => c.toBlob((b) => r(b!), 'image/png'))
       }
-      const blob = await composeWithQr(image, policy.sourceUrl)
+      const blob = await composeWithQr(image, policy.sourceUrl, row.createdAt)
       if (row.ownerId !== u.id) {
         row.downloadCount++
         await persist()

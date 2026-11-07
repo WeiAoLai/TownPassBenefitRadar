@@ -43,10 +43,13 @@ const orientOptions = [
 
 const me = ref<CurrentUser | null>(null)
 const backgrounds = ref<Background[]>([])
-/** 臺北旅遊網景點資料（分類、行政區、介紹頁網址），與 /backgrounds 以 id 對應 */
-/** 背景圖庫（名稱、行政區、攝影師、出處），與 /backgrounds 以 id 對應 */
+/**
+ * 背景圖庫（行政區、攝影師、出處、經緯度），與 /backgrounds 以「名稱」對應：
+ * 後端的背景 id 由資料庫決定，不一定和前端圖庫相同；名稱對不到的背景就不顯示攝影師、也不參與距離排序。
+ */
 const catalog = ref<BackgroundItem[]>([])
-const infoById = computed(() => new Map<number, BackgroundItem>(catalog.value.map((b) => [b.id, b])))
+const infoByName = computed(() => new Map<string, BackgroundItem>(catalog.value.map((b) => [b.name, b])))
+const infoOf = (b: Background | null | undefined) => (b ? infoByName.value.get(b.name) : undefined)
 const currentBg = computed(() => backgrounds.value.find((b) => b.id === draft.backgroundId) ?? null)
 /* 離我最近：使用者按下按鈕才定位，位置只留在這個頁面的記憶體裡，不送出、不儲存 */
 const myPos = ref<LatLng | null>(null)
@@ -54,7 +57,7 @@ const locating = ref(false)
 const sortedBackgrounds = computed(() => {
   const pos = myPos.value
   const list = backgrounds.value.map((b) => {
-    const info = infoById.value.get(b.id)
+    const info = infoOf(b)
     const km = pos && info ? distanceKm(pos, { lat: info.lat, lng: info.lng }) : null
     return { ...b, km }
   })
@@ -81,7 +84,9 @@ async function sortByNearby() {
   }
 }
 
-const currentInfo = computed(() => (draft.backgroundId ? infoById.value.get(draft.backgroundId) : undefined))
+const currentInfo = computed(() => infoOf(currentBg.value))
+/** 有任何背景帶經緯度才提供「離我最近」 */
+const canSortByNearby = computed(() => backgrounds.value.filter((b) => infoOf(b)).length > 1)
 const categories = ref<string[]>([])
 const category = ref<string>(draft.policy?.category ?? '')
 const policies = ref<Policy[]>([])
@@ -581,11 +586,11 @@ const canvasLabel = computed(() => {
         </span>
       </div>
       <p v-if="bgTainted" class="notice small">這張照片無法輸出，請換一張背景</p>
-      <button type="button" class="btn block" :aria-pressed="!!myPos" :disabled="locating" @click="sortByNearby">
+      <button v-if="canSortByNearby" type="button" class="btn block" :aria-pressed="!!myPos" :disabled="locating" @click="sortByNearby">
         <Icon name="flag" :size="20" />
         {{ locating ? '定位中…' : myPos ? '恢復原本順序' : '離我最近的地標排前面' }}
       </button>
-      <p v-if="!myPos" class="small muted">按下後會詢問定位權限；位置只用來排序，不會儲存或上傳。</p>
+      <p v-if="canSortByNearby && !myPos" class="small muted">按下後會詢問定位權限；位置只用來排序，不會儲存或上傳。</p>
       <div v-if="loading.bg" class="bg-grid">
         <div v-for="i in 6" :key="i" class="bg-item skeleton" />
       </div>
