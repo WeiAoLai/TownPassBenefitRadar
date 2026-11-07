@@ -22,6 +22,16 @@ public class GlobalExceptionHandler {
         this.problemDetails = problemDetails;
     }
 
+    @ExceptionHandler(ApiException.class)
+    ResponseEntity<ProblemDetail> handleApiException(
+            ApiException exception, HttpServletRequest request) {
+        return response(
+                request,
+                exception.status(),
+                exception.code(),
+                exception.getMessage());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<ProblemDetail> handleValidation(
             MethodArgumentNotValidException exception, HttpServletRequest request) {

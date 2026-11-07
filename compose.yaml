@@ -57,6 +57,7 @@ services:
     environment:
       SERVICES: s3
       AWS_DEFAULT_REGION: ${AWS_REGION:-ap-southeast-2}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-good-morning-local}
     volumes:
       - localstack-data:/var/lib/localstack
       - ./docker/localstack:/etc/localstack/init/ready.d:ro

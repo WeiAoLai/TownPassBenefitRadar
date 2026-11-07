@@ -10,9 +10,9 @@ import tw.gov.taipei.goodmorning.repository.BackgroundRepository;
 public class BackgroundService {
 
     private final BackgroundRepository backgrounds;
-    private final ObjectStorage objectStorage;
+    private final ObjectUrlProvider objectStorage;
 
-    public BackgroundService(BackgroundRepository backgrounds, ObjectStorage objectStorage) {
+    public BackgroundService(BackgroundRepository backgrounds, ObjectUrlProvider objectStorage) {
         this.backgrounds = backgrounds;
         this.objectStorage = objectStorage;
     }

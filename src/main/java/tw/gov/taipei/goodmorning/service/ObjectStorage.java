@@ -1,9 +1,10 @@
 package tw.gov.taipei.goodmorning.service;
 
-import java.net.URI;
+public interface ObjectStorage extends ObjectUrlProvider {
 
-@FunctionalInterface
-public interface ObjectStorage {
+    void put(String objectKey, byte[] content, String contentType);
 
-    URI readUrl(String objectKey);
+    byte[] get(String objectKey);
+
+    void delete(String objectKey);
 }

@@ -19,9 +19,9 @@ public class BadgeService {
             new BadgeDefinition(9, "全民分享家", 256),
             new BadgeDefinition(10, "長輩圖典藏家", 512));
 
-    private final ObjectStorage objectStorage;
+    private final ObjectUrlProvider objectStorage;
 
-    public BadgeService(ObjectStorage objectStorage) {
+    public BadgeService(ObjectUrlProvider objectStorage) {
         this.objectStorage = objectStorage;
     }
 
