@@ -31,6 +31,20 @@ bash scripts/smoke-test.sh
 
 完整測試包含 Flyway、MariaDB repository、併發按讚、S3、OpenAPI 契約、QR Code 解碼與 controller/service 測試。
 
+## Logging 與問題追蹤
+
+- 每個 API response 都會回傳 `X-Request-ID`；若入口未提供，後端會產生 UUID。
+- Spring Boot access log 包含 method、path、status、duration、user ID 與相同的 MDC `traceId`。
+- Nginx 以 JSON 輸出 access log，並把自己的 request ID 傳給 Spring Boot，因此可跨服務查詢。
+- 未預期例外與 S3 dependency failure 會記錄 stack trace；作品建立、按讚與下載會記錄不含個資的業務事件。
+- 不記錄 request body、密碼、身分資料、圖片內容或 presigned URL。
+
+查詢單次 request：
+
+```bash
+docker compose logs api nginx | grep '<X-Request-ID>'
+```
+
 ## 環境變數
 
 本機 Compose 預設使用 LocalStack S3，`.env.example` 的 `test` credential 只適用於 LocalStack。真實 AWS 環境應由 ECS task role、EC2 instance profile 或 IRSA 提供 IAM credential，不要把 access key 寫進 image、Git 或部署設定檔。

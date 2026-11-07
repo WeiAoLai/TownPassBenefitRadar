@@ -41,6 +41,10 @@ management:
       probes:
         enabled: true
 
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%-5level service=good-morning traceId=%X{traceId:-} logger=%logger{36} message=%msg%n%ex"
+
 app:
   s3:
     bucket: ${AWS_S3_BUCKET:good-morning-local}

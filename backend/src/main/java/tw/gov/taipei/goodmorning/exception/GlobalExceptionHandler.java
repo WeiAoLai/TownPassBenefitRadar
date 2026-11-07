@@ -2,6 +2,8 @@ package tw.gov.taipei.goodmorning.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -20,6 +22,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     private final ProblemDetails problemDetails;
 
     public GlobalExceptionHandler(ProblemDetails problemDetails) {
@@ -29,6 +33,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ProblemDetail> handleApiException(
             ApiException exception, HttpServletRequest request) {
+        if (exception.getCause() != null) {
+            LOGGER.error(
+                    "api_dependency_failure code={} status={} method={} path={}",
+                    exception.code(),
+                    exception.status().value(),
+                    request.getMethod(),
+                    request.getRequestURI(),
+                    exception);
+        }
         return response(
                 request,
                 exception.status(),
@@ -74,6 +87,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ProblemDetail> handleUnexpected(Exception exception, HttpServletRequest request) {
+        LOGGER.error(
+                "unhandled_exception method={} path={}",
+                request.getMethod(),
+                request.getRequestURI(),
+                exception);
         return response(
                 request,
                 HttpStatus.INTERNAL_SERVER_ERROR,

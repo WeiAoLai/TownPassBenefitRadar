@@ -3,6 +3,7 @@ package tw.gov.taipei.goodmorning.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tw.gov.taipei.goodmorning.observability.TraceContext;
 import tw.gov.taipei.goodmorning.repository.UserRepository;
 
 @SpringBootTest
@@ -56,6 +58,7 @@ class MeControllerTest {
     void missingDemoUserHeaderReturnsProblemDetail() throws Exception {
         mockMvc.perform(get("/api/me").contextPath("/api"))
                 .andExpect(status().isUnauthorized())
+                .andExpect(header().exists(TraceContext.TRACE_ID_HEADER))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.code").value("AUTH_REQUIRED"))
