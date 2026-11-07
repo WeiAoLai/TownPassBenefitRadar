@@ -132,7 +132,7 @@ for _ in $(seq 1 30); do
   loki_result=$(curl --fail --silent --show-error \
     --user "$grafana_user:$grafana_password" \
     --get \
-    --data-urlencode 'query={compose_project="good-morning", compose_service="api"}' \
+    --data-urlencode 'query={compose_project="good-morning", compose_service=~"api|backend"}' \
     --data-urlencode 'since=5m' \
     "$grafana_url/api/datasources/proxy/uid/loki/loki/api/v1/query_range")
   if grep -Fq "$trace_id" <<<"$loki_result"; then

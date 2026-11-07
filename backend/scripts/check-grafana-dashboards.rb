@@ -54,7 +54,7 @@ end
   "endpoint latency" => "http_server_requests_seconds_bucket",
   "database pool" => "hikaricp_connections_pending",
   "JVM memory" => "jvm_memory_used_bytes",
-  "error logs" => "compose_service=\\\"api\\\""
+  "error logs" => "compose_service=~\\\"api|backend\\\""
 }.each do |feature, marker|
   errors << "operations dashboard is missing #{feature}" unless operations_json.include?(marker)
 end

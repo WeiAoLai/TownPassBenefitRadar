@@ -85,3 +85,7 @@ docker compose run --rm api mvn verify
 ```
 
 前端與後端的環境變數、部署及測試細節，分別見 `GoodMorning/README.md` 與 `backend/README.md`。
+
+## EC2 Deployment
+
+單台 EC2 + ALB 的正式部署請依照 [`backend/docs/deployment/ec2-compose-alb-runbook.md`](backend/docs/deployment/ec2-compose-alb-runbook.md)。根目錄 `.env.example` 列出必填參數；完成 EC2 IAM role 與 `.env` 後，以 `docker compose up -d --build` 啟動整組服務。

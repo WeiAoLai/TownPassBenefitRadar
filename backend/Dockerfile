@@ -5,6 +5,7 @@ CMD ["mvn", "spring-boot:run"]
 FROM dev AS build
 COPY pom.xml ./
 RUN mvn -B dependency:go-offline
+COPY openapi.yaml ./
 COPY src ./src
 RUN mvn -B package -DskipTests
 
