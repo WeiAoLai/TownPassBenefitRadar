@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { api, apiMode, demoUser, demoUsers, resetMockData, setDemoUser } from '../api'
+import { api, apiMode, demoUser, demoUsers, resetMockData, setDemoUser, townPassAccount } from '../api'
 import { friendlyMessage } from '../api/errors'
 import type { Artwork, Background, CurrentUser } from '../api/types'
 import BadgeCelebration from '../components/BadgeCelebration.vue'
@@ -10,6 +10,7 @@ import Icon from '../components/Icon.vue'
 import { BADGES, badgeArtUrl, nextBadge } from '../config/badges'
 import { unlockAudio } from '../composables/sound'
 import { toast } from '../composables/toast'
+import { cancelDailyReminder, getDailyReminder, inTownPass, setDailyReminder } from '../composables/bridge'
 
 const me = ref<CurrentUser | null>(null)
 const backgrounds = ref<Background[]>([])
@@ -106,7 +107,83 @@ function onImgError() {
   load()
 }
 
-onMounted(load)
+/* ---------- 每天早上提醒（台北通 App 的 daily_reminder handler） ---------- */
+type ReminderState = 'unavailable' | 'unsupported' | 'loading' | 'ready'
+const reminderState = ref<ReminderState>(inTownPass() ? 'loading' : 'unavailable')
+const reminderOn = ref(false)
+const reminderBusy = ref(false)
+const reminderTime = ref('07:00')
+
+const pad = (n: number) => String(n).padStart(2, '0')
+const reminderHint = computed(() => {
+  switch (reminderState.value) {
+    case 'unavailable':
+      return '在台北通 App 裡打開才能設定提醒'
+    case 'unsupported':
+      return '這個版本的台北通 App 還不支援提醒'
+    case 'loading':
+      return '讀取中…'
+    default:
+      return reminderOn.value ? `每天 ${reminderTime.value} 用通知叫你來做早安圖` : '每天早上用手機通知提醒你做一張早安圖'
+  }
+})
+
+async function loadReminder() {
+  if (!inTownPass()) return
+  const st = await getDailyReminder()
+  if (!st) {
+    reminderState.value = 'unsupported'
+    return
+  }
+  reminderOn.value = st.enabled
+  if (st.enabled && st.hour != null) reminderTime.value = `${pad(st.hour)}:${pad(st.minute ?? 0)}`
+  reminderState.value = 'ready'
+}
+
+async function applyReminder(on: boolean) {
+  if (reminderState.value !== 'ready' || reminderBusy.value) return
+  reminderBusy.value = true
+  try {
+    if (on) {
+      const [h, m] = reminderTime.value.split(':').map(Number)
+      const st = await setDailyReminder({
+        hour: Number.isFinite(h) ? h : 7,
+        minute: Number.isFinite(m) ? m : 0,
+        title: '早安！今天的早安圖做了嗎？',
+        content: '挑一條市政好消息，做成長輩圖分享給家人',
+      })
+      if (st?.enabled) {
+        reminderOn.value = true
+        toast(`好，每天 ${reminderTime.value} 提醒你`, 'success')
+      } else {
+        reminderOn.value = false
+        toast(st?.permission === false ? '需要允許台北通傳送通知，請到手機設定打開' : '提醒設定失敗，請再試一次', 'error')
+      }
+    } else {
+      await cancelDailyReminder()
+      reminderOn.value = false
+      toast('已關閉每日提醒', 'success')
+    }
+  } finally {
+    reminderBusy.value = false
+  }
+}
+
+function onReminderToggle(e: Event) {
+  const el = e.target as HTMLInputElement
+  const want = el.checked
+  el.checked = reminderOn.value // 等 App 回覆再改狀態
+  applyReminder(want)
+}
+
+function onTimeChange() {
+  if (reminderOn.value) applyReminder(true)
+}
+
+onMounted(() => {
+  load()
+  loadReminder()
+})
 </script>
 
 <template>
@@ -116,7 +193,7 @@ onMounted(load)
       <p>{{ error }}</p>
       <div class="err-acts">
         <button class="btn primary" type="button" @click="load"><Icon name="refresh" /> 再試一次</button>
-        <button class="btn" type="button" @click="pickUser = true">切換示範帳號</button>
+        <button v-if="!townPassAccount" class="btn" type="button" @click="pickUser = true">切換示範帳號</button>
       </div>
     </div>
     <template v-else-if="me">
@@ -214,7 +291,40 @@ onMounted(load)
 
     <h2 class="section-title">設定</h2>
     <div class="list">
-      <button type="button" class="list-row" @click="pickUser = true">
+      <label class="list-row reminder-row" :class="{ off: reminderState !== 'ready' }">
+        <Icon name="bell" />
+        <span class="grow">
+          每天早上提醒我
+          <span class="small muted block" aria-live="polite">{{ reminderHint }}</span>
+        </span>
+        <span class="switch-state" aria-hidden="true">{{ reminderOn ? '開' : '關' }}</span>
+        <input
+          type="checkbox"
+          role="switch"
+          class="switch"
+          :checked="reminderOn"
+          :disabled="reminderState !== 'ready' || reminderBusy"
+          aria-label="每天早上提醒我"
+          @change="onReminderToggle"
+        />
+      </label>
+      <label v-if="reminderState === 'ready' && reminderOn" class="list-row">
+        <span class="grow">提醒時間</span>
+        <input
+          v-model="reminderTime"
+          type="time"
+          class="time-input"
+          step="300"
+          :disabled="reminderBusy"
+          @change="onTimeChange"
+        />
+      </label>
+      <div v-if="townPassAccount && apiMode === 'mock'" class="list-row">
+        <Icon name="user" />
+        <span class="grow">台北通帳號</span>
+        <span class="muted">已連結</span>
+      </div>
+      <button v-else type="button" class="list-row" @click="pickUser = true">
         <Icon name="user" />
         <span class="grow">示範帳號</span>
         <span class="muted">{{ demoUser }}</span>
@@ -499,5 +609,21 @@ span.block {
 }
 .note {
   margin-top: 10px;
+}
+.reminder-row {
+  cursor: pointer;
+}
+.reminder-row.off {
+  cursor: default;
+}
+.time-input {
+  font: inherit;
+  font-size: var(--tp-font-h3, 1.125rem);
+  color: var(--tp-primary-700);
+  border: 1px solid var(--tp-grey-200);
+  border-radius: var(--radius-s, 8px);
+  padding: 8px 10px;
+  min-height: 44px;
+  background: #fff;
 }
 </style>

@@ -1,20 +1,31 @@
 server {
-  listen 80;
+  listen ${PORT};
   server_name _;
   root /usr/share/nginx/html;
 
   # 圖片上傳上限 10 MB，留一點 multipart 空間
   client_max_body_size 12m;
 
-  location /api/ {
-    proxy_pass ${BACKEND_URL};
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
+  gzip on;
+  gzip_types text/css application/javascript application/json image/svg+xml;
+
+  # 健康檢查（ECS / ALB target group 用）
+  location = /healthz {
+    access_log off;
+    default_type text/plain;
+    return 200 "ok";
   }
+
+  # 有設定 BACKEND_URL 時，啟動腳本會在這裡放入 /api/ 反向代理
+  include /etc/nginx/conf.d/api/*.conf;
 
   location /data/ {
     add_header Cache-Control "public, max-age=3600";
+  }
+
+  location /backgrounds/ {
+    expires 7d;
+    add_header Cache-Control "public";
   }
 
   location /assets/ {

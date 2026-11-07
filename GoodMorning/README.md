@@ -1,6 +1,6 @@
 # 早安政策圖 / Good Morning Policy Cards
 
-> 讓長輩用熟悉的「早安圖」把台北市政好消息傳給親友：選台北景點背景、挑一則政策標語，做好就能下載附政策 QR Code 的長輩圖。
+> 讓長輩用熟悉的「早安圖」把台北市政好消息傳給親友：選台北地標或自己的照片當背景、挑一則政策標語，做好就能存到手機相簿，圖上附政策 QR Code；每天早上還有台北通通知提醒。
 
 本資料夾是 TownPass（台北通）WebView 微服務的**前端**。需求以 `good-morning.md`（長輩圖政策宣傳專案需求文件）為準，API 以 `openapi.yaml` v0.1.0 為準。
 
@@ -19,6 +19,10 @@
 | US-07 徽章 | 我的、排行榜、作品卡 | 目前等級、下一級進度條、十級徽章一覽 |
 | US-08 愛心 | 作品牆、作品頁 | `PUT/DELETE /artworks/{id}/like`，樂觀更新、失敗復原；作者不可對自己按 |
 | US-09 下載附 QR Code | 下載面板 | `GET /artworks/{id}/download`，提供長按儲存、系統分享、下載檔案三種方式 |
+| 加值：存到手機相簿 | 儲存成功視窗 | 存好後直接開啟下載面板，用系統分享選「儲存影像」存進相簿 |
+| 加值：自己的照片當背景 | 製作 › 背景 | 拍照或從相簿挑，手機端裁成 1080 正方形；不另外上傳原圖 |
+| 加值：離我最近的地標 | 製作 › 背景 | 台北通 `location` 取位置，依距離排序背景 |
+| 加值：每天早上提醒 | 我的 › 設定 | 台北通自訂 handler `daily_reminder` 排每日本機通知，點通知回到編輯器 |
 
 ### 長輩圖編輯器
 
@@ -28,7 +32,8 @@
 - **8 種文字樣式**：紅橘白邊、金黃藍邊、寶藍白光、桃紅白邊、七彩繽紛、金字喜氣、翠綠白邊、白字黑邊。多層描邊＋漸層填色＋外光暈，以 canvas 繪製，預覽與輸出一致。
 - **直書／橫書**、粗黑體／明體／楷書（使用裝置內建字型，不下載字型檔）。
 - **字太多自動縮小**，文字框永遠夾在畫布內；直書自動換成直排標點，標點不放行首。
-- **手指直接拖曳文字**；另有九宮格定位與上下左右微調按鈕，作為拖曳的單指替代操作。
+- **手指直接拖曳文字**，拖右下角圓形把手放大縮小；另有九宮格定位、上下左右微調與字級 −／＋ 按鈕，作為拖曳的單指替代操作。
+- **自己的照片**：`<input type="file" accept="image/*">` 叫出系統的拍照／相簿選單，照片在手機端裁切縮小後當背景（`src/editor/customPhoto.ts`）。
 - **QR Code 位置提示**：預覽右下角以虛線標出下載後 QR Code 會覆蓋的區域，可關閉。
 - **草稿自動保存**：切換分頁、網路失敗、WebView 被系統回收後都還在。
 
@@ -54,7 +59,7 @@
 TownPass Flutter App
 └─ InAppWebView
    ├─ Vue 3 + vue-router（hash 模式）
-   ├─ flutterObject bridge：open_link
+   ├─ flutterObject bridge：open_link、userinfo、location、daily_reminder（自訂）
    └─ /api（openapi.yaml）
        ├─ http 模式：後端（S3 + 資料庫）
        └─ mock 模式：瀏覽器內模擬後端（IndexedDB）
@@ -118,9 +123,21 @@ npm run build
 8. **部署**：`Dockerfile` 以 nginx 提供靜態檔，`/api/` 反向代理到 `BACKEND_URL`（預設 `http://backend:8080`），上傳上限 12 MB。根目錄 `.github/workflows/deploy.yml` 目前的前端路徑是 `./frontend`，要部署本服務請把 `WORKING_DIRECTORY` 改為 `./GoodMorning`。
 
 ```sh
+# mock 模式（不需後端，demo 用）
+docker build -t good-morning .
+docker run --rm -p 8080:80 good-morning          # http://localhost:8080
+
+# 串接後端
 docker build -t good-morning --build-arg VITE_API_MODE=http .
-docker run -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morning
+docker run --rm -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morning
 ```
+
+| 執行期環境變數 | 預設 | 說明 |
+|---|---|---|
+| `PORT` | `80` | nginx 監聽埠 |
+| `BACKEND_URL` | 空 | 設定後才啟用 `/api/` 反向代理；空值＝不代理，nginx 不會因找不到後端而無法啟動 |
+
+健康檢查：`GET /healthz` 回 `200 ok`（可給 ALB target group 使用）。
 
 ## 5. 待決事項的前端暫定做法
 
@@ -137,16 +154,51 @@ docker run -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morni
 | 5 解鎖背景 | 圓山大飯店、國立故宮博物院，存滿 3 張解鎖 | `public/data/backgrounds.json` `unlockThreshold` |
 | 9 QR 規格 | 見上方第 4 點 | `editor/qr.ts` |
 | 10 下載格式 | 1080 × 1080 PNG（依 openapi） | — |
+| 自己的照片 | openapi `backgroundId` 必填，用自己的照片時**仍送最後選的圖庫背景 id**（只當主題紀錄，不影響解鎖計算）；作品 PNG 本身已含使用者照片。建議後端之後加 `customBackground: boolean` 或讓 `backgroundId` 可為 null | `EditorView.vue` `save()` |
 
 ## 6. TownPass WebView 整合
 
 | 方法 | 使用情境 | Request | Reply |
 |---|---|---|---|
-| `open_link` | 「看政策說明」開啟政策來源網址 | `https://` URL 字串 | 無成功回覆 |
+| `open_link` | 「看政策說明」、攝影師出處 | `https://` URL 字串 | 無成功回覆 |
+| `userinfo` | 在台北通裡以台北通帳號取代示範帳號；公開顯示用暱稱（`username`），不使用真實姓名 | `null` | 帳號物件（也接受包在 `data` 裡的格式）；逾時 8 秒視為未登入 |
+| `location` | 背景面板「離我最近的地標排前面」，使用者按下才定位；位置只在頁面記憶體中排序，不儲存、不上傳 | `null` | `{ latitude, longitude }`；不在台北通時改用瀏覽器定位，拒絕或逾時就維持原順序 |
+| `daily_reminder`（**自訂**） | 我的 › 設定「每天早上提醒我」，可改提醒時間 | 見下表 | `{ enabled, hour?, minute?, permission? }` |
 
-不在台北通內（沒有 `window.flutterObject`）時改用 `window.open`。在台北通內會隱藏網頁自己的標題列，改由 App AppBar 顯示 `document.title`，頁面仍保留一個供輔助科技讀取的 `h1`。
+`daily_reminder` 的 `data`：
 
-尚未修改 TownPass App，也尚未在台北通實機內測試。
+| action | 其他欄位 | 行為 |
+|---|---|---|
+| `status` | — | 查目前是否有排程；4 秒沒回覆＝這版 App 沒裝 handler，開關顯示「還不支援」並停用 |
+| `set` | `hour`（0–23，預設 7）、`minute`（0–59）、`title`、`content`、`url` | 先要通知權限，拒絕就回 `permission: false`；同意後排每天固定時間（台北時間）的本機通知，重設會覆蓋 |
+| `cancel` | — | 取消排程 |
+
+不在台北通內（沒有 `window.flutterObject`）時：`open_link` 改用 `window.open`、`userinfo` 回到示範帳號、`location` 改用瀏覽器定位、提醒開關停用並提示「在台北通 App 裡打開才能設定」。http 模式下，openapi v0.1.0 只定義 `X-Demo-User`，台北通登入要等後端新增驗證方式，在那之前仍送示範帳號。在台北通內會隱藏網頁自己的標題列，改由 App AppBar 顯示 `document.title`，頁面仍保留一個供輔助科技讀取的 `h1`。
+
+### TownPass App 端修改（`TownPass/`）
+
+| 檔案 | 修改 |
+|---|---|
+| `lib/util/web_message_handler/daily_reminder_message_handler.dart` | 新增 `DailyReminderMessageHandler`。以訊息來源網頁的 host 當 key，每個微服務各一個提醒；`url` 必須與來源同 host，否則改用來源網址，避免被拿來開任意網站；標題、內容限制長度 |
+| `lib/util/web_message_handler/tp_web_message_listener.dart` | 註冊 handler |
+| `lib/service/notification_service.dart` | 初始化 `timezone`（固定 Asia/Taipei）；`zonedSchedule` 加 `matchDateTimeComponents: time` 每日重複，`inexactAllowWhileIdle`（不需 `SCHEDULE_EXACT_ALARM`）；點通知以 `TPRoute.openUri` 打開 payload 網址，App 被通知冷啟動時等首頁建好再開；`requestPermission()` 改回傳是否同意 |
+| `lib/main.dart` | `onInit` 呼叫 `NotificationService.handleLaunchPayload()` |
+| `pubspec.yaml` | 新增直接依賴 `timezone: ^0.10.1`（`flutter_local_notifications` 已有） |
+| `android/app/src/main/AndroidManifest.xml` | `POST_NOTIFICATIONS`、`RECEIVE_BOOT_COMPLETED`，以及排程與開機重排的兩個 receiver |
+
+iOS 不需修改：`AppDelegate.swift` 已設定 `UNUserNotificationCenter` delegate 與 plugin 註冊。Android 已開 core library desugaring。
+
+**拍照／選照片**：`flutter_inappwebview` 6 在 Android 會處理 `<input type="file">` 並透過既有的 FileProvider 叫出系統選單；iOS 由 WKWebView 原生處理，`Info.plist` 已有相機與相簿用途說明。
+
+```sh
+cd TownPass
+fvm flutter pub get
+fvm flutter run          # 需實機或模擬器；Android 13 以上第一次開提醒會跳通知權限
+```
+
+測試提醒：把時間改成兩分鐘後 → 回桌面等通知（Android 的 inexact 排程可能晚幾分鐘）→ 點通知應回到台北通並打開編輯器。
+
+尚未在實機上跑過 App 端修改；Dart 程式依 `flutter_local_notifications` 22 的具名參數 API 撰寫，若 `pub get` 後編譯報參數名稱不符，請以該版文件的 `zonedSchedule`、`cancel` 簽名為準。
 
 ## 7. 設計與無障礙
 
@@ -165,10 +217,11 @@ docker run -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morni
 ## 8. 裝置相容性
 
 - 建置目標：`es2020`、`safari15`、`chrome87`（台北通 iOS 最低 15.0，取自 taipei-doit/TownPass `IPHONEOS_DEPLOYMENT_TARGET`）。
-- Production bundle：首屏 JS 117.7 kB（gzip 47 kB）＋ CSS 11.7 kB；編輯器、排行榜、我的頁面分開延遲載入；不載入任何字型檔與圖示套件。
+- Production bundle：首屏 JS 119.4 kB（gzip 47.7 kB）＋ CSS 12.8 kB；編輯器、排行榜、我的頁面分開延遲載入；不載入任何字型檔與圖示套件。
 - 編輯器預覽解析度跟著實際顯示尺寸（最多 2 倍螢幕密度），拖曳時以 `requestAnimationFrame` 合併重繪，只有儲存時才繪製 1080 圖。
 - 降級：`ResizeObserver` 不存在時改用 resize 事件；Web Share 不支援檔案時隱藏分享鈕；IndexedDB／localStorage 不可用時 mock 與草稿退回記憶體。
-- 已測試：Playwright Chromium 模擬 iPhone SE、iPhone 13（瀏覽器模擬，不代表實機）。
+- 自己的照片先縮到 1080 × 1080 再畫，12MP 手機照片也不會在舊手機上吃光記憶體；上限 30 MB。
+- 已測試：Playwright Chromium 模擬 iPhone SE、iPhone 13、Pixel（瀏覽器模擬，不代表實機）；假的 flutterObject 驗證 `userinfo`、`location`、`daily_reminder` 收送格式與自己的照片輸出。
 
 ## 9. 資料來源與示範資料
 
@@ -181,6 +234,7 @@ docker run -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morni
 - 徽章大圖：`public/badges/lv1.webp`–`lv3.webp`（設計稿，1254 × 1254）；Lv.4 以上尚無設計稿，退回示意圖示。新增大圖：放進 `public/badges/`，在 `src/config/badges.ts` 的 `BADGE_ART_FILES` 加一行。「我的」頁面大圖放在個人資料卡右側、可點開放大；十級徽章清單每一列也可點開放大；獲得新徽章時由 `BadgeCelebration.vue` 顯示全螢幕慶祝畫面（徽章轉圈登場，需按「太棒了！」關閉；`prefers-reduced-motion` 時不播動畫）。畫面上有「分享給親友」（`composables/share.ts`：系統分享 → 複製連結 → 顯示文字讓人長按複製，連結見 `VITE_SHARE_URL`）與右上角「音效：開／關」（`composables/sound.ts`：Web Audio 現場合成約 3.5 秒的歡樂音效，無音檔；音高刻意避開太尖的高頻；iPhone 靜音開關打開時網頁聲音會被靜音；觸發慶祝的按鈕要在點擊當下呼叫 `unlockAudio()`）。
 - 排行榜：單欄大卡片（`LeaderboardView.vue` 重用 `ArtworkCard` 的 `rank`、`score`、`large`），手機一欄、寬螢幕自動多欄；API 層（`getLeaderboard`）沒有改。
 - 示範作品：首次開啟時用同一套編輯器自動產生 5 張，愛心與下載數為假資料。「我的 › 重設示範資料」可清空重來。
+- 使用者自己的照片：只在手機端裁切成作品，不另外上傳原圖，也不會帶出相片 EXIF（拍攝地點等）；儲存後作品公開在作品牆，面板上會提醒。
 
 ## 10. 專案結構
 
@@ -191,15 +245,15 @@ GoodMorning/
 ├─ src/
 │  ├─ api/          types（對應 openapi）、http、mock、errors
 │  ├─ components/   TopBar、TabBar、Segmented、BottomSheet、DownloadSheet、ArtworkCard…
-│  ├─ composables/  bridge（TownPass）、toast、artworkActions（愛心、下載）
+│  ├─ composables/  bridge（TownPass：open_link、userinfo、location、daily_reminder）、toast、artworkActions
 │  ├─ config/       badges（徽章、排行榜計分）
 │  ├─ data/         backgrounds（讀取背景圖庫 JSON）
 │  ├─ css/          tokens、base
-│  ├─ editor/       layout（排版純函式）、render（canvas）、styles、scene、draft、qr
+│  ├─ editor/       layout（排版純函式）、render（canvas）、styles、scene、draft、qr、customPhoto、townpassLogo
 │  ├─ router/
 │  └─ views/        Feed、Editor、Artwork、Leaderboard、Me
 ├─ tests/
-├─ Dockerfile、nginx.conf.template
+├─ Dockerfile、nginx.conf.template、docker/10-api-proxy.sh
 └─ .env.example
 ```
 

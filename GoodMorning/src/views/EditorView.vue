@@ -8,7 +8,7 @@ import BottomSheet from '../components/BottomSheet.vue'
 import BadgeCelebration from '../components/BadgeCelebration.vue'
 import Icon from '../components/Icon.vue'
 import Segmented from '../components/Segmented.vue'
-import { openLink } from '../composables/bridge'
+import { distanceKm, getLocation, openLink, type LatLng } from '../composables/bridge'
 import { toast } from '../composables/toast'
 import { startDownload } from '../composables/artworkActions'
 import { unlockAudio } from '../composables/sound'
@@ -19,6 +19,7 @@ import { HANDLE_R, exportPng, handlePoint, isTainted, loadImage, renderScene, st
 import { GREETING, POSITIONS, SLOGAN } from '../editor/scene'
 import { FONTS, GREETINGS, TEXT_STYLES, type FontKey } from '../editor/styles'
 import { loadBackgroundCatalog, type BackgroundItem } from '../data/backgrounds'
+import { customPhoto, loadCustomPhoto, photoErrorMessage } from '../editor/customPhoto'
 
 type Tool = 'bg' | 'policy' | 'text' | 'style'
 const router = useRouter()
@@ -46,6 +47,39 @@ const backgrounds = ref<Background[]>([])
 const catalog = ref<BackgroundItem[]>([])
 const infoById = computed(() => new Map<number, BackgroundItem>(catalog.value.map((b) => [b.id, b])))
 const currentBg = computed(() => backgrounds.value.find((b) => b.id === draft.backgroundId) ?? null)
+/* 離我最近：使用者按下按鈕才定位，位置只留在這個頁面的記憶體裡，不送出、不儲存 */
+const myPos = ref<LatLng | null>(null)
+const locating = ref(false)
+const sortedBackgrounds = computed(() => {
+  const pos = myPos.value
+  const list = backgrounds.value.map((b) => {
+    const info = infoById.value.get(b.id)
+    const km = pos && info ? distanceKm(pos, { lat: info.lat, lng: info.lng }) : null
+    return { ...b, km }
+  })
+  return pos ? [...list].sort((a, b) => (a.km ?? 1e9) - (b.km ?? 1e9)) : list
+})
+const fmtKm = (km: number) => (km < 1 ? `${Math.round(km * 1000)} 公尺` : `${km.toFixed(km < 10 ? 1 : 0)} 公里`)
+
+async function sortByNearby() {
+  if (myPos.value) {
+    myPos.value = null
+    return
+  }
+  locating.value = true
+  try {
+    const pos = await getLocation()
+    if (!pos) {
+      toast('沒有取得位置，可以直接從下面挑背景', 'info')
+      return
+    }
+    myPos.value = pos
+    toast('已依距離排序，最近的地標在最前面', 'success', 2500)
+  } finally {
+    locating.value = false
+  }
+}
+
 const currentInfo = computed(() => (draft.backgroundId ? infoById.value.get(draft.backgroundId) : undefined))
 const categories = ref<string[]>([])
 const category = ref<string>(draft.policy?.category ?? '')
@@ -73,6 +107,8 @@ let bgImage: HTMLImageElement | null = null
 let raf = 0
 let ro: ResizeObserver | null = null
 const imgCache = new Map<number, Promise<HTMLImageElement>>()
+/** 正在畫的背景：自己的照片優先，否則用圖庫背景 */
+const activeBg = () => customPhoto.value?.canvas ?? bgImage
 
 /** 預覽解析度跟著實際顯示大小（× 螢幕倍率），舊手機不用每次重畫 1080 圖 */
 function sizeCanvas() {
@@ -99,7 +135,7 @@ function draw() {
     const { margin, cardW, cardH } = QR_LAYOUT
     layouts = renderScene(
       ctx,
-      { background: bgImage, layers: draft.layers },
+      { background: activeBg(), layers: draft.layers },
       {
         selected: draft.selected,
         qrZone: showQrZone.value ? { x: SIZE - margin - cardW, y: SIZE - margin - cardH, w: cardW, h: cardH } : null,
@@ -139,7 +175,7 @@ watch(
     }
   },
 )
-watch(() => [draft.layers, draft.selected, showQrZone.value], draw, { deep: true })
+watch(() => [draft.layers, draft.selected, showQrZone.value, customPhoto.value], draw, { deep: true })
 
 /* ---------------- 拖曳文字：拖框移動、拖右下角把手縮放 ---------------- */
 type Drag =
@@ -257,7 +293,37 @@ function pickBackground(b: Background) {
     toast(`再儲存 ${Math.max(1, need)} 張作品就能解鎖「${b.name}」`, 'info')
     return
   }
+  customPhoto.value = null
   draft.backgroundId = b.id
+}
+
+/* ---------------- 自己的照片 ---------------- */
+const photoInput = ref<HTMLInputElement | null>(null)
+const photoLoading = ref(false)
+
+function choosePhoto() {
+  photoInput.value?.click()
+}
+
+async function onPhotoPicked(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // 同一張照片可以再選一次
+  if (!file) return
+  photoLoading.value = true
+  try {
+    customPhoto.value = await loadCustomPhoto(file)
+    bgTainted.value = false
+    toast('已換成你的照片', 'success', 2500)
+  } catch (err) {
+    toast(photoErrorMessage(err), 'error')
+  } finally {
+    photoLoading.value = false
+  }
+}
+
+function removePhoto() {
+  customPhoto.value = null
 }
 
 function pickPolicy(p: Policy) {
@@ -295,7 +361,10 @@ async function randomize() {
     draft.policy = p
     category.value = p.category
     const unlocked = backgrounds.value.filter((b) => b.unlocked)
-    if (unlocked.length) draft.backgroundId = pick(unlocked).id
+    if (unlocked.length) {
+      customPhoto.value = null
+      draft.backgroundId = pick(unlocked).id
+    }
     const [g, s] = draft.layers
     g.text = pick(GREETINGS)
     g.vertical = Math.random() < 0.6
@@ -331,17 +400,18 @@ async function save() {
   }
   saving.value = true
   try {
-    if (!bgImage) {
+    const bgDrawable = activeBg()
+    if (!bgDrawable) {
       toast('背景照片還沒載入完成，請稍等一下再按儲存', 'info')
       return
     }
-    if (isTainted(bgImage)) {
+    if (isTainted(bgDrawable)) {
       toast('這張背景照片無法輸出，請換一張背景再儲存', 'error')
       return
     }
     let blob: Blob
     try {
-      blob = await exportPng({ background: bgImage, layers: draft.layers })
+      blob = await exportPng({ background: bgDrawable, layers: draft.layers })
     } catch {
       toast('這張背景無法輸出圖片，請換一張背景再試', 'error')
       return
@@ -390,6 +460,7 @@ function makeAnother() {
 
 function useUnlocked(b: Background) {
   saved.value = null
+  customPhoto.value = null
   draft.backgroundId = b.id
   tool.value = 'bg'
 }
@@ -414,7 +485,7 @@ onBeforeUnmount(() => {
 const canvasLabel = computed(() => {
   const g = draft.layers[GREETING].text.replace(/\n/g, ' ')
   const s = draft.layers[SLOGAN].text.replace(/\n/g, ' ')
-  const bg = backgrounds.value.find((b) => b.id === draft.backgroundId)?.name ?? '預設天空'
+  const bg = customPhoto.value ? '我的照片' : (backgrounds.value.find((b) => b.id === draft.backgroundId)?.name ?? '預設天空')
   return `長輩圖預覽：背景「${bg}」，問候語「${g || '無'}」，標語「${s || '尚未選擇'}」`
 })
 </script>
@@ -452,7 +523,23 @@ const canvasLabel = computed(() => {
       role="tabpanel"
       aria-labelledby="tool-tab-bg"
     >
-      <div v-if="currentBg" class="bg-current">
+      <div class="my-photo" :class="{ on: !!customPhoto }">
+        <img v-if="customPhoto" :src="customPhoto.thumb" alt="" class="my-thumb" />
+        <span v-else class="my-thumb empty" aria-hidden="true"><Icon name="camera" :size="28" /></span>
+        <span class="grow">
+          <strong class="my-title">{{ customPhoto ? '正在用你的照片' : '用自己的照片' }}</strong>
+          <span class="small muted block">{{ customPhoto ? '照片會成為作品的一部分，儲存後大家都看得到' : '拍一張或從相簿挑，會裁成正方形' }}</span>
+        </span>
+        <span class="my-acts">
+          <button type="button" class="btn" :class="customPhoto ? '' : 'primary'" :disabled="photoLoading" @click="choosePhoto">
+            {{ photoLoading ? '讀取中…' : customPhoto ? '換一張' : '選照片' }}
+          </button>
+          <button v-if="customPhoto" type="button" class="btn text" @click="removePhoto">不用了</button>
+        </span>
+        <input ref="photoInput" type="file" accept="image/*" class="visually-hidden" tabindex="-1" aria-hidden="true" @change="onPhotoPicked" />
+      </div>
+      <p class="panel-title or">{{ customPhoto ? '或換回台北地標' : '或選一張台北地標' }}</p>
+      <div v-if="currentBg && !customPhoto" class="bg-current">
         <span class="grow cur-name">
           <span class="small muted">目前</span>
           <strong>{{ currentBg.name }}</strong>
@@ -460,32 +547,37 @@ const canvasLabel = computed(() => {
         </span>
       </div>
       <p v-if="bgTainted" class="notice small">這張照片無法輸出，請換一張背景</p>
+      <button type="button" class="btn block" :aria-pressed="!!myPos" :disabled="locating" @click="sortByNearby">
+        <Icon name="flag" :size="20" />
+        {{ locating ? '定位中…' : myPos ? '恢復原本順序' : '離我最近的地標排前面' }}
+      </button>
+      <p v-if="!myPos" class="small muted">按下後會詢問定位權限；位置只用來排序，不會儲存或上傳。</p>
       <div v-if="loading.bg" class="bg-grid">
         <div v-for="i in 6" :key="i" class="bg-item skeleton" />
       </div>
       <div v-else class="bg-grid" role="radiogroup" aria-label="選擇背景">
         <button
-          v-for="b in backgrounds"
+          v-for="b in sortedBackgrounds"
           :key="b.id"
           type="button"
           role="radio"
           class="bg-item"
-          :class="{ on: draft.backgroundId === b.id, locked: !b.unlocked }"
-          :aria-checked="draft.backgroundId === b.id"
+          :class="{ on: !customPhoto && draft.backgroundId === b.id, locked: !b.unlocked }"
+          :aria-checked="!customPhoto && draft.backgroundId === b.id"
           :aria-disabled="!b.unlocked"
           :aria-label="b.unlocked ? b.name : `${b.name}（儲存 ${b.unlockThreshold} 張作品後解鎖）`"
           @click="pickBackground(b)"
         >
           <img :src="b.imageUrl" alt="" loading="lazy" decoding="async" />
-          <span class="bg-name">{{ b.name }}</span>
+          <span class="bg-name">{{ b.name }}<span v-if="b.km != null" class="km">{{ fmtKm(b.km) }}</span></span>
           <span v-if="!b.unlocked" class="lock">
             <Icon name="lock" :size="22" />
             <span>存 {{ b.unlockThreshold }} 張解鎖</span>
           </span>
-          <span v-if="draft.backgroundId === b.id" class="tick"><Icon name="check" :size="18" /></span>
+          <span v-if="!customPhoto && draft.backgroundId === b.id" class="tick"><Icon name="check" :size="18" /></span>
         </button>
       </div>
-      <p v-if="currentInfo" class="credit small muted">
+      <p v-if="currentInfo && !customPhoto" class="credit small muted">
         照片：<a :href="currentInfo.photoUrl" target="_blank" rel="noopener" @click.prevent="openLink(currentInfo.photoUrl)">{{ currentInfo.author }}／Unsplash</a>
       </p>
     </section>
@@ -853,6 +945,45 @@ const canvasLabel = computed(() => {
   margin-top: 6px;
 }
 /* 背景 */
+.my-photo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-m);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-1);
+  border: 2px solid transparent;
+}
+.my-title {
+  display: block;
+}
+.my-photo.on {
+  border-color: var(--tp-primary-500);
+}
+.my-thumb {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.my-thumb.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tp-primary-50, #edf8fa);
+  color: var(--tp-primary-700);
+}
+.my-acts {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.panel-title.or {
+  margin: 4px 0 -4px;
+}
 .bg-current {
   display: flex;
   align-items: center;
@@ -900,6 +1031,12 @@ const canvasLabel = computed(() => {
   display: inline-flex;
   align-items: center;
   min-height: 48px;
+}
+.km {
+  display: block;
+  font-weight: 400;
+  font-size: 0.75rem;
+  opacity: 0.9;
 }
 .bg-grid {
   display: grid;
@@ -1117,46 +1254,6 @@ const canvasLabel = computed(() => {
 span.block {
   display: block;
 }
-.switch {
-  appearance: none;
-  -webkit-appearance: none;
-  flex: none;
-  width: 52px;
-  height: 32px;
-  border-radius: 16px;
-  /* 關閉狀態的軌道 grey-500（對白底 3.66:1，原 grey-200 只有 1.5:1） */
-  background: var(--tp-grey-500);
-  position: relative;
-  transition: background-color 0.2s ease;
-  margin: 8px 0;
-}
-.switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
-  transition: transform 0.2s ease;
-}
-.switch:checked {
-  background: var(--c-action);
-}
-/* 開關旁邊直接寫「開／關」，不只靠軌道顏色與滑塊位置 */
-.switch-state {
-  flex: none;
-  min-width: 1.5em;
-  font-weight: 800;
-  text-align: right;
-  color: var(--tp-grey-800);
-}
-.switch:checked::after {
-  transform: translateX(20px);
-}
-
 /* 儲存成功 */
 .saved {
   display: flex;
