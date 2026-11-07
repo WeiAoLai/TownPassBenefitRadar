@@ -5,6 +5,7 @@
 set -eu
 mkdir -p /etc/nginx/conf.d/api
 rm -f /etc/nginx/conf.d/api/api.conf
+rm -f /etc/nginx/conf.d/api/grafana.conf
 if [ -n "${BACKEND_URL:-}" ]; then
   target="$BACKEND_URL"
   rest="${target#*://}"
@@ -17,13 +18,33 @@ if [ -n "${BACKEND_URL:-}" ]; then
   cat > /etc/nginx/conf.d/api/api.conf <<CONF
 location /api/ {
   proxy_pass ${target};
-  proxy_set_header Host \$proxy_host;
+  proxy_set_header Host \$http_host;
   proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto \$scheme;
+  proxy_set_header X-Forwarded-Proto \$forwarded_scheme;
   proxy_read_timeout 60s;
 }
 CONF
   echo "api-proxy: /api/ -> ${target}"
 else
   echo "api-proxy: BACKEND_URL 未設定，不啟用 /api/ 代理"
+fi
+
+if [ -n "${GRAFANA_URL:-}" ]; then
+  cat > /etc/nginx/conf.d/api/grafana.conf <<CONF
+location = /grafana {
+  return 301 /grafana/;
+}
+location /grafana/ {
+  resolver 127.0.0.11 valid=10s ipv6=off;
+  set \$grafana_upstream ${GRAFANA_URL};
+  proxy_pass \$grafana_upstream\$request_uri;
+  proxy_http_version 1.1;
+  proxy_set_header Host \$http_host;
+  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto \$forwarded_scheme;
+  proxy_set_header Upgrade \$http_upgrade;
+  proxy_set_header Connection \$connection_upgrade;
+  proxy_read_timeout 300s;
+}
+CONF
 fi

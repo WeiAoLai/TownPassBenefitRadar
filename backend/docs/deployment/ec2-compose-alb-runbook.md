@@ -25,7 +25,6 @@ AWS_REGION=ap-southeast-2
 AWS_S3_BUCKET=<actual-bucket-name>
 GRAFANA_ADMIN_PASSWORD=<strong-password>
 GRAFANA_ROOT_URL=http://<ALB-DNS>/grafana/
-GRAFANA_SERVE_FROM_SUB_PATH=true
 ```
 
 若 ALB 有 TLS listener，`GRAFANA_ROOT_URL` 改用 `https://`。網址必須保留 `/grafana/` 與結尾斜線。
@@ -44,27 +43,25 @@ docker compose ps
 
 ## 3. ALB target groups
 
-同一台 EC2 建立三個 HTTP target groups：
+只建立一個 HTTP target group，所有公開流量先進前端 Nginx：
 
 | Target group | Traffic port | Health check port | Health check path |
 |---|---:|---:|---|
 | frontend | 80 | traffic port | `/healthz` |
-| backend | 8080 | 8081 | `/actuator/health` |
-| grafana | 3000 | traffic port | `/grafana/api/health` |
 
-EC2 security group 僅需允許 ALB security group 連入 TCP `80`、`8080`、`8081`、`3000`。MariaDB、Prometheus、Loki 與 Alloy 不需要加入 ALB target group，也不應開放至 Internet。
+EC2 security group 僅需允許 ALB security group 連入 TCP `80`。8080、8081、3000、3306、9090 僅綁定 EC2 loopback，供 SSH 登入後診斷使用。Loki 與 Alloy 僅供容器內網連線。
 
 ## 4. ALB listener rules
 
-按優先順序設定：
+Listener default action 轉送 frontend target group：
 
 | Path pattern | Forward to |
 |---|---|
-| `/grafana`, `/grafana/*` | grafana target group |
-| `/api/*` | backend target group |
 | default | frontend target group |
 
-ALB 會保留原始 path，Grafana 因此必須使用上面的 sub-path 兩個環境變數。
+**既有 ALB 的 `/api/*`、`/grafana/*` 特殊規則須刪除或改指向 frontend target group**，否則仍會走舊連接埠。Nginx 自動把 `/api/` 代理到 backend、`/grafana/` 代理到 Grafana，並支援 Grafana Live WebSocket。Grafana sub-path 已由 Compose 固定啟用，只需設定公開 `GRAFANA_ROOT_URL`。
+
+`/healthz` 代表入口 Nginx 可用；API 與監控服務的健康狀態仍由 Compose healthcheck 與 smoke test 驗證。
 
 ## 5. 部署後 smoke test
 
@@ -74,7 +71,7 @@ ALB 會保留原始 path，Grafana 因此必須使用上面的 sub-path 兩個�
 docker compose ps
 curl --fail http://localhost:8081/actuator/health
 curl --fail http://localhost:80/healthz
-curl --fail http://localhost:3000/api/health
+curl --fail http://localhost/grafana/api/health
 curl --silent --get \
   --data-urlencode 'query=up{job="good-morning"}' \
   http://localhost:9090/api/v1/query
@@ -87,7 +84,7 @@ trace_id="ec2-smoke-$(date +%s)"
 curl --fail \
   --header 'X-Demo-User: user-a' \
   --header "X-Request-ID: ${trace_id}" \
-  http://localhost:8080/api/v1/me
+  http://localhost/api/v1/me
 echo "${trace_id}"
 ```
 
