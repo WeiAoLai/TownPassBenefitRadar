@@ -36,7 +36,7 @@ services:
     environment:
       # 1. 啟用 demo 環境設定檔
       - SPRING_PROFILES_ACTIVE=demo
-      # 2. 【關鍵修正】強制將主程式與 Flyway 的資料庫連線從 localhost 改為 mariadb 容器
+      # 2. 強制將主程式與 Flyway 的資料庫連線從 localhost 改為 mariadb 容器
       - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/${MYSQL_DATABASE:-goodmorning}
       - SPRING_FLYWAY_URL=jdbc:mariadb://mariadb:3306/${MYSQL_DATABASE:-goodmorning}
       # 確保帳號密碼與下方 MariaDB 容器一致 (讀取自 .env)
@@ -57,7 +57,8 @@ services:
     env_file:
       - .env
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      # 【關鍵修正】使用 MARIADB_ROOT_PASSWORD 讓新版資料庫成功讀取密碼
+      - MARIADB_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-goodmorning}
       - TZ=Asia/Taipei
     volumes:
