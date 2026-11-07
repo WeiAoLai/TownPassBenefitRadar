@@ -200,6 +200,7 @@ npm run test:e2e                  # Playwright end-to-end 測試
 - 徽章小圖示：程式產生的示意 SVG；正式版由後端回傳。
 - 背景照片「陽明山草原」在 Unsplash 標示為台北，確切拍攝地點未驗證。
 - 徽章大圖：`public/badges/lv1.webp`–`lv3.webp`（團隊設計稿，1254 × 1254）；Lv.4 以上尚無設計稿，退回示意圖示。獲得新徽章時 `BadgeCelebration.vue` 顯示全螢幕慶祝畫面，可「分享給親友」（`composables/share.ts`）。
+- 排行榜名次：前三名在長輩圖左上角垂一面「吊旗」（`ArtworkCard.vue` `.pennant`），金／銀／銅色（上緣到下緣只有淺到深的過渡，上緣不加淺色條才會和照片邊緣切齊）加深色字，直寫「第 N 名」，有一道光澤從左上往右下流過，整面吊旗以上緣為軸輕微飄動（±1.2°），都循環播放（純 CSS transform 動畫，三面吊旗週期錯開）。動畫持續超過 5 秒，所以排行榜上方有「暫停動畫／播放動畫」按鈕（`FeedView.vue`，WCAG 2.2.2）；它和「我的 › 設定 › 動畫效果」是同一個開關（`composables/motion.ts`），暫停後整個 App 的動畫都停、記在這支手機上；系統「減少動態」時預設也是靜止；長輩圖本身維持完整的 1:1 全圖（`object-fit: cover` 在 1080 × 1080 的圖上不會裁切），吊旗在 412 寬的手機上只蓋住左上約 16% × 27%。文字放大時吊旗跟著放大，最多 1.25 倍（名次另有一句看不見的「第 N 名」文字給讀報軟體，e2e 也靠它斷言）。色票在 `tokens.css` 的 `--c-rank-*`，對比由 `tests/contrast.test.ts` 檢查。
 - 慶祝音效：Web Audio 現場合成（無音檔）＋隨機一句真人稱讚（`public/sounds/`：`nice.m4a`「不錯喔」、`amazing.m4a`「你怎麼那麼厲害」、`beautiful.m4a`「這張真的很漂亮欸」，團隊錄製）；預設開啟，慶祝畫面與「我的 › 設定」都能關（`composables/sound.ts`）。
 
 ### 待決事項的前端暫定做法

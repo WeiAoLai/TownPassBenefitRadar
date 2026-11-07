@@ -6,6 +6,7 @@ import type { Artwork, LeaderboardEntry } from '../api/types'
 import ArtworkCard from '../components/ArtworkCard.vue'
 import Icon from '../components/Icon.vue'
 import Segmented from '../components/Segmented.vue'
+import { motionOn, setMotion } from '../composables/motion'
 import { announce } from '../composables/toast'
 
 type FeedMode = 'ranking' | 'latest'
@@ -61,6 +62,16 @@ function onImageError(target: FeedMode) {
   void load(target, true)
 }
 
+/**
+ * 暫停／播放動畫（WCAG 2.2.2：自動播放超過 5 秒的動態要讓使用者能暫停）。
+ * 排行榜前三名的吊旗會持續飄動、閃光，所以在頁面上放一顆按鈕；它和「我的 › 設定 › 動畫效果」是同一個開關，
+ * 暫停後整個 App 的動畫（含慶祝畫面）都停，記在這支手機上。
+ */
+function toggleMotion() {
+  setMotion(!motionOn.value)
+  announce(motionOn.value ? '已播放動畫' : '已暫停動畫')
+}
+
 onMounted(() => load('ranking'))
 </script>
 
@@ -82,6 +93,11 @@ onMounted(() => load('ranking'))
       aria-labelledby="feed-view-tab-ranking"
       :hidden="mode !== 'ranking'"
     >
+      <div v-if="rankingRows.length" class="board-tools">
+        <button class="btn text motion-btn" type="button" @click="toggleMotion">
+          <Icon :name="motionOn ? 'pause' : 'play'" :size="20" /> {{ motionOn ? '暫停動畫' : '播放動畫' }}
+        </button>
+      </div>
       <div v-if="loading.ranking && !rankingRows.length" class="board" aria-busy="true">
         <div v-for="i in 3" :key="i" class="card ph skeleton" />
       </div>
@@ -140,6 +156,15 @@ onMounted(() => load('ranking'))
   margin-bottom: 12px;
 }
 .view-tabs :deep(.seg-btn) {
+  min-height: 48px;
+}
+.board-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 4px;
+}
+/* 觸控目標至少 48px */
+.motion-btn {
   min-height: 48px;
 }
 .board {

@@ -88,6 +88,16 @@
   --c-danger-strong: #b83b3a;
   --c-like: var(--c-danger-strong);
   --c-danger: var(--c-danger-strong);
+  /* 排行榜名次吊旗：金／銀／銅色（上緣 mid → 下緣 deep 的漸層）配深色字（ink）；ink 對 mid、deep 都 ≥ 5:1（tests/contrast.test.ts） */
+  --c-rank-1-mid: #f7c94f;
+  --c-rank-1-deep: #e5a21f;
+  --c-rank-1-ink: #3a2600;
+  --c-rank-2-mid: #d5dce0;
+  --c-rank-2-deep: #aeb9bf;
+  --c-rank-2-ink: #1c2326;
+  --c-rank-3-mid: #f0b185;
+  --c-rank-3-deep: #d68a4c;
+  --c-rank-3-ink: #3d1f0a;
 
   /* Figma 元件：Button 圓角 8、Section 陰影 0 0 6px rgba(0,0,0,.1)、Top navigation 56 */
   --radius-s: 8px;
