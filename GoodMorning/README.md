@@ -265,7 +265,7 @@ NCC 2017 補充：1.1 通知權限在打開提醒時才詢問、拒絕後核心�
   - 通知、台北通帳號任何一項取得失敗，核心流程（選背景、選政策、儲存、下載）照常可用。
   - 網路失敗時草稿保留，可直接再按一次儲存；圖片網址過期時自動重抓一次。
   - 自己的照片先縮到 1080 × 1080 再繪製，上限 30 MB，避免舊手機記憶體不足。
-- 效能紀錄（2026-11-08 production build）：首屏 JS 120.4 kB（gzip 48.1 kB）、CSS 13.9 kB（gzip 3.7 kB）；製作頁 JS 25.9 kB、我的頁 12.4 kB 等分頁延遲載入；不載入字型檔與圖示套件；編輯器預覽解析度跟著顯示尺寸（最多 2 倍），拖曳時以 `requestAnimationFrame` 合併重繪，只在儲存時繪製 1080 圖。
+- 效能紀錄（2026-11-08 production build）：各頁以路由延遲載入；三套長輩圖字型只在進入製作頁後載入，並用 `woff2` 與 `unicode-range` 依實際字元下載；編輯器預覽解析度跟著顯示尺寸（最多 2 倍），拖曳時以 `requestAnimationFrame` 合併重繪，只在儲存時繪製 1080 圖。
 
 本專案以降低數位落差為目標，避免把高階硬體、高速網路或最新 Web API 當成完成核心流程的必要條件。以上只列出實際驗證過的範圍。
 
@@ -358,6 +358,9 @@ docker run --rm -p 8080:80 -e BACKEND_URL=http://backend:8080 good-morning
 | vue-tsc 2.2.10 | 型別檢查 | https://github.com/vuejs/language-tools | MIT | 2026-11-08 |
 | vitest 3.1.4 | 單元測試 | https://github.com/vitest-dev/vitest | MIT | 2026-11-08 |
 | @types/qrcode 1.5.5 | 型別定義 | https://github.com/DefinitelyTyped/DefinitelyTyped | MIT | 2026-11-08 |
+| @fontsource-variable/noto-sans-tc 5.3.1 | 長輩圖粗黑體 | https://fontsource.org/fonts/noto-sans-tc | OFL-1.1 | 2026-11-08 |
+| @fontsource-variable/noto-serif-tc 5.3.1 | 長輩圖明體 | https://fontsource.org/fonts/noto-serif-tc | OFL-1.1 | 2026-11-08 |
+| @fontsource/lxgw-wenkai-tc 5.3.1 | 長輩圖楷書 | https://fontsource.org/fonts/lxgw-wenkai-tc | OFL-1.1 | 2026-11-08 |
 | nginx 1.27-alpine | 容器靜態伺服器 | https://hub.docker.com/_/nginx | BSD-2-Clause | 2026-11-08 |
 | 台北地標照片 10 張 | 背景圖 | 各照片 Unsplash 頁面（`public/data/backgrounds.json` 的 `photoUrl`） | [Unsplash License](https://unsplash.com/license) | 2026-11-07 |
 | 台北通 logo（`logo_S.svg`） | QR 外框標誌 | https://github.com/taipei-doit/TownPass | GPL-3.0 | 2026-11-07 |

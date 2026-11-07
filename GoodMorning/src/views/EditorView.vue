@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import '@fontsource-variable/noto-sans-tc/wght.css'
+import '@fontsource-variable/noto-serif-tc/wght.css'
+import '@fontsource/lxgw-wenkai-tc/700.css'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
@@ -16,7 +19,7 @@ import { unlockAudio } from '../composables/sound'
 import { draft, resetDraft } from '../editor/draft'
 import { SIZE, alignOf, type Layout, type TextAlign } from '../editor/layout'
 import { qrZone } from '../editor/qr'
-import { HANDLE_R, exportPng, handlePoint, isTainted, layoutsFor, loadImage, renderScene, styleSwatch } from '../editor/render'
+import { HANDLE_R, exportPng, handlePoint, isTainted, layoutsFor, loadImage, loadLayerFonts, renderScene, styleSwatch } from '../editor/render'
 import { GREETING, POSITIONS, SLOGAN } from '../editor/scene'
 import { FONTS, GREETINGS, TEXT_STYLES, type FontKey } from '../editor/styles'
 import { backgroundSrc, catalogBackgrounds, loadBackgroundCatalog, serverBackgroundId, type BackgroundItem } from '../data/backgrounds'
@@ -141,6 +144,12 @@ const celebrate = ref<{ level: number; name: string } | null>(null)
 
 const layer = computed(() => draft.layers[draft.selected])
 const swatches = TEXT_STYLES.map((s) => ({ ...s, img: '' }))
+
+async function selectFont(font: FontKey) {
+  layer.value.font = font
+  await loadLayerFonts([layer.value])
+  draw()
+}
 
 /* ---------------- 畫布 ---------------- */
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -552,6 +561,7 @@ async function randomize(): Promise<boolean> {
     g.styleId = pick(TEXT_STYLES).id
     s.text = p.slogan
     s.styleId = pick(TEXT_STYLES.filter((t) => t.id !== g.styleId)).id
+    await loadLayerFonts([g, s])
     placeLayersOnGrid(g, s)
     draft.selected = SLOGAN
     return true
@@ -618,6 +628,7 @@ async function save() {
     }
     let blob: Blob
     try {
+      await loadLayerFonts(draft.layers)
       blob = await exportPng({ background: bgDrawable, layers: draft.layers })
     } catch {
       showMessage('這張背景無法輸出圖片，請換一張背景再試', 'error')
@@ -710,6 +721,7 @@ watch(createStep, async (step) => {
 
 onMounted(() => {
   swatches.forEach((s) => (s.img = styleSwatch(s.id)))
+  document.fonts?.addEventListener('loadingdone', draw)
   sizeCanvas()
   if (typeof ResizeObserver !== 'undefined' && stage.value) {
     ro = new ResizeObserver(() => sizeCanvas())
@@ -734,6 +746,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', sizeCanvas)
   window.removeEventListener('resize', updateLayoutMode)
   window.visualViewport?.removeEventListener('resize', updateLayoutMode)
+  document.fonts?.removeEventListener('loadingdone', draw)
 })
 
 const canvasLabel = computed(() => {
@@ -1043,7 +1056,7 @@ const canvasLabel = computed(() => {
           role="radio"
           :aria-checked="layer.font === f.key"
           :style="{ fontFamily: f.family }"
-          @click="layer.font = f.key as FontKey"
+          @click="selectFont(f.key)"
         >
           {{ f.name }}
         </button>

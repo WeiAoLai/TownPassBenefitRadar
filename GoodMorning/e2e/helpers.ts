@@ -59,20 +59,49 @@ function scanHandle(page: Page) {
     const ctx = c.getContext('2d')!
     const { width: w, height: h } = c
     const d = ctx.getImageData(0, 0, w, h).data
-    let best: [number, number] | null = null
-    const pts: [number, number][] = []
+    const mask = new Uint8Array(w * h)
     for (let y = 0; y < h; y++)
       for (let x = 0; x < w; x++) {
         const i = (y * w + x) * 4
         if (Math.abs(d[i] - 0x5a) < 12 && Math.abs(d[i + 1] - 0xb4) < 12 && Math.abs(d[i + 2] - 0xc5) < 12) {
-          pts.push([x, y])
-          if (!best || x + y > best[0] + best[1]) best = [x, y]
+          mask[y * w + x] = 1
         }
       }
-    if (!best) return null
-    const near = pts.filter((q) => Math.hypot(q[0] - best![0], q[1] - best![1]) < w * 0.09)
-    const cx = near.reduce((a, q) => a + q[0], 0) / near.length
-    const cy = near.reduce((a, q) => a + q[1], 0) / near.length
+
+    // 把手中心有藍綠色箭頭，外圍是半徑 44px @1080 的藍綠色圓環。
+    // 直接比對這個幾何特徵，避免照片裡相近顏色干擾。
+    let best: { x: number; y: number; score: number; ring: number } | null = null
+    const scale = w / 1080
+    const handleRadius = 44 * scale
+    const edge = Math.ceil(handleRadius + 4)
+    const white = (x: number, y: number) => {
+      const i = (y * w + x) * 4
+      return d[i] > 238 && d[i + 1] > 238 && d[i + 2] > 238
+    }
+    for (let y = edge; y < h - edge; y++) {
+      for (let x = edge; x < w - edge; x++) {
+        if (mask[y * w + x] !== 1) continue
+        let ring = 0
+        for (let a = 0; a < 24; a++) {
+          const angle = (a * Math.PI * 2) / 24
+          let matched = false
+          for (let offset = -3; offset <= 3 && !matched; offset++) {
+            const radius = handleRadius + offset
+            const sx = Math.round(x + Math.cos(angle) * radius)
+            const sy = Math.round(y + Math.sin(angle) * radius)
+            matched = mask[sy * w + sx] === 1
+          }
+          if (matched) ring++
+        }
+        const inside = Math.max(8, Math.round(25 * scale))
+        const whiteInside = Number(white(x - inside, y)) + Number(white(x + inside, y)) + Number(white(x, y - inside)) + Number(white(x, y + inside))
+        const score = ring * 10 + whiteInside
+        if (!best || score > best.score) best = { x, y, score, ring }
+      }
+    }
+    if (!best || best.ring < 10) return null
+    const cx = best.x
+    const cy = best.y
     const r = c.getBoundingClientRect()
     return { x: r.left + (cx / w) * r.width, y: r.top + (cy / h) * r.height }
   })

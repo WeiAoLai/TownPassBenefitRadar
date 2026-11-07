@@ -6,6 +6,9 @@ test.describe('製作長輩圖', () => {
     await openCreate(page)
     await expect(page.getByRole('heading', { name: '今天想傳張圖嗎？' })).toBeVisible()
     await expect(page.getByRole('tab', { name: '背景' })).toHaveCount(0)
+    const starter = page.locator('.starter-art img')
+    await expect(starter).toHaveAttribute('src', /backgrounds\/taipei101-sunset\.jpg$/)
+    await expect.poll(() => starter.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
 
     await page.getByRole('button', { name: '幫我做一張' }).click()
     await expect(page.getByRole('heading', { name: '這張可以嗎？' })).toBeVisible()
@@ -21,6 +24,21 @@ test.describe('製作長輩圖', () => {
     await expect(page.locator('.toast')).toHaveCount(0)
 
     const selected = generated.selected
+    const selectedLayer = generated.layers[selected]
+    const canvas = page.locator('canvas[role="img"]')
+    const canvasBox = await canvas.boundingBox()
+    expect(canvasBox, '找不到預覽畫布').not.toBeNull()
+    const startX = canvasBox!.x + selectedLayer.x * canvasBox!.width
+    const startY = canvasBox!.y + selectedLayer.y * canvasBox!.height
+    const moveX = selectedLayer.x > 0.6 ? -28 : 28
+    const moveY = selectedLayer.y > 0.6 ? -28 : 28
+    await page.mouse.move(startX, startY)
+    await page.mouse.down()
+    await page.mouse.move(startX + moveX, startY + moveY, { steps: 5 })
+    await page.mouse.up()
+    const moved = await draft(page)
+    expect(Math.abs(moved.layers[selected].x - selectedLayer.x) + Math.abs(moved.layers[selected].y - selectedLayer.y)).toBeGreaterThan(0.02)
+
     const handle = await findHandle(page)
     expect(handle, '預覽畫面找不到縮放把手').not.toBeNull()
     await page.mouse.move(handle!.x, handle!.y)
@@ -69,6 +87,18 @@ test.describe('製作長輩圖', () => {
     await expect(saveButton(page)).toBeDisabled()
     await expect(saveButton(page)).toContainText('今天已做滿')
     await expect(page.locator('.actionbar .one-line')).toContainText('今天的 3 張做完了')
+
+    const full = saveButton(page)
+    const color = () => full.evaluate((el) => getComputedStyle(el).backgroundColor)
+    const idleColor = await color()
+    await full.hover({ force: true })
+    expect(await color()).toBe(idleColor)
+    const box = await full.boundingBox()
+    expect(box, '找不到今天已做滿按鈕').not.toBeNull()
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+    await page.mouse.down()
+    expect(await color()).toBe(idleColor)
+    await page.mouse.up()
   })
 
   test('政策標語不能修改，問候語可以', async ({ page }) => {
@@ -124,6 +154,29 @@ test.describe('製作長輩圖', () => {
     const after = await draft(page)
     expect(after.layers[sel].size).toBeGreaterThan(before.layers[sel].size)
     expect(after.layers[sel].boxW).toBeGreaterThan(0)
+  })
+
+  test('Android 可切換粗黑體、明體與楷書', async ({ page }) => {
+    await openEditor(page)
+    await page.getByRole('tab', { name: '樣式' }).click()
+    const hashes: string[] = []
+    for (const [name, key] of [
+      ['粗黑體', 'sans'],
+      ['明體', 'serif'],
+      ['楷書', 'kai'],
+    ] as const) {
+      await page.getByRole('radio', { name }).click()
+      await expect.poll(async () => {
+        const current = await draft(page)
+        return current.layers[current.selected].font
+      }).toBe(key)
+      await page.evaluate(async () => {
+        await document.fonts.ready
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+      })
+      hashes.push(await page.locator('canvas[role="img"]').evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL()))
+    }
+    expect(new Set(hashes).size).toBe(3)
   })
 })
 

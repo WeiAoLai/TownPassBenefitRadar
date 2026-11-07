@@ -81,19 +81,19 @@ export const FONTS: { key: FontKey; name: string; family: string; weight: number
   {
     key: 'sans',
     name: '粗黑體',
-    family: '"PingFang TC","Heiti TC","Noto Sans CJK TC","Noto Sans TC","Microsoft JhengHei",sans-serif',
+    family: '"Noto Sans TC Variable","PingFang TC","Microsoft JhengHei",sans-serif',
     weight: 900,
   },
   {
     key: 'serif',
     name: '明體',
-    family: '"Songti TC","Noto Serif CJK TC","Noto Serif TC","PMingLiU",serif',
+    family: '"Noto Serif TC Variable","Songti TC","PMingLiU",serif',
     weight: 900,
   },
   {
     key: 'kai',
     name: '楷書',
-    family: '"Kaiti TC","BiauKai","DFKai-SB","TW-Kai","Kaiti SC",serif',
+    family: '"LXGW WenKai TC","Kaiti TC","BiauKai","DFKai-SB",cursive',
     weight: 700,
   },
 ]
