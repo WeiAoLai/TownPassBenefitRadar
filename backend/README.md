@@ -106,6 +106,8 @@ Grafana Alloy 透過唯讀 Docker socket 收集 `good-morning` Compose project �
 
 Alloy、Loki 與 API 彼此解耦；logging pipeline 暫時故障不會中斷業務 API。Loki `3100` 與 Alloy `12345` 不映射到 host，也不應加入 ALB target group。
 
+單台 EC2、production service 名稱為 `backend` 的完整部署與排查步驟，請見 [`docs/deployment/ec2-grafana-logs-setup.md`](docs/deployment/ec2-grafana-logs-setup.md)。
+
 ## Logging 與問題追蹤
 
 - 每個 API response 都會回傳 `X-Request-ID`；若入口未提供，後端會產生 UUID。
