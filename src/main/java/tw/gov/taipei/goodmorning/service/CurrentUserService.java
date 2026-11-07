@@ -14,10 +14,13 @@ public class CurrentUserService {
 
     private final UserRepository users;
     private final ArtworkRepository artworks;
+    private final BadgeService badgeService;
 
-    public CurrentUserService(UserRepository users, ArtworkRepository artworks) {
+    public CurrentUserService(
+            UserRepository users, ArtworkRepository artworks, BadgeService badgeService) {
         this.users = users;
         this.artworks = artworks;
+        this.badgeService = badgeService;
     }
 
     @Transactional
@@ -41,7 +44,12 @@ public class CurrentUserService {
                 user.getAccount(),
                 user.getDisplayName(),
                 artworkCount,
-                null,
+                badgeService.highestBadge(artworkCount),
                 user.getCreatedAt());
+    }
+
+    @Transactional(readOnly = true)
+    public long getArtworkCount(CurrentUser principal) {
+        return artworks.countByOwnerId(principal.id());
     }
 }

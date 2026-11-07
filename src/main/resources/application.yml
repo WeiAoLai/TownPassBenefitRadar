@@ -42,3 +42,4 @@ app:
     bucket: ${AWS_S3_BUCKET:good-morning-local}
     region: ${AWS_REGION:ap-southeast-2}
     endpoint: ${S3_ENDPOINT:}
+    presigned-url-ttl: ${PRESIGNED_URL_TTL:PT15M}

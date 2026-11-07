@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -34,6 +35,14 @@ public class GlobalExceptionHandler {
     })
     ResponseEntity<ProblemDetail> handleInvalidRequest(Exception exception, HttpServletRequest request) {
         return response(request, HttpStatus.BAD_REQUEST, "REQUEST_INVALID", "Request is invalid");
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    ResponseEntity<ProblemDetail> handleResponseStatus(
+            ResponseStatusException exception, HttpServletRequest request) {
+        var status = HttpStatus.valueOf(exception.getStatusCode().value());
+        var code = status == HttpStatus.NOT_FOUND ? "RESOURCE_NOT_FOUND" : "REQUEST_REJECTED";
+        return response(request, status, code, exception.getReason());
     }
 
     @ExceptionHandler(Exception.class)
