@@ -12,6 +12,8 @@ concurrency:
 
 jobs:
   deploy:
+    # Remove this condition to resume EC2 deployments.
+    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
