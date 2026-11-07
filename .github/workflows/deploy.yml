@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: # 保留手動觸發功能，方便在 GitHub 網頁上隨時部署
+  workflow_dispatch: # 保留手動觸發功能，方便隨時部署
 
 jobs:
   deploy:
@@ -13,18 +13,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 將 GitHub 上的最新程式碼 (包含前端、後端與統籌的 docker-compose.yml) 傳送至 EC2
+      # 將 GitHub 上的最新程式碼傳送至 EC2 (透過 ignore 保護 .env 不被覆蓋)
       - name: Copy files to EC2 via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "." # 複製整個專案目錄
+          source: "."
           target: "/home/ubuntu/taipei-code-fest-app"
           overwrite: true
+          ignore: .env, .git, node_modules, target # 【保護】不覆蓋機密的 .env 與編譯暫存檔
 
-      # 連線進入 EC2，透過 docker-compose 進行無縫更新與重啟
+      # 連線進入 EC2，安全地進行容器重啟與清理
       - name: Build and Restart Docker Compose via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -32,12 +33,13 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # 進入存放專案的資料夾
             cd /home/ubuntu/taipei-code-fest-app
             
-            # 使用 --build 參數，強制 Docker 偵測 frontend 與 backend 資料夾內的改動並重新打包
-            # -d 參數會讓服務在背景穩定運行，不會卡住部署流程
+            # 停止舊容器（保留資料庫 Volume，資料不會不見）
+            docker-compose down
+            
+            # 重新打包並在背景啟動
             docker-compose up -d --build
             
-            # 自動清理那些因更新而產生的 <none> 廢棄映像檔，釋放硬碟空間
+            # 自動清理舊的廢棄映像檔，釋放硬碟空間
             docker image prune -f
