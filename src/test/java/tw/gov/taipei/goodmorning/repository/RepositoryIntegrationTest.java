@@ -212,6 +212,49 @@ class RepositoryIntegrationTest {
         }
     }
 
+    @Test
+    void leaderboardUsesCompetitionRankingAndStableTieOrdering() {
+        var fixtures = createArtworkFixtures();
+        var first = artworks.saveAndFlush(new Artwork(
+                fixtures.owner(), fixtures.background(), fixtures.policy(),
+                "第一名", fixtures.policy().getSourceUrl(), "artworks/test/rank-1.png"));
+        var olderTie = artworks.saveAndFlush(new Artwork(
+                fixtures.owner(), fixtures.background(), fixtures.policy(),
+                "較早同分", fixtures.policy().getSourceUrl(), "artworks/test/rank-2.png"));
+        var newerTie = artworks.saveAndFlush(new Artwork(
+                fixtures.owner(), fixtures.background(), fixtures.policy(),
+                "較新同分", fixtures.policy().getSourceUrl(), "artworks/test/rank-3.png"));
+        var fourth = artworks.saveAndFlush(new Artwork(
+                fixtures.owner(), fixtures.background(), fixtures.policy(),
+                "第四名", fixtures.policy().getSourceUrl(), "artworks/test/rank-4.png"));
+
+        incrementLikes(first.getId(), 10);
+        incrementDownloads(olderTie.getId(), 9);
+        incrementLikes(newerTie.getId(), 9);
+        incrementDownloads(fourth.getId(), 8);
+
+        var ranking = artworks.findLeaderboard();
+
+        assertThat(ranking).extracting(row -> row.getArtworkId())
+                .containsExactly(first.getId(), newerTie.getId(), olderTie.getId(), fourth.getId());
+        assertThat(ranking).extracting(row -> row.getRanking())
+                .containsExactly(1L, 2L, 2L, 4L);
+        assertThat(ranking).extracting(row -> row.getScore())
+                .containsExactly(10L, 9L, 9L, 8L);
+    }
+
+    private void incrementLikes(Long artworkId, int times) {
+        for (var index = 0; index < times; index++) {
+            artworks.incrementLikeCount(artworkId);
+        }
+    }
+
+    private void incrementDownloads(Long artworkId, int times) {
+        for (var index = 0; index < times; index++) {
+            artworks.incrementDownloadCount(artworkId);
+        }
+    }
+
     private ArtworkFixtures createArtworkFixtures() {
         var owner = users.saveAndFlush(new User("owner-subject", "owner-account", "Owner"));
         var background = backgrounds.saveAndFlush(

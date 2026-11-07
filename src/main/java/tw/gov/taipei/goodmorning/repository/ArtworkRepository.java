@@ -1,6 +1,8 @@
 package tw.gov.taipei.goodmorning.repository;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -23,6 +25,10 @@ public interface ArtworkRepository extends JpaRepository<Artwork, Long> {
     @EntityGraph(attributePaths = {"owner", "background", "policy"})
     @Query("SELECT artwork FROM Artwork artwork WHERE artwork.id = :id")
     Optional<Artwork> findDetailedById(@Param("id") Long id);
+
+    @EntityGraph(attributePaths = {"owner", "background", "policy"})
+    @Query("SELECT artwork FROM Artwork artwork WHERE artwork.id IN :ids")
+    List<Artwork> findAllDetailedByIdIn(@Param("ids") Set<Long> ids);
 
     @Query(
             value = "SELECT owner_id FROM artworks WHERE id = :id FOR UPDATE",
@@ -56,4 +62,18 @@ public interface ArtworkRepository extends JpaRepository<Artwork, Long> {
              WHERE artwork.id = :id
             """)
     int incrementDownloadCount(@Param("id") Long id);
+
+    @Query(
+            value = """
+                    SELECT id AS artworkId,
+                           RANK() OVER (
+                               ORDER BY GREATEST(like_count, download_count) DESC
+                           ) AS ranking,
+                           GREATEST(like_count, download_count) AS score
+                      FROM artworks
+                     ORDER BY score DESC, created_at DESC, id DESC
+                     LIMIT 100
+                    """,
+            nativeQuery = true)
+    List<ArtworkRanking> findLeaderboard();
 }
