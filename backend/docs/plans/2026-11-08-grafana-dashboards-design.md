@@ -14,7 +14,7 @@ Demo 總覽預設顯示最近 15 分鐘，包含 API 在線狀態、request rate
 
 新增集中式 `BusinessMetrics` 元件，透過 Micrometer 記錄低基數 counter：
 
-- `good_morning.artworks.created`：作品交易成功提交。
+- `good_morning.artworks.creation`：作品交易成功提交；避開 Prometheus 保留的 `_created` suffix。
 - `good_morning.artworks.downloaded`：非作者成功下載且下載計數更新。
 - `good_morning.artwork.likes{action="like"}`：按讚狀態真正新增。
 - `good_morning.artwork.likes{action="unlike"}`：按讚狀態真正移除。

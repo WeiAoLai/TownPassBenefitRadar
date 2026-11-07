@@ -15,7 +15,7 @@ public class BusinessMetrics {
     private final Counter artworkUnlikes;
 
     public BusinessMetrics(MeterRegistry registry) {
-        artworksCreated = Counter.builder("good_morning.artworks.created")
+        artworksCreated = Counter.builder("good_morning.artworks.creation")
                 .description("Number of artwork creation transactions committed")
                 .register(registry);
         artworksDownloaded = Counter.builder("good_morning.artworks.downloaded")

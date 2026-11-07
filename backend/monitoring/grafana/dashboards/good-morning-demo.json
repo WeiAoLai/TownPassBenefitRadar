@@ -58,7 +58,7 @@
       "gridPos": {"h": 4, "w": 3, "x": 12, "y": 0},
       "id": 5,
       "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
-      "targets": [{"expr": "sum(increase(good_morning_artworks_created_total[$__range])) or vector(0)", "instant": true, "refId": "A"}],
+      "targets": [{"expr": "sum(increase(good_morning_artworks_creation_total[$__range])) or vector(0)", "instant": true, "refId": "A"}],
       "title": "作品建立數",
       "type": "stat"
     },

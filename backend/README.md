@@ -27,7 +27,9 @@ Demo API 必須帶 `X-Demo-User: user-a`、`user-b` 或 `user-c`。Spring Boot �
 docker compose exec -T api env -u SPRING_FLYWAY_URL -u SPRING_FLYWAY_USER -u SPRING_FLYWAY_PASSWORD mvn verify
 ruby scripts/check-openapi.rb
 bash scripts/check-db-schema.sh
+ruby scripts/check-grafana-dashboards.rb
 bash scripts/smoke-test.sh
+bash scripts/monitoring-smoke-test.sh
 ```
 
 完整測試包含 Flyway、MariaDB repository、併發按讚、S3、OpenAPI 契約、QR Code 解碼與 controller/service 測試。
@@ -38,12 +40,21 @@ bash scripts/smoke-test.sh
 
 - Prometheus：`http://localhost:9090`
 - Grafana：`http://localhost:3000`
-- 預載 dashboard：`Good Morning / Good Morning Backend`
+- Demo 總覽：`http://localhost:3000/d/good-morning-demo/demo`
+- 維運排查：`http://localhost:3000/d/good-morning-backend/operations`
 - Grafana 本機預設帳號：`admin` / `change-me`，請在 `.env` 覆寫 `GRAFANA_ADMIN_PASSWORD`。
 
 Prometheus 每 15 秒透過 Compose 內網抓取 `api:8081/actuator/prometheus`。Actuator 使用獨立 management port `8081`，業務 API port `8080` 不提供 `/api/actuator/*`，避免 JVM 與 DB pool metrics 進入公開 API。正式環境可改由既有的 Prometheus 或 Amazon Managed Service for Prometheus 抓取，但 scrape endpoint 必須保持在 private network。
 
-已 provision 的 dashboard 包含 request rate、5xx ratio、HTTP p50/p95 latency、JVM heap、HikariCP connections 與 process CPU。Prometheus 與 Grafana 資料分別保存在 `prometheus-data`、`grafana-data` volumes。
+`Good Morning｜Demo 總覽` 預設顯示最近 15 分鐘，包含服務狀態、request rate、非 5xx 成功率、p95 latency、作品建立、有效下載、按讚／取消讚、CPU、Heap 與即時業務 log。`Good Morning｜維運排查` 預設顯示最近 1 小時，包含 endpoint request rate／5xx／p95 排行、p50／p95／p99、JVM、GC、Thread、HikariCP 與 dependency failure log。每個 panel 的 description 會說明用途、正常範圍與排查方向。
+
+初始紅色門檻為 5xx 大於 1%、p95 大於 1 秒、Heap 或 CPU 大於 80%、DB pending 大於 0；後續應依 k6 基準測試調整。業務 counter 只在 transaction commit 後增加，不使用 user ID 或 artwork ID label：
+
+- `good_morning_artworks_creation_total`：成功建立作品。
+- `good_morning_artworks_downloaded_total`：非作者成功下載。
+- `good_morning_artwork_likes_total{action="like|unlike"}`：真正發生的按讚狀態變更。
+
+Prometheus 與 Grafana 資料分別保存在 `prometheus-data`、`grafana-data` volumes。修改 Dashboard JSON 後可執行 `ruby scripts/check-grafana-dashboards.rb` 檢查 UID、datasource、必要圖表與中文說明。
 
 ## Loki 與 Grafana Alloy
 

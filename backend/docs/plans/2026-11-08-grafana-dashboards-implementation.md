@@ -54,7 +54,7 @@
 - Modify: `README.md`
 
 **Steps:**
-1. Extend the smoke script to verify both dashboard UIDs through the Grafana API and verify the business metric family exists on the private management endpoint after exercising an event.
+1. Extend the smoke script to verify both dashboard UIDs through the Grafana API and verify the business metric families exist on the private management endpoint after exercising an event.
 2. Document dashboard purposes, URLs, metric semantics, thresholds, and regeneration/verification commands in Chinese.
 3. Recreate the API and Grafana containers, run dashboard checks, focused tests, `mvn verify`, application smoke, and monitoring smoke.
 4. Confirm Grafana APIs return both dashboards and Prometheus/Loki queries return data.

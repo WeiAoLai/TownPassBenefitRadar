@@ -19,7 +19,7 @@ class BusinessMetricsTest {
         metrics.artworkLiked();
         metrics.artworkUnliked();
 
-        assertThat(counter("good_morning.artworks.created")).isEqualTo(1);
+        assertThat(counter("good_morning.artworks.creation")).isEqualTo(1);
         assertThat(counter("good_morning.artworks.downloaded")).isEqualTo(1);
         assertThat(counter("good_morning.artwork.likes", "action", "like")).isEqualTo(1);
         assertThat(counter("good_morning.artwork.likes", "action", "unlike")).isEqualTo(1);
@@ -32,12 +32,12 @@ class BusinessMetricsTest {
         try {
             metrics.artworkCreated();
 
-            assertThat(counter("good_morning.artworks.created")).isZero();
+            assertThat(counter("good_morning.artworks.creation")).isZero();
             assertThat(TransactionSynchronizationManager.getSynchronizations()).hasSize(1);
 
             TransactionSynchronizationManager.getSynchronizations().getFirst().afterCommit();
 
-            assertThat(counter("good_morning.artworks.created")).isEqualTo(1);
+            assertThat(counter("good_morning.artworks.creation")).isEqualTo(1);
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }

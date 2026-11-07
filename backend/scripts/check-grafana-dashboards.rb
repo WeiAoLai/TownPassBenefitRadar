@@ -34,7 +34,7 @@ demo_json = JSON.generate(dashboards[:demo])
 operations_json = JSON.generate(dashboards[:operations])
 
 %w[
-  good_morning_artworks_created_total
+  good_morning_artworks_creation_total
   good_morning_artworks_downloaded_total
   good_morning_artwork_likes_total
 ].each do |metric|

@@ -4,6 +4,7 @@ set -euo pipefail
 prometheus_url="${PROMETHEUS_URL:-http://localhost:${PROMETHEUS_PORT:-9090}}"
 grafana_url="${GRAFANA_URL:-http://localhost:${GRAFANA_PORT:-3000}}"
 public_api_url="${PUBLIC_API_URL:-http://localhost:${API_PORT:-8080}}"
+management_url="${MANAGEMENT_URL:-http://localhost:${MANAGEMENT_PORT:-8081}}"
 grafana_user="${GRAFANA_ADMIN_USER:-admin}"
 grafana_password="${GRAFANA_ADMIN_PASSWORD:-change-me}"
 
@@ -39,6 +40,7 @@ wait_for_internal() {
 
 wait_for "Prometheus" "$prometheus_url/-/ready"
 wait_for "Grafana" "$grafana_url/api/health"
+wait_for "Spring Boot management" "$management_url/actuator/health"
 wait_for_internal "Loki" "http://loki:3100/ready"
 wait_for_internal "Alloy" "http://alloy:12345/-/ready"
 
@@ -60,6 +62,28 @@ if ! grep -q '"status":"OK"' <<<"$loki_health"; then
   exit 1
 fi
 
+for dashboard_uid in good-morning-demo good-morning-backend; do
+  dashboard=$(curl --fail --silent --show-error \
+    --user "$grafana_user:$grafana_password" \
+    "$grafana_url/api/dashboards/uid/$dashboard_uid")
+  if ! grep -q "\"uid\":\"$dashboard_uid\"" <<<"$dashboard"; then
+    echo "Grafana dashboard is not provisioned: $dashboard_uid" >&2
+    echo "$dashboard" >&2
+    exit 1
+  fi
+done
+
+private_metrics=$(curl --fail --silent --show-error "$management_url/actuator/prometheus")
+for metric_name in \
+  good_morning_artworks_creation_total \
+  good_morning_artworks_downloaded_total \
+  good_morning_artwork_likes_total; do
+  if ! grep -q "^# HELP $metric_name " <<<"$private_metrics"; then
+    echo "business metric is missing: $metric_name" >&2
+    exit 1
+  fi
+done
+
 targets=""
 for _ in $(seq 1 30); do
   targets=$(curl --fail --silent --show-error \
@@ -75,6 +99,21 @@ if ! grep -q '"value":\[[^]]*,"1"\]' <<<"$targets"; then
   echo "$targets" >&2
   exit 1
 fi
+
+for prometheus_query in \
+  'histogram_quantile(0.95, sum by (le, method, uri) (rate(http_server_requests_seconds_bucket{application="good-morning",uri!~"/actuator.*",uri!="UNKNOWN"}[5m])))' \
+  'sum(increase(good_morning_artworks_creation_total[15m])) or vector(0)' \
+  'hikaricp_connections_pending{application="good-morning"}'; do
+  query_result=$(curl --fail --silent --show-error \
+    --get \
+    --data-urlencode "query=$prometheus_query" \
+    "$prometheus_url/api/v1/query")
+  if ! grep -q '"status":"success"' <<<"$query_result"; then
+    echo "Prometheus rejected dashboard query: $prometheus_query" >&2
+    echo "$query_result" >&2
+    exit 1
+  fi
+done
 
 metrics_status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$public_api_url/api/actuator/prometheus")
 if [[ "$metrics_status" != "404" ]]; then
@@ -108,4 +147,4 @@ if ! grep -Fq "$trace_id" <<<"$loki_result"; then
   exit 1
 fi
 
-echo "monitoring smoke test passed: Prometheus=UP Grafana=healthy Loki=ready Alloy=ready traceId=$trace_id"
+echo "monitoring smoke test passed: Prometheus=UP Grafana=healthy dashboards=2 businessMetrics=3 Loki=ready Alloy=ready traceId=$trace_id"
