@@ -2,71 +2,120 @@ version: '3.8'
 
 services:
   # ==============================
-  # 前端服務 (Vue + Nginx)
+  # 前端服務 (Vue)
   # ==============================
   frontend:
     build:
       context: ./GoodMorning
       dockerfile: Dockerfile
       args:
-        # 【關鍵修正】覆寫 Dockerfile 預設的 mock，改為 http 以串接真實後端
         - VITE_API_MODE=http
     container_name: vue-frontend
     ports:
       - "80:80"
     environment:
-      # Nginx 啟動時會讀取此變數來設定反向代理 (需與後端服務名稱一致)
       - BACKEND_URL=http://backend:8080
     restart: always
     depends_on:
       - backend
 
   # ==============================
-  # 後端服務 (Spring Boot)
+  # 後端服務 (Spring Boot) - 融合隊友的 dev/runtime 架構與 8080/8081 分離
   # ==============================
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: spring-backend
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-demo}
+      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/${DB_NAME:-goodmorning}?sessionVariables=time_zone='+00:00'
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-root}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-Root1234}
+      - SPRING_FLYWAY_ENABLED=true
+      - SPRING_FLYWAY_URL=jdbc:mariadb://mariadb:3306/${DB_NAME:-goodmorning}?sessionVariables=time_zone='+00:00'
+      - SPRING_FLYWAY_USER=${DB_USERNAME:-root}
+      - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-Root1234}
+      # 【關鍵】將 Actuator 管理埠獨立到 8081，API 維持 8080
+      - server.port=8080
+      - management.server.port=8081
+      - management.server.address=0.0.0.0
+      # AWS S3 與 IAM 設定
+      - AWS_REGION=${AWS_REGION:-ap-southeast-2}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET:-taipei-code-fest-assets}
+      - PRESIGNED_URL_TTL=${PRESIGNED_URL_TTL:-PT15M}
     ports:
       - "8080:8080"
-    env_file:
-      - .env
-    environment:
-      # 1. 啟用 demo 環境設定檔
-      - SPRING_PROFILES_ACTIVE=demo
-      # 2. 強制將主程式與 Flyway 的資料庫連線從 localhost 改為 mariadb 容器
-      - SPRING_DATASOURCE_URL=jdbc:mariadb://mariadb:3306/goodmorning
-      - SPRING_FLYWAY_URL=jdbc:mariadb://mariadb:3306/goodmorning
-      # 確保帳號密碼與下方 MariaDB 容器一致 (讀取自 .env)
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=Root1234
-      - SPRING_FLYWAY_USER=root
-      - SPRING_FLYWAY_PASSWORD=Root1234
+      - "8081:8081" # 獨立暴露 8081 給 Prometheus
     restart: always
     depends_on:
-      - mariadb
+      mariadb:
+        condition: service_healthy
 
   # ==============================
-  # 資料庫服務 (MariaDB)
+  # 資料庫服務 (MariaDB) - 採用隊友的 11.4 版本
   # ==============================
   mariadb:
-    image: mariadb:10.11
+    image: mariadb:11.4
     container_name: mariadb-db
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-goodmorning}
+      MARIADB_USER: ${DB_USERNAME:-root}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-Root1234}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-Root1234}
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mariadb-data:/var/lib/mysql
     ports:
       - "3306:3306"
-    env_file:
-      - .env
-    environment:
-      # 【關鍵修正】使用 MARIADB_ROOT_PASSWORD 讓新版資料庫成功讀取密碼
-      - MARIADB_ROOT_PASSWORD=Root1234
-      - MYSQL_DATABASE=goodmorning
-      - TZ=Asia/Taipei
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: always
+
+  # ==============================
+  # 監控服務：Prometheus
+  # ==============================
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-7d}
     volumes:
-      - db-data:/var/lib/mysql
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+    restart: always
+
+  # ==============================
+  # 監控服務：Grafana
+  # ==============================
+  grafana:
+    image: grafana/grafana:13.2.1
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-Root1234}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
     restart: always
 
 volumes:
-  # 建立持久化儲存，確保容器重啟時資料庫不會被清空
-  db-data:
+  mariadb-data:
+  prometheus-data:
+  grafana-data:
