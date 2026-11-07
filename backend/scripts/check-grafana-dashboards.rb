@@ -33,6 +33,15 @@ end
 demo_json = JSON.generate(dashboards[:demo])
 operations_json = JSON.generate(dashboards[:operations])
 
+business_panels = dashboards[:demo].fetch("panels").select do |panel|
+  panel.fetch("targets", []).any? { |target| target.fetch("expr", "").include?("good_morning_") }
+end
+business_panels.each do |panel|
+  expressions = panel.fetch("targets").map { |target| target.fetch("expr", "") }
+  errors << "demo business panel #{panel['title']} must round event counts" unless expressions.all? { |expression| expression.include?("round(") }
+  errors << "demo business panel #{panel['title']} must display zero decimals" unless panel.dig("fieldConfig", "defaults", "decimals") == 0
+end
+
 %w[
   good_morning_artworks_creation_total
   good_morning_artworks_downloaded_total
