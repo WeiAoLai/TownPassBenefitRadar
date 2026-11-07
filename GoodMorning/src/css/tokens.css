@@ -39,16 +39,20 @@
   --tp-orange-500: #fd853a;
   --tp-green-500: #76a732;
 
-  /* Typography（Figma：H1 36/48、H2 24/32、H3 16/22、Body 14/20、Caption 12/18） */
+  /*
+   * Typography（Figma：H1 36/48、H2 24/32、H3 16/22、Body 14/20、Caption 12/18）
+   * 長輩友善化：內文基準 16 → 18px、輔助文字 14 → 16px；網頁內不再使用小於 16px 的文字。
+   * 其餘級距維持 Figma。
+   */
   --tp-font-family: 'PingFang TC', -apple-system, BlinkMacSystemFont, Roboto, 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
   --tp-font-h1: 2.25rem;
   --tp-lh-h1: 3rem;
   --tp-font-h2: 1.5rem;
   --tp-lh-h2: 2rem;
-  --tp-font-h3: 1rem;
-  --tp-lh-h3: 1.375rem;
-  --tp-font-body: 0.875rem;
-  --tp-lh-body: 1.25rem;
+  --tp-font-h3: 1.125rem;
+  --tp-lh-h3: 1.75rem;
+  --tp-font-body: 1rem;
+  --tp-lh-body: 1.5rem;
 
   /* 語意別名 */
   /* Figma Semantic colors（3:390）：Background light=white、dark=Grey/50；Disable=Grey/100；Text=Grey/950、700、400 */
@@ -56,17 +60,24 @@
   --c-surface: #ffffff;
   --c-text: var(--tp-grey-950);
   --c-text-2: var(--tp-grey-700);
-  --c-text-3: var(--tp-grey-500);
+  /* 對比（WCAG AA 一般文字 4.5:1）：grey-500 在白底只有 3.66，改用 grey-600（白底 5.35、頁面底 4.81） */
+  --c-text-3: var(--tp-grey-600);
   --c-line: var(--tp-grey-100);
   --c-disable: var(--tp-grey-100);
+  /* 主色 primary-500 只做裝飾（頭像、進度條、背景色塊）；白字 2.39:1、主色字 on 白 2.39:1，不能拿來放字或當唯一的狀態提示 */
   --c-brand: var(--tp-primary-500);
   --c-brand-strong: var(--tp-primary-700);
   --c-brand-soft: var(--tp-primary-50);
+  /* 可操作元件（按鈕、選取狀態、焦點框、連結）用 primary-700：白字 5.89、on primary-50 5.45、on 頁面底 5.30 */
+  --c-action: var(--tp-primary-700);
+  --c-action-press: var(--tp-primary-800);
   --c-on-brand: #ffffff;
   --c-accent: var(--tp-secondary-500);
   --c-accent-soft: var(--tp-secondary-50);
-  --c-like: var(--tp-red-500);
-  --c-danger: var(--tp-red-500);
+  /* 紅色：red-500 白字只有 4.10，文字與按鈕改用深一階（白字 5.64） */
+  --c-danger-strong: #b83b3a;
+  --c-like: var(--c-danger-strong);
+  --c-danger: var(--c-danger-strong);
 
   /* Figma 元件：Button 圓角 8、Section 陰影 0 0 6px rgba(0,0,0,.1)、Top navigation 56 */
   --radius-s: 8px;

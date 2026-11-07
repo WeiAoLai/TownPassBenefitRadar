@@ -54,10 +54,10 @@ function back() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--tp-font-h3);
-  line-height: var(--tp-lh-h3);
-  font-weight: 600;
-  color: var(--tp-grey-700);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  color: var(--tp-grey-800);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

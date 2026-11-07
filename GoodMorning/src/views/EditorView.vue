@@ -5,12 +5,13 @@ import { api } from '../api'
 import { friendlyMessage } from '../api/errors'
 import type { Artwork, Background, CurrentUser, Policy } from '../api/types'
 import BottomSheet from '../components/BottomSheet.vue'
-import BadgeChip from '../components/BadgeChip.vue'
+import BadgeCelebration from '../components/BadgeCelebration.vue'
 import Icon from '../components/Icon.vue'
 import Segmented from '../components/Segmented.vue'
 import { openLink } from '../composables/bridge'
 import { toast } from '../composables/toast'
 import { startDownload } from '../composables/artworkActions'
+import { unlockAudio } from '../composables/sound'
 import { draft, resetDraft } from '../editor/draft'
 import { SIZE, type Layout } from '../editor/layout'
 import { QR_LAYOUT } from '../editor/qr'
@@ -56,6 +57,8 @@ const randomizing = ref(false)
 const showQrZone = ref(true)
 const bgTainted = ref(false)
 const saved = ref<{ artwork: Artwork; before: CurrentUser | null; after: CurrentUser | null; unlocked: Background[] } | null>(null)
+/** 剛拿到的新徽章：有值時先顯示全螢幕慶祝畫面，關閉後才出現「儲存成功」視窗 */
+const celebrate = ref<{ level: number; name: string } | null>(null)
 
 const layer = computed(() => draft.layers[draft.selected])
 const swatches = TEXT_STYLES.map((s) => ({ ...s, img: '' }))
@@ -261,7 +264,7 @@ function pickPolicy(p: Policy) {
   draft.policy = p
   draft.layers[SLOGAN].text = p.slogan
   draft.selected = SLOGAN
-  toast(`已套用「${p.title}」標語`, 'success', 2500)
+  toast(`已套用「${p.title}」標語`, 'success')
 }
 
 function restoreSlogan() {
@@ -300,7 +303,7 @@ async function randomize() {
     s.text = p.slogan
     s.styleId = pick(TEXT_STYLES.filter((t) => t.id !== g.styleId)).id
     draft.selected = SLOGAN
-    toast('換好了！可以再調整文字和樣式', 'success', 2500)
+    toast('換好了！可以再調整文字和樣式', 'success')
   } catch (e) {
     toast(friendlyMessage(e), 'error')
   } finally {
@@ -317,6 +320,8 @@ const missing = computed(() => {
 })
 
 async function save() {
+  // 儲存後若拿到新徽章會播慶祝音效；瀏覽器要在「點擊當下」才允許解鎖聲音，所以放在最前面
+  unlockAudio()
   if (missing.value) {
     toast(missing.value, 'info')
     if (!draft.backgroundId) tool.value = 'bg'
@@ -331,7 +336,7 @@ async function save() {
       return
     }
     if (isTainted(bgImage)) {
-      toast('這張背景照片無法輸出，請換一張背景再儲存', 'error', 6000)
+      toast('這張背景照片無法輸出，請換一張背景再儲存', 'error')
       return
     }
     let blob: Blob
@@ -359,6 +364,8 @@ async function save() {
     me.value = after ?? me.value
     backgrounds.value = bgs
     saved.value = { artwork, before, after, unlocked }
+    const gained = after?.badge
+    if (gained && gained.level !== before?.badge?.level) celebrate.value = { level: gained.level, name: gained.name }
   } catch (e) {
     // 草稿保留，使用者可以直接再按一次儲存
     toast(friendlyMessage(e), 'error')
@@ -668,6 +675,7 @@ const canvasLabel = computed(() => {
           顯示 QR Code 位置
           <span class="small muted block">下載時右下角會加上政策 QR Code</span>
         </span>
+        <span class="switch-state" aria-hidden="true">{{ showQrZone ? '開' : '關' }}</span>
         <input v-model="showQrZone" type="checkbox" role="switch" class="switch" />
       </label>
 
@@ -699,19 +707,14 @@ const canvasLabel = computed(() => {
     </div>
     </div>
 
-    <BottomSheet :open="!!saved" title="儲存成功" @close="saved = null">
+    <BadgeCelebration :badge="celebrate" @close="celebrate = null" />
+
+    <BottomSheet :open="!!saved && !celebrate" title="儲存成功" @close="saved = null">
       <div v-if="saved" class="saved">
         <img class="saved-img" :src="saved.artwork.imageUrl" alt="剛儲存的長輩圖" />
         <p class="saved-count">
           這是你的第 <strong>{{ saved.after?.artworkCount ?? '—' }}</strong> 張作品
         </p>
-        <div
-          v-if="saved.after?.badge && saved.after.badge.level !== saved.before?.badge?.level"
-          class="reward"
-        >
-          <span class="reward-title">獲得新徽章</span>
-          <BadgeChip :badge="saved.after.badge" />
-        </div>
         <div v-for="b in saved.unlocked" :key="b.id" class="reward">
           <span class="reward-title">解鎖新背景「{{ b.name }}」</span>
           <button type="button" class="btn" @click="useUnlocked(b)">馬上用</button>
@@ -750,7 +753,8 @@ const canvasLabel = computed(() => {
 }
 .stage {
   flex: none;
-  padding: 12px 16px;
+  /* 上下留 8px：字級放大後工具區變矮，把預覽周圍的空白讓出來 */
+  padding: 8px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -843,8 +847,9 @@ const canvasLabel = computed(() => {
   flex-shrink: 0;
 }
 .panel-title {
-  font-size: var(--tp-font-h3);
-  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
   margin-top: 6px;
 }
 /* 背景 */
@@ -877,7 +882,7 @@ const canvasLabel = computed(() => {
 }
 .search input:focus {
   outline: none;
-  border-color: var(--c-brand);
+  border-color: var(--c-action);
   box-shadow: 0 0 0 3px var(--tp-primary-100);
 }
 .chip .icon {
@@ -889,6 +894,12 @@ const canvasLabel = computed(() => {
 }
 .credit {
   text-align: center;
+}
+/* 照片出處連結：點擊範圍至少 48px 高（原本只有一行字的高度 23px） */
+.credit a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
 }
 .bg-grid {
   display: grid;
@@ -910,19 +921,20 @@ const canvasLabel = computed(() => {
   object-fit: cover;
 }
 .bg-item.on {
-  border-color: var(--c-brand);
+  border-color: var(--c-action);
 }
 .bg-name {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 14px 6px 4px;
+  padding: 18px 6px 5px;
   font-size: var(--tp-font-body);
-  line-height: 1.2;
-  font-weight: 600;
+  line-height: 1.25;
+  font-weight: 700;
   color: #fff;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
 }
 .lock {
   position: absolute;
@@ -944,7 +956,7 @@ const canvasLabel = computed(() => {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--c-brand);
+  background: var(--c-action);
   color: #fff;
   display: flex;
   align-items: center;
@@ -956,11 +968,14 @@ const canvasLabel = computed(() => {
   display: block;
   font-weight: 600;
 }
+/* 政策標語預覽：最多顯示兩行（原本單行截斷，長輩看不到內容就很難選） */
 .row-sub {
-  display: block;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin-top: 2px;
 }
 .radio {
   flex: none;
@@ -973,8 +988,8 @@ const canvasLabel = computed(() => {
   justify-content: center;
 }
 .radio.on {
-  background: var(--c-brand);
-  border-color: var(--c-brand);
+  background: var(--c-action);
+  border-color: var(--c-action);
   color: #fff;
 }
 .source {
@@ -1000,14 +1015,14 @@ const canvasLabel = computed(() => {
   width: 100%;
   padding: 12px 14px;
   border-radius: var(--radius-m);
-  border: 1.5px solid var(--tp-grey-200);
+  border: 2px solid var(--tp-grey-500);
   background: var(--c-surface);
-  font-size: 1.1rem;
-  line-height: 1.5;
+  font-size: 1.25rem;
+  line-height: 1.6;
   resize: vertical;
 }
 .field textarea:focus {
-  border-color: var(--c-brand);
+  border-color: var(--c-action);
   outline: none;
   box-shadow: 0 0 0 3px var(--tp-primary-100);
 }
@@ -1045,7 +1060,7 @@ const canvasLabel = computed(() => {
   border-radius: 10px;
 }
 .swatch[aria-checked='true'] {
-  border-color: var(--c-brand);
+  border-color: var(--c-action);
   background: var(--c-brand-soft);
 }
 .round {
@@ -1109,7 +1124,8 @@ span.block {
   width: 52px;
   height: 32px;
   border-radius: 16px;
-  background: var(--tp-grey-200);
+  /* 關閉狀態的軌道 grey-500（對白底 3.66:1，原 grey-200 只有 1.5:1） */
+  background: var(--tp-grey-500);
   position: relative;
   transition: background-color 0.2s ease;
   margin: 8px 0;
@@ -1127,7 +1143,15 @@ span.block {
   transition: transform 0.2s ease;
 }
 .switch:checked {
-  background: var(--tp-green-500);
+  background: var(--c-action);
+}
+/* 開關旁邊直接寫「開／關」，不只靠軌道顏色與滑塊位置 */
+.switch-state {
+  flex: none;
+  min-width: 1.5em;
+  font-weight: 800;
+  text-align: right;
+  color: var(--tp-grey-800);
 }
 .switch:checked::after {
   transform: translateX(20px);

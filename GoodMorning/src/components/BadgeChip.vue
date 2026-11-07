@@ -6,7 +6,7 @@ defineProps<{ badge?: Badge | null; compact?: boolean }>()
 
 <template>
   <span v-if="badge" class="badge" :class="{ compact }" :title="`Lv.${badge.level} ${badge.name}`">
-    <img :src="badge.iconUrl" alt="" width="20" height="20" />
+    <img :src="badge.iconUrl" alt="" width="24" height="24" />
     <span v-if="!compact">Lv.{{ badge.level }} {{ badge.name }}</span>
     <span v-else class="visually-hidden">徽章 Lv.{{ badge.level }} {{ badge.name }}</span>
   </span>
@@ -30,7 +30,7 @@ defineProps<{ badge?: Badge | null; compact?: boolean }>()
   padding: 2px;
 }
 .badge img {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 </style>
