@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: good-morning
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mariadb://localhost:3306/good_morning}
+    username: ${SPRING_DATASOURCE_USERNAME:good_morning}
+    password: ${SPRING_DATASOURCE_PASSWORD:good_morning}
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+server:
+  servlet:
+    context-path: /api
+  max-http-request-header-size: 16KB
+
+springdoc:
+  api-docs:
+    path: /openapi
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  s3:
+    bucket: ${AWS_S3_BUCKET:good-morning-local}
+    region: ${AWS_REGION:ap-southeast-2}
+    endpoint: ${S3_ENDPOINT:}

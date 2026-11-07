@@ -1,0 +1,72 @@
+name: good-morning
+
+services:
+  api:
+    build:
+      context: .
+      target: dev
+    working_dir: /workspace
+    command: ["mvn", "spring-boot:run"]
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/${DB_NAME:-good_morning}?sessionVariables=time_zone='+00:00'
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-good_morning}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-good_morning}
+      AWS_REGION: ${AWS_REGION:-ap-southeast-2}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-good-morning-local}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      S3_ENDPOINT: http://localstack:4566
+      TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
+    volumes:
+      - .:/workspace
+      - maven-cache:/root/.m2
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "8080:8080"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+
+  mariadb:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-good_morning}
+      MARIADB_USER: ${DB_USERNAME:-good_morning}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-good_morning}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-good_morning_root}
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  localstack:
+    image: localstack/localstack:3.8.1
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: ${AWS_REGION:-ap-southeast-2}
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./docker/localstack:/etc/localstack/init/ready.d:ro
+    ports:
+      - "4566:4566"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:4566/_localstack/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  mariadb-data:
+  localstack-data:
+  maven-cache:
