@@ -154,6 +154,24 @@ class CreateArtworkServiceTest {
     }
 
     @Test
+    void removesTheUploadedObjectWhenReadingItsUrlFails() {
+        allowCreationData();
+        when(artworks.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(s3Failure()).when(storage).readUrl(anyString());
+
+        assertApiError(
+                () -> service.create(PRINCIPAL, IMAGE, 1L, 1L, "早安台北"),
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "STORAGE_UNAVAILABLE");
+
+        var order = inOrder(storage, artworks);
+        order.verify(storage).put(anyString(), any(), anyString());
+        order.verify(artworks).saveAndFlush(any());
+        order.verify(storage).readUrl(anyString());
+        order.verify(storage).delete(anyString());
+    }
+
+    @Test
     void deletesTheUploadedObjectAndPreservesTheDatabaseFailure() {
         allowCreationData();
         var databaseFailure = new DataIntegrityViolationException("database failed");

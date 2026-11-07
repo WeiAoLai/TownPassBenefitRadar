@@ -20,6 +20,12 @@ class PngArtworkValidatorTest {
     }
 
     @Test
+    void rejectsMissingImages() {
+        assertInvalidPng(null);
+        assertInvalidPng(new byte[0]);
+    }
+
+    @Test
     void rejectsFilesOverTenMegabytes() {
         assertThatThrownBy(() -> validator.validate(new byte[10 * 1024 * 1024 + 1]))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
@@ -34,6 +40,11 @@ class PngArtworkValidatorTest {
     }
 
     @Test
+    void rejectsALongFileWithTheWrongPngSignature() {
+        assertInvalidPng(new byte[] {1, 2, 3, 4, 5, 6, 7, 8});
+    }
+
+    @Test
     void rejectsInvalidImageDataEvenWithAPngSignature() {
         assertInvalidPng(new byte[] {
             (byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a
@@ -43,6 +54,15 @@ class PngArtworkValidatorTest {
     @Test
     void rejectsPngWithWrongDimensions() throws IOException {
         assertThatThrownBy(() -> validator.validate(png(100, 100)))
+                .isInstanceOfSatisfying(ApiException.class, exception -> {
+                    org.assertj.core.api.Assertions.assertThat(exception.code())
+                            .isEqualTo("ARTWORK_IMAGE_DIMENSIONS_INVALID");
+                });
+    }
+
+    @Test
+    void rejectsPngWhenOnlyTheHeightIsWrong() throws IOException {
+        assertThatThrownBy(() -> validator.validate(png(1080, 100)))
                 .isInstanceOfSatisfying(ApiException.class, exception -> {
                     org.assertj.core.api.Assertions.assertThat(exception.code())
                             .isEqualTo("ARTWORK_IMAGE_DIMENSIONS_INVALID");

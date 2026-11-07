@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.server.ResponseStatusException;
 
 class GlobalExceptionHandlerTest {
 
@@ -62,5 +63,71 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getProperties())
                 .containsEntry("code", "ARTWORK_IMAGE_TOO_LARGE");
+    }
+
+    @Test
+    void apiErrorsKeepTheirStatusAndStableCode() {
+        var request = new MockHttpServletRequest("POST", "/api/v1/artworks");
+
+        var response = handler.handleApiException(
+                new ApiException(HttpStatus.FORBIDDEN, "POLICY_UNAVAILABLE", "Policy is unavailable"),
+                request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getProperties())
+                .containsEntry("code", "POLICY_UNAVAILABLE");
+    }
+
+    @Test
+    void dependencyApiErrorsLogTheirCause() {
+        var request = new MockHttpServletRequest("POST", "/api/v1/artworks");
+        var logger = (Logger) LoggerFactory.getLogger(GlobalExceptionHandler.class);
+        var appender = new ListAppender<ILoggingEvent>();
+        appender.start();
+        logger.addAppender(appender);
+        var cause = new RuntimeException("S3 failed");
+
+        try {
+            var response = handler.handleApiException(
+                    new ApiException(
+                            HttpStatus.SERVICE_UNAVAILABLE,
+                            "STORAGE_UNAVAILABLE",
+                            "Object storage is temporarily unavailable",
+                            cause),
+                    request);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            assertThat(appender.list)
+                    .singleElement()
+                    .satisfies(event -> {
+                        assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                        assertThat(event.getFormattedMessage())
+                                .contains("api_dependency_failure")
+                                .contains("code=STORAGE_UNAVAILABLE");
+                        assertThat(event.getThrowableProxy().getClassName())
+                                .isEqualTo(ApiException.class.getName());
+                    });
+        } finally {
+            logger.detachAppender(appender);
+            appender.stop();
+        }
+    }
+
+    @Test
+    void responseStatusErrorsDistinguishMissingResourcesFromRejectedRequests() {
+        var request = new MockHttpServletRequest("GET", "/api/v1/policies/random");
+
+        var notFound = handler.handleResponseStatus(
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "No policy is available"), request);
+        var rejected = handler.handleResponseStatus(
+                new ResponseStatusException(HttpStatus.CONFLICT, "Request conflicts"), request);
+
+        assertThat(notFound.getBody()).isNotNull();
+        assertThat(notFound.getBody().getProperties())
+                .containsEntry("code", "RESOURCE_NOT_FOUND");
+        assertThat(rejected.getBody()).isNotNull();
+        assertThat(rejected.getBody().getProperties())
+                .containsEntry("code", "REQUEST_REJECTED");
     }
 }
