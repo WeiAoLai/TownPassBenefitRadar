@@ -10,7 +10,13 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:good_morning}
     password: ${SPRING_DATASOURCE_PASSWORD:good_morning}
   flyway:
-    enabled: true
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    url: ${SPRING_FLYWAY_URL:${SPRING_DATASOURCE_URL:jdbc:mariadb://localhost:3306/good_morning}}
+    user: ${SPRING_FLYWAY_USER:${SPRING_DATASOURCE_USERNAME:good_morning}}
+    password: ${SPRING_FLYWAY_PASSWORD:${SPRING_DATASOURCE_PASSWORD:good_morning}}
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-disabled: true
   jpa:
     hibernate:
       ddl-auto: validate

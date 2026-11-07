@@ -56,10 +56,18 @@ SPRING_PROFILES_ACTIVE=demo
 SPRING_DATASOURCE_URL=jdbc:mariadb://<host>:3306/good_morning?sessionVariables=time_zone='+00:00'
 SPRING_DATASOURCE_USERNAME=<secret reference>
 SPRING_DATASOURCE_PASSWORD=<secret reference>
+SPRING_FLYWAY_ENABLED=true
+SPRING_FLYWAY_URL=jdbc:mariadb://<host>:3306/good_morning?sessionVariables=time_zone='+00:00'
+SPRING_FLYWAY_USER=<migration secret reference>
+SPRING_FLYWAY_PASSWORD=<migration secret reference>
 AWS_REGION=ap-southeast-2
 AWS_S3_BUCKET=<asset bucket>
 PRESIGNED_URL_TTL=PT15M
 ```
+
+Flyway 會在應用程式啟動時執行 `classpath:db/migration`，成功後才完成 Spring Boot 啟動。若未提供 `SPRING_FLYWAY_URL/USER/PASSWORD`，會沿用 `SPRING_DATASOURCE_*`；demo 可使用同一組帳號。正式環境建議提供獨立 migration 帳號，該帳號需要 schema DDL/DML 權限，runtime datasource 帳號則只保留應用程式需要的 CRUD 權限。部署時不要把密碼寫入 image 或 Git，請使用平台的 secret reference。
+
+Flyway 預設啟用 migration validation，且禁止 `clean`。若 migration 失敗，應用程式會直接啟動失敗，不會在不完整 schema 上提供服務；可從 log 搜尋 `Flyway` 或 `flyway_schema_history` 排查。
 
 部署到真實 AWS 時不要設定 `S3_ENDPOINT` 或 `S3_PUBLIC_ENDPOINT`；這兩個值只供 LocalStack 使用。Bucket 需預先包含背景與徽章 object key，作品則由 API 寫入 `artworks/{userId}/{uuid}.png`。
 
