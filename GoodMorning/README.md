@@ -25,7 +25,7 @@
 ### Demo
 
 - Demo URL：尚未公開部署。部署方式見第 9 節（Docker），完成後在台北通 App 的服務設定填入網址。
-- 本機預覽：`npm run dev` 後以手機瀏覽器開啟 `http://<電腦 IP>:5173`，預設為示範資料模式，不需要後端。
+- 本機預覽：`npm run dev` 後以手機瀏覽器開啟 `http://<電腦 IP>:5174`，使用瀏覽器內示範資料，不需要後端；要接正式後端用 `npm run prod`。
 - 測試限制：每日提醒、台北通帳號需要在台北通 App 的 WebView 裡才能使用；一般瀏覽器會改用示範帳號，提醒開關會停用並說明原因。
 
 ## 2. 系統架構 / System Architecture
@@ -65,13 +65,14 @@ TownPass Flutter App（TownPass/）
 ```sh
 cd GoodMorning
 npm ci
-npm run dev            # http://localhost:5173 ，預設 mock 模式，不需後端
+npm run dev            # 本機：http://localhost:5174 ，瀏覽器內示範資料，不需後端（5173 留給同倉庫的 Front）
+npm run prod           # 正式：同一個網址，串接正式後端（AWS ALB 的 /api/v1）
 ```
 
-串接部署在 AWS 的後端（設定寫在 `package.json` 的 `dev:alb`）：
+串接部署在 AWS 的後端（設定寫在 `package.json` 的 `prod`）：
 
 ```sh
-npm run dev:alb        # 前端呼叫 /api/v1/...，由 vite 原樣轉到 http://<ALB>/api/v1/...
+npm run prod           # 前端呼叫 /api/v1/...，由 vite 原樣轉到 http://<ALB>/api/v1/...
 ```
 
 串接本機後端（`backend/` 的 docker compose；若本機後端的 base 是 `/api`，用 `VITE_API_BASE_URL=/api`）：
@@ -109,9 +110,21 @@ fvm flutter run
 npm run typecheck   # vue-tsc
 npm test            # vitest：排行榜、徽章、排版、背景圖庫 JSON、對比、分享、每日上限、13 個 API 端點路徑、慶祝語音，共 63 個
 npm run build       # vue-tsc + vite build
+
+npx playwright install chromium   # 第一次跑 e2e 前安裝瀏覽器
+npm run test:e2e                  # Playwright end-to-end 測試
 ```
 
-2026-11-08 結果：typecheck、build 通過；測試 63 個全數通過。
+2026-11-08 結果：typecheck、build 通過；單元測試 63 個全數通過。
+
+**End-to-end 測試**（`e2e/`，Playwright 1.63.0，設定見 `playwright.config.ts`）會自己啟動伺服器，不需要後端：
+
+| 專案 | 環境 | 內容 |
+|---|---|---|
+| `mock-iphone13`、`mock-pixel7` | 正式 build＋示範資料模式，iPhone 13 與 Pixel 7 尺寸 | 隨機一張 → 儲存 → 存到手機相簿；政策類別下拉選單；每日上限（第 4 張停用）；政策標語唯讀、問候語可改；舊草稿標語還原；拖曳把手只改文字框、字級不變；「我的照片」選照片；鎖住的背景只提示；四個工具分頁觸控目標 ≥ 48 × 48；「我的」提醒開關在一般瀏覽器停用；模擬台北通：只顯示暱稱、開提醒送出 `daily_reminder` |
+| `http-iphone13` | 串接模式，`/api/v1/**` 由測試內照 openapi 寫的假後端回應 | 所有請求都在 `/api/v1` 底下且帶 `X-Demo-User`；儲存送出的 `backgroundId` 是後端存在的背景、`sloganText` 是政策原文 |
+
+背景照片缺檔時測試仍可執行（畫面會顯示載入失敗提示，不影響流程）。實機與台北通 WebView 內的測試不在此範圍。
 
 ## 4. TownPass WebView 整合
 
@@ -171,7 +184,7 @@ npm run build       # vue-tsc + vite build
 |---|---|---|---|
 | 5.1 | 選背景 | 10 張地標照片由前端圖庫提供；解鎖依目前使用者的累積作品數（`GET /api/v1/me` 的 `artworkCount`）判斷，鎖定的背景顯示「存 N 張解鎖」；背景格第一格是「我的照片」 | Unsplash 照片，[Unsplash License](https://unsplash.com/license)；清單 `public/data/backgrounds.json` |
 | 5.3 | 自己的照片 | `<input type="file" accept="image/*">` 叫出拍照／相簿選單；手機端裁成 1080 正方形 | 使用者提供；只上傳合成後的作品，不上傳原圖與 EXIF |
-| 5.4 | 選政策、帶入標語 | 類別 → 政策清單（單選）→ 標語自動帶入；**標語不能修改**，確保圖上的文字與市府公告一致，送出的 `sloganText` 一律是政策原文 | http 模式為後端資料；mock 模式為**示範資料**（`src/api/mock/fixtures.ts`），見下方說明 |
+| 5.4 | 選政策、帶入標語 | 類別（原生下拉選單）→ 政策清單（單選）→ 標語自動帶入；**標語不能修改**，確保圖上的文字與市府公告一致，送出的 `sloganText` 一律是政策原文 | http 模式為後端資料；mock 模式為**示範資料**（`src/api/mock/fixtures.ts`），見下方說明 |
 | 5.5 | 隨機一張 | `GET /api/v1/policies/random`，並隨機挑問候語、字樣與已解鎖背景 | 同 5.4 |
 | 5.6 | 編輯文字 | 兩個圖層：問候語（可自由輸入或選常用問候語）、政策標語（文字固定，只能調整樣式與位置）；8 種字樣、直書／橫書、3 種內建字型；拖曳移動；拖右下角把手調整文字框大小（橫書改寬度與換行、直書改每行字數），字級不變；字級用 −／＋ 按鈕調整；另有九宮格定位與微調按鈕；只有超出畫布時才自動縮小 | — |
 | 5.7 | 儲存作品 | 前端輸出 1080 × 1080 PNG → `POST /api/v1/artworks`；每人每天最多 3 張（台北時間 00:00 重置） | — |
