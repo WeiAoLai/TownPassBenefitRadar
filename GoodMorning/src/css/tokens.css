@@ -1,0 +1,72 @@
+/*
+ * TownPass Figma UI kit 已驗證 tokens（page 1:2，2026-10-25 檢視；見 .claude/skills/townpass-webview-hackathon/references/design-system.md）
+ * 原始色票只放這裡；元件一律使用下方語意別名。
+ * 字級以 rem 表示（16px = 1rem），跟著使用者系統字級放大。
+ */
+:root {
+  --tp-primary-50: #edf8fa;
+  --tp-primary-100: #dbf1f5;
+  --tp-primary-200: #b4e2ea;
+  --tp-primary-300: #93d4df;
+  --tp-primary-400: #71c5d5;
+  --tp-primary-500: #5ab4c5;
+  --tp-primary-600: #468d9b;
+  --tp-primary-700: #356c77;
+  --tp-primary-800: #22474e;
+
+  --tp-secondary-50: #fdf8ed;
+  --tp-secondary-100: #fcf2df;
+  --tp-secondary-300: #f4d69e;
+  --tp-secondary-500: #f5ba4b;
+  --tp-secondary-700: #ad7b2b;
+  --tp-secondary-800: #74521b;
+
+  --tp-grey-50: #f1f3f4;
+  --tp-grey-100: #e3e7e9;
+  --tp-grey-200: #cad1d5;
+  --tp-grey-300: #adb8be;
+  --tp-grey-500: #738995;
+  --tp-grey-600: #5e6d76;
+  --tp-grey-700: #475259;
+  --tp-grey-800: #30383d;
+  --tp-grey-900: #171b1d;
+
+  --tp-red-300: #e29494;
+  --tp-red-500: #d45251;
+  --tp-orange-500: #fd853a;
+  --tp-green-500: #76a732;
+
+  /* Typography（Figma：H1 36/48、H2 24/32、H3 16/22、Body 14/20、Caption 12/18） */
+  --tp-font-family: 'PingFang TC', -apple-system, BlinkMacSystemFont, Roboto, 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+  --tp-font-h1: 2.25rem;
+  --tp-lh-h1: 3rem;
+  --tp-font-h2: 1.5rem;
+  --tp-lh-h2: 2rem;
+  --tp-font-h3: 1rem;
+  --tp-lh-h3: 1.375rem;
+  --tp-font-body: 0.875rem;
+  --tp-lh-body: 1.25rem;
+
+  /* 語意別名 */
+  --c-bg: var(--tp-grey-50);
+  --c-surface: #ffffff;
+  --c-text: var(--tp-grey-800);
+  --c-text-2: var(--tp-grey-600);
+  --c-line: var(--tp-grey-100);
+  --c-brand: var(--tp-primary-500);
+  --c-brand-strong: var(--tp-primary-700);
+  --c-brand-soft: var(--tp-primary-50);
+  --c-on-brand: #ffffff;
+  --c-accent: var(--tp-secondary-500);
+  --c-accent-soft: var(--tp-secondary-50);
+  --c-like: var(--tp-red-500);
+  --c-danger: var(--tp-red-500);
+
+  --radius-s: 8px;
+  --radius-m: 12px;
+  --radius-l: 20px;
+  --shadow-1: 0 1px 2px rgba(23, 27, 29, 0.06), 0 2px 8px rgba(23, 27, 29, 0.05);
+  --shadow-sheet: 0 -4px 24px rgba(23, 27, 29, 0.16);
+  --tabbar-h: 64px;
+  color-scheme: light;
+}

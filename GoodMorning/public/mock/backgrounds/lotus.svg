@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b5fd1"/><stop offset=".55" stop-color="#5fb3f0"/><stop offset="1" stop-color="#bfe6ff"/></linearGradient>
+    <radialGradient id="leaf" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#8fd14f"/><stop offset=".7" stop-color="#3f9b2f"/><stop offset="1" stop-color="#26701f"/></radialGradient>
+    <linearGradient id="petal" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff5fa8"/><stop offset="1" stop-color="#ffe0ef"/></linearGradient>
+  </defs>
+  <rect width="1080" height="1080" fill="url(#sky)"/>
+  <g fill="#fff" opacity=".85"><ellipse cx="220" cy="190" rx="150" ry="44"/><ellipse cx="300" cy="160" rx="90" ry="50"/><ellipse cx="820" cy="260" rx="170" ry="42"/><ellipse cx="740" cy="236" rx="80" ry="40"/></g>
+  <rect y="640" width="1080" height="440" fill="#2c7f8f"/>
+  <g fill="url(#leaf)">
+    <ellipse cx="160" cy="900" rx="260" ry="120"/><ellipse cx="560" cy="980" rx="320" ry="130"/><ellipse cx="980" cy="880" rx="240" ry="110"/>
+    <ellipse cx="420" cy="760" rx="200" ry="80"/><ellipse cx="820" cy="730" rx="180" ry="70"/><ellipse cx="80" cy="720" rx="160" ry="60"/>
+  </g>
+  <g stroke="#2a6b1e" stroke-width="5" fill="none" opacity=".6">
+    <path d="M160 900 L40 860 M160 900 L300 840 M160 900 L200 1010"/><path d="M560 980 L420 900 M560 980 L720 920 M560 980 L600 1080"/>
+    <path d="M980 880 L860 820 M980 880 L1080 860"/>
+  </g>
+  <path d="M700 820 C700 700 690 620 700 560" stroke="#3d8a2a" stroke-width="12" fill="none"/>
+  <g transform="translate(700 520)">
+    <path d="M0 40 C-70 0 -80 -90 0 -150 C80 -90 70 0 0 40z" fill="url(#petal)"/>
+    <path d="M0 40 C-120 20 -170 -60 -150 -110 C-80 -100 -30 -40 0 40z" fill="url(#petal)"/>
+    <path d="M0 40 C120 20 170 -60 150 -110 C80 -100 30 -40 0 40z" fill="url(#petal)"/>
+    <path d="M0 40 C-150 50 -210 0 -220 -30 C-140 -50 -60 -10 0 40z" fill="#ff8cc2"/>
+    <path d="M0 40 C150 50 210 0 220 -30 C140 -50 60 -10 0 40z" fill="#ff8cc2"/>
+  </g>
+</svg>

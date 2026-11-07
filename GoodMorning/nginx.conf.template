@@ -1,0 +1,38 @@
+server {
+  listen 80;
+  server_name _;
+  root /usr/share/nginx/html;
+
+  # 圖片上傳上限 10 MB，留一點 multipart 空間
+  client_max_body_size 12m;
+
+  location /api/ {
+    proxy_pass ${BACKEND_URL};
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  # 臺北旅遊網景點照片：同網域代理（原站沒有 CORS，canvas 才能輸出 PNG）
+  location /travel-img/ {
+    proxy_pass https://www.travel.taipei/image/;
+    proxy_set_header Host www.travel.taipei;
+    proxy_ssl_server_name on;
+    proxy_hide_header Set-Cookie;
+    expires 7d;
+  }
+
+  location /data/ {
+    add_header Cache-Control "public, max-age=3600";
+  }
+
+  location /assets/ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+  }
+
+  location / {
+    try_files $uri $uri/ /index.html;
+    add_header Cache-Control "no-cache";
+  }
+}

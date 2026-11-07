@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" width="1080" height="1080">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a6fd8"/><stop offset=".5" stop-color="#f6a6b2"/><stop offset=".8" stop-color="#ffd18a"/><stop offset="1" stop-color="#ffe9b8"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3d7f86"/><stop offset=".5" stop-color="#77b7b2"/><stop offset="1" stop-color="#2f6468"/></linearGradient>
+  </defs>
+  <rect width="1080" height="1080" fill="url(#sky)"/>
+  <circle cx="300" cy="760" r="110" fill="#fff3c4" opacity=".9"/>
+  <path d="M0 860 L120 760 L230 820 L360 720 L500 800 L640 700 L780 790 L900 720 L1080 820 L1080 1080 L0 1080z" fill="#7a8fb8" opacity=".55"/>
+  <g fill="url(#glass)">
+    <rect x="608" y="120" width="8" height="90"/>
+    <rect x="590" y="200" width="44" height="40"/>
+    <g id="seg"><path d="M570 240 L654 240 L672 330 L552 330z"/></g>
+    <path d="M570 330 L654 330 L672 420 L552 420z"/><path d="M570 420 L654 420 L672 510 L552 510z"/>
+    <path d="M570 510 L654 510 L672 600 L552 600z"/><path d="M570 600 L654 600 L672 690 L552 690z"/>
+    <path d="M570 690 L654 690 L672 780 L552 780z"/><path d="M570 780 L654 780 L672 870 L552 870z"/>
+    <path d="M540 870 L684 870 L700 1080 L524 1080z"/>
+  </g>
+  <g fill="#9fd0c8" opacity=".6"><rect x="600" y="250" width="24" height="580"/></g>
+  <g fill="#355a7a">
+    <rect x="80" y="880" width="120" height="200"/><rect x="220" y="920" width="90" height="160"/><rect x="330" y="860" width="140" height="220"/>
+    <rect x="740" y="900" width="110" height="180"/><rect x="870" y="850" width="130" height="230"/><rect x="1010" y="930" width="70" height="150"/>
+  </g>
+  <g fill="#ffe39a" opacity=".8">
+    <rect x="100" y="900" width="16" height="16"/><rect x="150" y="940" width="16" height="16"/><rect x="360" y="890" width="16" height="16"/><rect x="420" y="950" width="16" height="16"/>
+    <rect x="770" y="930" width="16" height="16"/><rect x="900" y="880" width="16" height="16"/><rect x="950" y="960" width="16" height="16"/>
+  </g>
+</svg>
