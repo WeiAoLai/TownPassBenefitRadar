@@ -1,0 +1,323 @@
+{
+  "version": "115",
+  "region": "臺北市",
+  "updated": "2026-11-07",
+  "values": {
+    "minLiving": {
+      "value": 20744,
+      "unit": "元/人/月",
+      "label": "最低生活費",
+      "cite": "mohw115"
+    },
+    "realEstateLimitLow": {
+      "value": 8370000,
+      "unit": "元/戶",
+      "label": "低收入戶不動產限額",
+      "cite": "mohw115"
+    },
+    "movableLimitLow": {
+      "value": 150000,
+      "unit": "元/人/年",
+      "label": "低收入戶動產限額",
+      "cite": "mohw115"
+    },
+    "midIncomeCap": {
+      "value": 29635,
+      "unit": "元/人/月",
+      "label": "中低收入戶收入上限（臺北市 115 年度）",
+      "cite": "tpeMid115"
+    },
+    "movableLimitMid": {
+      "value": 160000,
+      "unit": "元/人",
+      "label": "中低收入戶動產限額（全家平均每人）",
+      "cite": "tpeMid115"
+    },
+    "realEstateLimitMid": {
+      "value": 9920000,
+      "unit": "元/戶",
+      "label": "中低收入戶不動產限額（臺北市 115 年度）",
+      "cite": "tpeMid115"
+    },
+    "minWageMonthly": {
+      "value": 29500,
+      "unit": "元/月",
+      "label": "基本工資（115/1/1 起）",
+      "cite": "tpe115"
+    },
+    "rentIncomeCap": {
+      "value": 61137,
+      "unit": "元/人/月",
+      "label": "租金補貼所得上限（臺北市，最低生活費 3 倍）",
+      "cite": "rentForm115"
+    },
+    "rentIncomeCapFamily": {
+      "value": 71327,
+      "unit": "元/人/月",
+      "label": "租金補貼所得上限（新婚或育有未成年子女，3.5 倍）",
+      "cite": "case1631039"
+    },
+    "rentIncomeYear": {
+      "value": 114,
+      "unit": "年度",
+      "label": "租補審查用的綜所稅所得年度（審查基準日 115/7/1 以後）",
+      "cite": "rentForm115"
+    },
+    "seniorIncomeCap": {
+      "value": 39960,
+      "unit": "元/人/月",
+      "label": "中低收入老人生活津貼收入上限（臺北市 115 年度）",
+      "cite": "tpeSenior115"
+    },
+    "seniorFullCap": {
+      "value": 29635,
+      "unit": "元/人/月",
+      "label": "老人津貼全額的收入上限",
+      "cite": "tpeSeniorAmt115"
+    },
+    "seniorFull": {
+      "value": 8329,
+      "unit": "元/月",
+      "label": "中低收入老人生活津貼全額",
+      "cite": "tpeSeniorAmt115"
+    },
+    "seniorHalf": {
+      "value": 4164,
+      "unit": "元/月",
+      "label": "中低收入老人生活津貼半額",
+      "cite": "tpeSeniorAmt115"
+    },
+    "seniorMovableBase": {
+      "value": 2500000,
+      "unit": "元",
+      "label": "老人津貼存款投資限額（一人家庭）",
+      "cite": "seniorRule"
+    },
+    "seniorMovableStep": {
+      "value": 250000,
+      "unit": "元/人",
+      "label": "老人津貼存款投資限額（每多一人增加）",
+      "cite": "seniorRule"
+    },
+    "seniorRealEstate": {
+      "value": 9920000,
+      "unit": "元/戶",
+      "label": "老人津貼土地房屋限額（臺北市 115 年度）",
+      "cite": "tpeSenior115"
+    },
+    "disIncomeCap": {
+      "value": 39960,
+      "unit": "元/人/月",
+      "label": "身障生活補助收入上限（臺北市 115 年度）",
+      "cite": "tpeDis115"
+    },
+    "disMovableBase": {
+      "value": 2000000,
+      "unit": "元",
+      "label": "身障生活補助存款投資限額（一人家庭）",
+      "cite": "tpeDis115"
+    },
+    "disMovableStep": {
+      "value": 250000,
+      "unit": "元/人",
+      "label": "身障生活補助存款投資限額（每多一人增加）",
+      "cite": "tpeDis115"
+    },
+    "disRealEstate": {
+      "value": 9920000,
+      "unit": "元/戶",
+      "label": "身障生活補助土地房屋限額（臺北市 115 年度）",
+      "cite": "tpeDis115"
+    },
+    "disLowHeavy": {
+      "value": 9485,
+      "unit": "元/月",
+      "label": "身障生活補助：低收入戶、中度以上",
+      "cite": "tpeDis115"
+    },
+    "disLowMild": {
+      "value": 5437,
+      "unit": "元/月",
+      "label": "身障生活補助：低收入戶、輕度",
+      "cite": "tpeDis115"
+    },
+    "disHeavy": {
+      "value": 5437,
+      "unit": "元/月",
+      "label": "身障生活補助：中低收入戶或一般戶、中度以上",
+      "cite": "tpeDis115"
+    },
+    "disMild": {
+      "value": 4049,
+      "unit": "元/月",
+      "label": "身障生活補助：中低收入戶或一般戶、輕度",
+      "cite": "tpeDis115"
+    },
+    "specialIncomeCap": {
+      "value": 39960,
+      "unit": "元/人/月",
+      "label": "特殊境遇家庭收入上限（臺北市 115 年度）",
+      "cite": "tpeSpecial115"
+    },
+    "specialMovable": {
+      "value": 622320,
+      "unit": "元/人",
+      "label": "特殊境遇家庭存款投資限額（平均每人）",
+      "cite": "tpeSpecial115"
+    },
+    "specialRealEstate": {
+      "value": 6500000,
+      "unit": "元/戶",
+      "label": "特殊境遇家庭不動產限額",
+      "cite": "tpeSpecial115"
+    },
+    "specialKidPerChild": {
+      "value": 2950,
+      "unit": "元/人/月",
+      "label": "子女生活津貼（最低工資 29,500 元的十分之一）",
+      "cite": "specialAct"
+    },
+    "specialKidMaxAge": {
+      "value": 15,
+      "unit": "歲",
+      "label": "子女生活津貼：15 歲以下子女",
+      "cite": "specialAct"
+    },
+    "specialEmergencyMonths": {
+      "value": 3,
+      "unit": "個月",
+      "label": "緊急生活扶助：一次最多補助月數（已是低收入戶 2 個月）",
+      "cite": "tpeSpecialRule"
+    },
+    "childcareAmounts": {
+      "value": [
+        5000,
+        6000,
+        7000
+      ],
+      "unit": "元/月",
+      "label": "育兒津貼（未滿 2 歲）：第 1、2、3 名以上子女",
+      "cite": "childcareRule"
+    },
+    "childcareMaxAge": {
+      "value": 2,
+      "unit": "歲",
+      "label": "育兒津貼：未滿 2 歲",
+      "cite": "childcareRule"
+    },
+    "birthAmounts": {
+      "value": [
+        40000,
+        45000,
+        50000
+      ],
+      "unit": "元（一次）",
+      "label": "臺北市生育補助：第 1、2、3 名以後新生兒",
+      "cite": "birthRule"
+    },
+    "cardPoints": {
+      "value": 600,
+      "unit": "點/月",
+      "label": "敬老卡、愛心卡（第一類）每月點數，每點 1 元",
+      "cite": "cardRule"
+    },
+    "pensionAmount": {
+      "value": 4049,
+      "unit": "元/月",
+      "label": "國民年金老年基本保證年金",
+      "cite": "pensionNews"
+    },
+    "pensionMinAge": {
+      "value": 83,
+      "unit": "歲",
+      "label": "老年基本保證年金：民國 32 年 10 月 1 日以前出生（約 83 歲以上）",
+      "cite": "pensionNews"
+    },
+    "pensionIncome": {
+      "value": 500000,
+      "unit": "元/年",
+      "label": "老年基本保證年金：個人所得上限",
+      "cite": "pensionNews"
+    },
+    "pensionRealEstate": {
+      "value": 5000000,
+      "unit": "元",
+      "label": "老年基本保證年金：個人房地上限（唯一自住房屋可再扣 400 萬）",
+      "cite": "pensionNews"
+    }
+  },
+  "cites": {
+    "mohw115": {
+      "title": "衛福部 115 年度最低生活費、動產及不動產限額",
+      "url": "https://www.mohw.gov.tw/dl-97289-8c213179-3e49-4ea3-ab21-1759306d51d5.html"
+    },
+    "tpe115": {
+      "title": "臺北市 115 年度最低生活費及不動產限額（含基本工資）",
+      "url": "https://service.docms.gov.taipei/attachments/115-income-limit.pdf"
+    },
+    "saAct": {
+      "title": "社會救助法第 4、4-1、5 條",
+      "url": "https://law.moj.gov.tw/LawClass/LawSingle.aspx?pcode=D0050078&flno=5"
+    },
+    "rentForm115": {
+      "title": "115 年度三百億元中央擴大租金補貼申請書（金額表、加碼表、所得標準）",
+      "url": "https://www.planning.ntpc.gov.tw/userfiles/1090400/files/115%E5%B9%B4%E5%BA%A6%E7%A7%9F%E9%87%91%E8%A3%9C%E8%B2%BC%E7%94%B3%E8%AB%8B%E6%9B%B8.pdf"
+    },
+    "case1631039": {
+      "title": "臺北市政府訴願決定書 1631-039（租補家庭成員定義、3.5 倍上限 71,327 元）",
+      "url": "https://laws.gov.taipei/law/LawDecision/ContentPrint?id=1631-039"
+    },
+    "tpeMid115": {
+      "title": "臺北市社會局：中低收入戶申請說明（115 年度標準）",
+      "url": "https://dosw.gov.taipei/cp.aspx?n=B75CE261826F1C11"
+    },
+    "tpeSenior115": {
+      "title": "臺北市社會局：申請中低收入老人生活津貼資格（115 年度）",
+      "url": "https://dosw.gov.taipei/News_Content.aspx?n=91F35523B74F69AC&s=E03AD75AF32DC3F0"
+    },
+    "tpeSeniorAmt115": {
+      "title": "臺北市社會局：中低收入老人生活津貼補助內容與應備文件",
+      "url": "https://dosw.gov.taipei/News_Content.aspx?n=91F35523B74F69AC&s=64A2C16365657374"
+    },
+    "seniorRule": {
+      "title": "中低收入老人生活津貼發給辦法（111/1/1 施行）第 2、3、5、12 條",
+      "url": "https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=D0050045"
+    },
+    "tpeDis115": {
+      "title": "臺北市社會局：身心障礙者生活補助資格與補助內容（115 年度）",
+      "url": "https://dosw.gov.taipei/News_Content.aspx?n=91F35523B74F69AC&s=8D79133341A528E3"
+    },
+    "disRule": {
+      "title": "身心障礙者生活補助費發給辦法（擇一領取、每月合計不超過基本工資）",
+      "url": "https://laws.gov.taipei/law/LawSearch/LawArticleContent/FL066325"
+    },
+    "tpeSpecial115": {
+      "title": "臺北市社會局：申請特殊境遇家庭扶助的條件（115 年度）",
+      "url": "https://dosw.gov.taipei/News_Content.aspx?n=91F35523B74F69AC&sms=87415A8B9CE81B16&s=F86046FC3A91FCAF"
+    },
+    "specialAct": {
+      "title": "特殊境遇家庭扶助條例第 4、4-1、6、7 條",
+      "url": "https://law.moj.gov.tw/LawClass/LawAll.aspx?pcode=D0050075"
+    },
+    "tpeSpecialRule": {
+      "title": "臺北市政府特殊境遇家庭扶助申請及審核作業須知（115/10/1 生效）",
+      "url": "https://laws.gov.taipei/law/LawSearch/LawExport/FL041850?type=0"
+    },
+    "childcareRule": {
+      "title": "育兒津貼（未滿 2 歲）發放規定（高雄市政府轉載中央規定）",
+      "url": "https://orgws.kcg.gov.tw/001/KcgOrgUploadFiles/327/relfile/69302/169143/49e4bcab-4945-460f-9a0d-e8c9688be684.pdf"
+    },
+    "birthRule": {
+      "title": "臺北市生育補助發放辦法（115/9/3 修正）",
+      "url": "https://laws.gov.taipei/Law/LawSearch/LawArticleContent/FL081869"
+    },
+    "cardRule": {
+      "title": "臺北市敬老悠遊卡及愛心悠遊卡補助辦法（115/7/1 起每月 600 點）",
+      "url": "https://laws.gov.taipei/law/LawSearch/LawExport/FL038239?type=0"
+    },
+    "pensionNews": {
+      "title": "國民年金老年基本保證年金資格與金額整理（天下雜誌）",
+      "url": "https://www.cw.com.tw/article/5140466"
+    }
+  }
+}
