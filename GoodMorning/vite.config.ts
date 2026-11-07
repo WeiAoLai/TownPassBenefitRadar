@@ -65,8 +65,13 @@ export default defineConfig(({ mode }) => ({
   // 相對路徑：打包後放在任何網址底下都能開
   base: './',
   server: {
-    // 串接真後端時：VITE_API_MODE=http，並把 /api 代理到後端（也可寫在 .env.local；ALB 設定見 package.json 的 dev:alb）
+    // 固定用 5174：同一個倉庫的 Front（領得到）用 5173，兩個可以同時開
+    port: 5174,
+    // 串接真後端時：VITE_API_MODE=http，並把 /api 代理到後端（也可寫在 .env.local；ALB 設定見 package.json 的 prod）
     proxy: apiProxy(process.env.API_PROXY_TARGET || loadEnv(mode, process.cwd(), '').API_PROXY_TARGET),
+  },
+  preview: {
+    port: 5174,
   },
   build: {
     // 台北通 iOS 最低支援 15.0（taipei-doit/TownPass IPHONEOS_DEPLOYMENT_TARGET）
