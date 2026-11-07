@@ -21,7 +21,7 @@ public class PolicyController {
     }
 
     @GetMapping("/policy-categories")
-    List<String> listCategories() {
+    List<String> listPolicyCategories() {
         return policyService.listCategories();
     }
 
@@ -32,7 +32,7 @@ public class PolicyController {
     }
 
     @GetMapping("/policies/random")
-    PolicyResponse randomPolicy() {
+    PolicyResponse getRandomPolicy() {
         return policyService.randomPolicy();
     }
 }
