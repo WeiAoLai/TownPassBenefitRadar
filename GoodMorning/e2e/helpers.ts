@@ -7,11 +7,20 @@ export function draft(page: Page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('gm.draft.v1') || 'null'))
 }
 
-/** 打開製作頁並等資料載入完成 */
-export async function openEditor(page: Page) {
+/** 打開製作首頁並等資料載入完成 */
+export async function openCreate(page: Page) {
   await page.goto('./#/create')
-  await expect(page.getByRole('button', { name: /隨機一張/ })).toBeEnabled({ timeout: 20_000 })
+  await expect(page.getByRole('button', { name: '幫我做一張' })).toBeEnabled({ timeout: 20_000 })
   await page.waitForLoadState('networkidle')
+}
+
+/** 從簡易流程進入完整編輯器 */
+export async function openEditor(page: Page) {
+  await openCreate(page)
+  await page.getByRole('button', { name: '幫我做一張' }).click()
+  await expect(page.getByRole('heading', { name: '這張可以嗎？' })).toBeVisible()
+  await page.getByRole('button', { name: '自行調整' }).click()
+  await expect(page.getByRole('tab', { name: '背景' })).toBeVisible()
 }
 
 /** 按「隨機一張」並等政策、背景都載入完成 */
@@ -26,11 +35,11 @@ export async function randomize(page: Page) {
 
 export const saveButton = (page: Page) => page.locator('.actionbar .btn.primary')
 
-/** 按儲存；拿到新徽章時先關掉慶祝畫面，最後停在「儲存成功」視窗 */
+/** 按儲存；拿到新徽章時先關掉慶祝畫面，最後停在完成視窗 */
 export async function saveArtwork(page: Page) {
   await saveButton(page).click()
   const ok = page.getByRole('button', { name: '太棒了！' })
-  const sheet = page.getByRole('dialog', { name: '儲存成功' })
+  const sheet = page.getByRole('dialog', { name: '完成' })
   await expect(ok.or(sheet)).toBeVisible({ timeout: 15_000 })
   if (await ok.isVisible()) await ok.click()
   await expect(sheet).toBeVisible()

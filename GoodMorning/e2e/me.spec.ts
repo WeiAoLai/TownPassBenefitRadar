@@ -27,11 +27,11 @@ async function fakeTownPass(page: import('@playwright/test').Page) {
 }
 
 test.describe('我的', () => {
-  test('一般瀏覽器：提醒開關停用並說明原因', async ({ page }) => {
+  test('一般瀏覽器：提醒開關停用且不顯示說明文字', async ({ page }) => {
     await page.goto('./#/me')
     const sw = page.getByRole('switch', { name: '每天早上提醒我' })
     await expect(sw).toBeDisabled()
-    await expect(page.getByText('在台北通 App 裡打開才能設定提醒')).toBeVisible()
+    await expect(page.getByText('在台北通 App 裡打開才能設定提醒')).toHaveCount(0)
   })
 
   test('台北通裡：顯示暱稱、不顯示真實姓名；打開每日提醒送出 daily_reminder', async ({ page }) => {
