@@ -12,13 +12,13 @@ fi
 expected_tables=(users backgrounds policies artworks artwork_likes)
 
 for table_name in "${expected_tables[@]}"; do
-  if ! rg -q "CREATE TABLE ${table_name}" "$schema_file"; then
+  if ! grep -Eq "CREATE TABLE ${table_name}" "$schema_file"; then
     echo "missing table: $table_name" >&2
     exit 1
   fi
 done
 
-table_count="$(rg -c '^CREATE TABLE ' "$schema_file")"
+table_count="$(grep -Ec '^CREATE TABLE ' "$schema_file")"
 if [[ "$table_count" -ne "${#expected_tables[@]}" ]]; then
   echo "expected ${#expected_tables[@]} tables, found $table_count" >&2
   exit 1
@@ -44,7 +44,7 @@ required_patterns=(
 )
 
 for pattern in "${required_patterns[@]}"; do
-  if ! rg -q "$pattern" "$schema_file"; then
+  if ! grep -Eq "$pattern" "$schema_file"; then
     echo "missing schema requirement: $pattern" >&2
     exit 1
   fi

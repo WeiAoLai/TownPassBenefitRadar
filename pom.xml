@@ -23,6 +23,7 @@
         <springdoc.version>3.2.0</springdoc.version>
         <zxing.version>3.5.3</zxing.version>
         <testcontainers.version>1.20.4</testcontainers.version>
+        <testcontainers.docker-api-version>1.40</testcontainers.docker-api-version>
     </properties>
 
     <dependencyManagement>
@@ -131,6 +132,15 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
                     <parameters>true</parameters>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <api.version>${testcontainers.docker-api-version}</api.version>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>
