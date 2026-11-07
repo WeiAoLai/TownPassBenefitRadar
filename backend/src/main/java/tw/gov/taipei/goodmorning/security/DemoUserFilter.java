@@ -67,7 +67,7 @@ public class DemoUserFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        var path = request.getServletPath();
+        var path = request.getRequestURI().substring(request.getContextPath().length());
         return path.startsWith("/actuator/")
                 || path.startsWith("/openapi")
                 || path.startsWith("/swagger-ui");

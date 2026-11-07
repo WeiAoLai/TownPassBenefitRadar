@@ -76,6 +76,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getServletPath().startsWith("/actuator/health");
+        var path = request.getRequestURI().substring(request.getContextPath().length());
+        return path.startsWith("/actuator/health") || path.equals("/actuator/prometheus");
     }
 }

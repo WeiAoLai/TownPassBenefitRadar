@@ -9,6 +9,7 @@ cp .env.example .env
 docker compose up --build -d
 docker compose ps
 bash scripts/smoke-test.sh
+bash scripts/monitoring-smoke-test.sh
 ```
 
 預設入口：
@@ -30,6 +31,19 @@ bash scripts/smoke-test.sh
 ```
 
 完整測試包含 Flyway、MariaDB repository、併發按讚、S3、OpenAPI 契約、QR Code 解碼與 controller/service 測試。
+
+## Prometheus 與 Grafana
+
+本機 `docker compose up --build -d` 會一併啟動 Prometheus 與 Grafana：
+
+- Prometheus：`http://localhost:9090`
+- Grafana：`http://localhost:3000`
+- 預載 dashboard：`Good Morning / Good Morning Backend`
+- Grafana 本機預設帳號：`admin` / `change-me`，請在 `.env` 覆寫 `GRAFANA_ADMIN_PASSWORD`。
+
+Prometheus 每 15 秒透過 Compose 內網抓取 `api:8080/api/actuator/prometheus`。公開 Nginx 入口會封鎖 `/api/actuator/*`，只保留 `/health`，避免 JVM 與 DB pool metrics 外洩。正式環境可改由既有的 Prometheus 或 Amazon Managed Service for Prometheus 抓取，但 scrape endpoint 必須保持在 private network。
+
+已 provision 的 dashboard 包含 request rate、5xx ratio、HTTP p50/p95 latency、JVM heap、HikariCP connections 與 process CPU。Prometheus 與 Grafana 資料分別保存在 `prometheus-data`、`grafana-data` volumes。
 
 ## Logging 與問題追蹤
 
