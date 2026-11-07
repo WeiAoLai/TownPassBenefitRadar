@@ -185,7 +185,7 @@ function onImageError() {
   align-items: center;
   gap: 4px;
   min-width: 48px;
-  min-height: 38px;
+  min-height: 48px;
   padding: 0 10px;
   border-radius: 8px;
   color: var(--tp-grey-700);

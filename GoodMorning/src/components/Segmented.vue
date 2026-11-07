@@ -69,7 +69,7 @@ function onKey(e: KeyboardEvent, i: number) {
 .seg-btn {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 38px;
+  min-height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -101,7 +101,7 @@ function onKey(e: KeyboardEvent, i: number) {
   border-bottom: 1px solid var(--tp-grey-400);
 }
 .seg[role='radiogroup'] .seg-btn {
-  min-height: 38px;
+  min-height: 48px;
   background: var(--c-surface);
   border: 1px solid var(--tp-grey-400);
   border-bottom: 0;
@@ -124,7 +124,7 @@ function onKey(e: KeyboardEvent, i: number) {
   border-bottom: 0;
 }
 .seg.icon-only[role='radiogroup'] .seg-btn {
-  min-height: 38px;
+  min-height: 48px;
   background: var(--c-surface);
   color: var(--tp-grey-800);
   border: 1px solid var(--tp-grey-400);
