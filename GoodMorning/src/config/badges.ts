@@ -34,6 +34,21 @@ export function badgeIconDataUrl(level: number): string {
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
 }
 
+/**
+ * 徽章大圖（public/badges/）。目前只有 Lv.1–3 有設計稿；沒有大圖的等級先退回上面的示意圖示。
+ * 新增大圖：把圖片放進 public/badges/，在這裡加一行 { 等級: '檔名' }，畫面不用改。
+ */
+export const BADGE_ART_FILES: Readonly<Record<number, string>> = {
+  1: 'lv1.webp',
+  2: 'lv2.webp',
+  3: 'lv3.webp',
+}
+
+export function badgeArtUrl(level: number): string {
+  const file = BADGE_ART_FILES[level]
+  return file ? new URL(`badges/${file}`, document.baseURI).href : badgeIconDataUrl(level)
+}
+
 /** 作品排行榜分數（US-06）：max(愛心數, 下載數) */
 export const leaderboardScore = (a: { likeCount: number; downloadCount: number }) => Math.max(a.likeCount, a.downloadCount)
 

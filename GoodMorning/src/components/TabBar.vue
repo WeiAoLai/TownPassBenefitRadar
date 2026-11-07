@@ -22,7 +22,7 @@ const tabs = [
       :class="{ active: route.meta.tab === t.key }"
       :aria-current="route.meta.tab === t.key ? 'page' : undefined"
     >
-      <Icon :name="t.icon" :size="24" />
+      <Icon :name="t.icon" :size="28" />
       <span class="label">{{ t.label }}</span>
     </RouterLink>
   </nav>
@@ -39,21 +39,35 @@ const tabs = [
   background: var(--c-surface);
   border-top: 1px solid var(--c-line);
 }
+/* 長輩友善化：標籤 16px 半粗、圖示 28、高度 60；目前所在頁用深色＋粗體＋上方色條，不只靠顏色（原主色文字對白底 2.39:1） */
 .tab {
   flex: 1 1 0;
   min-width: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 52px;
-  color: var(--tp-grey-950);
+  min-height: 56px;
+  color: var(--tp-grey-800);
   text-decoration: none;
   font-size: var(--tp-font-body);
   line-height: var(--tp-lh-body);
+  font-weight: 600;
 }
 .tab.active {
-  color: var(--tp-primary-500);
+  color: var(--c-action);
+  font-weight: 800;
+}
+.tab.active::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 16%;
+  right: 16%;
+  height: 4px;
+  border-radius: 0 0 4px 4px;
+  background: var(--c-action);
 }
 .label {
   white-space: nowrap;

@@ -36,20 +36,23 @@ import { dismiss, toasts } from '../composables/toast'
 .toast {
   pointer-events: auto;
   max-width: 560px;
-  min-height: 48px;
-  padding: 12px 20px;
+  min-height: 56px;
+  padding: 14px 20px;
   border-radius: 8px;
   background: var(--tp-grey-800);
   color: #fff;
-  font-weight: 600;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 700;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
   text-align: center;
 }
 .toast.success {
   background: var(--tp-primary-700);
 }
+/* 深一階的紅：白字 5.64:1（red-500 只有 4.10） */
 .toast.error {
-  background: var(--tp-red-500);
+  background: var(--c-danger-strong);
 }
 .toast-enter-active,
 .toast-leave-active {

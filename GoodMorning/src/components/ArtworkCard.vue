@@ -4,12 +4,13 @@ import BadgeChip from './BadgeChip.vue'
 import Icon from './Icon.vue'
 import { toggleLike } from '../composables/artworkActions'
 
-const props = defineProps<{ artwork: Artwork; rank?: number; score?: number }>()
+/** large：單欄大卡片（排行榜用），名字與名次放大；預設是作品牆的兩欄小卡片 */
+const props = defineProps<{ artwork: Artwork; rank?: number; score?: number; large?: boolean }>()
 const emit = defineEmits<{ imageError: [] }>()
 </script>
 
 <template>
-  <article class="art card" :aria-label="`${props.artwork.owner.displayName} 的作品`">
+  <article class="art card" :class="{ large }" :aria-label="`${props.artwork.owner.displayName} 的作品`">
     <RouterLink :to="`/artworks/${artwork.id}`" class="thumb-link">
       <img
         class="thumb"
@@ -42,7 +43,11 @@ const emit = defineEmits<{ imageError: [] }>()
         </button>
       </div>
     </div>
-    <p v-if="score != null" class="score small">排行分數 {{ score }}（愛心與下載取高者）</p>
+    <p v-if="score != null" class="score">
+      <span><strong>{{ score }}</strong> 分</span>
+      <span>愛心 {{ artwork.likeCount }}</span>
+      <span>下載 {{ artwork.downloadCount }}</span>
+    </p>
   </article>
 </template>
 
@@ -65,20 +70,25 @@ const emit = defineEmits<{ imageError: [] }>()
   position: absolute;
   top: 10px;
   left: 10px;
-  padding: 4px 12px;
+  padding: 6px 14px;
   border-radius: 8px;
-  font-weight: 700;
-  background: rgba(23, 27, 29, 0.75);
+  font-size: var(--tp-font-h3);
+  font-weight: 800;
+  background: rgba(23, 27, 29, 0.8);
   color: #fff;
 }
+/* 前三名：淺底深字（對比 9–12:1）；原本金／銀／銅底配白字只有 2.15／2.69／3.72 */
 .rank.r1 {
-  background: #e7a43c;
+  background: var(--tp-secondary-500);
+  color: var(--tp-grey-950);
 }
 .rank.r2 {
-  background: #91a0a8;
+  background: var(--tp-grey-200);
+  color: var(--tp-grey-950);
 }
 .rank.r3 {
-  background: #ad7b2b;
+  background: var(--tp-orange-300);
+  color: var(--tp-grey-950);
 }
 .meta {
   display: flex;
@@ -93,8 +103,10 @@ const emit = defineEmits<{ imageError: [] }>()
   gap: 6px;
   min-width: 0;
 }
+/* 作品卡兩欄只有約 190px 寬，作者名維持 16px（18px 時四個字的名字會被截成「秀英…」） */
 .name {
-  font-weight: 600;
+  font-size: var(--tp-font-body);
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -131,7 +143,32 @@ const emit = defineEmits<{ imageError: [] }>()
   opacity: 0.5;
 }
 .score {
-  padding: 0 14px 12px;
-  color: var(--c-text-2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 18px;
+  padding: 0 14px 14px;
+  color: var(--tp-grey-800);
+  font-weight: 600;
+}
+.score strong {
+  font-size: 1.75rem;
+  line-height: 2rem;
+  color: var(--tp-primary-700);
+}
+
+/* 排行榜大卡片：名字 20px、名次標籤更大 */
+.art.large .name {
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+.art.large .meta {
+  padding-left: 14px;
+}
+.art.large .rank {
+  top: 12px;
+  left: 12px;
+  padding: 8px 18px;
+  font-size: 1.375rem;
 }
 </style>

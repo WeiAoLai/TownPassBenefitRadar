@@ -67,7 +67,7 @@ function onKey(e: KeyboardEvent, i: number) {
 .seg-btn {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 46px;
+  min-height: 52px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -75,12 +75,14 @@ function onKey(e: KeyboardEvent, i: number) {
   padding: 0 6px;
   font-size: var(--tp-font-h3);
   line-height: var(--tp-lh-h3);
-  color: var(--tp-grey-700);
+  font-weight: 600;
+  color: var(--tp-grey-800);
   position: relative;
 }
+/* 選取中：primary-700 粗體＋ 4px 底線（原主色 2.39:1） */
 .seg[role='tablist'] .seg-btn[aria-selected='true'] {
-  color: var(--tp-primary-500);
-  font-weight: 600;
+  color: var(--c-action);
+  font-weight: 800;
 }
 .seg[role='tablist'] .seg-btn[aria-selected='true']::after {
   content: '';
@@ -88,28 +90,28 @@ function onKey(e: KeyboardEvent, i: number) {
   left: 12%;
   right: 12%;
   bottom: 0;
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
-  background: var(--tp-primary-500);
+  background: var(--c-action);
 }
 .seg[role='radiogroup'] {
-  border-bottom: 1px solid var(--tp-grey-200);
+  border-bottom: 2px solid var(--tp-grey-400);
 }
 .seg[role='radiogroup'] .seg-btn {
-  min-height: 48px;
+  min-height: 52px;
   background: var(--c-surface);
-  border: 1px solid var(--tp-grey-200);
+  border: 2px solid var(--tp-grey-400);
   border-bottom: 0;
   border-radius: 8px 8px 0 0;
 }
 .seg[role='radiogroup'] .seg-btn + .seg-btn {
-  margin-left: -1px;
+  margin-left: -2px;
 }
 .seg[role='radiogroup'] .seg-btn[aria-checked='true'] {
   background: var(--tp-primary-50);
-  color: var(--tp-primary-500);
-  font-weight: 600;
-  box-shadow: inset 0 -2px 0 var(--tp-primary-500);
+  color: var(--tp-primary-800);
+  font-weight: 800;
+  box-shadow: inset 0 -4px 0 var(--c-action);
 }
 @media (max-width: 400px) {
   .seg-btn .icon {

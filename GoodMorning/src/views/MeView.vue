@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { api, apiMode, demoUser, demoUsers, resetMockData, setDemoUser } from '../api'
 import { friendlyMessage } from '../api/errors'
 import type { Artwork, Background, CurrentUser } from '../api/types'
-import BadgeChip from '../components/BadgeChip.vue'
+import BadgeCelebration from '../components/BadgeCelebration.vue'
+import BadgeDetail from '../components/BadgeDetail.vue'
 import BottomSheet from '../components/BottomSheet.vue'
 import Icon from '../components/Icon.vue'
-import { BADGES, badgeIconDataUrl, nextBadge } from '../config/badges'
+import { BADGES, badgeArtUrl, nextBadge } from '../config/badges'
+import { unlockAudio } from '../composables/sound'
 import { toast } from '../composables/toast'
 
 const me = ref<CurrentUser | null>(null)
@@ -18,7 +20,31 @@ const loading = ref(true)
 const more = ref(false)
 const error = ref<string | null>(null)
 const pickUser = ref(false)
-const showBadges = ref(false)
+/** 徽章視窗：null＝關閉；list＝十級徽章清單；detail＝單一徽章放大（fromList 時可回到清單） */
+type BadgeSheet = { mode: 'list' } | { mode: 'detail'; level: number; fromList: boolean }
+const badgeSheet = ref<BadgeSheet | null>(null)
+const badgeBody = ref<HTMLElement | null>(null)
+/** 重看慶祝動畫 */
+const celebrate = ref<{ level: number; name: string } | null>(null)
+const badgeSheetTitle = computed(() => {
+  const s = badgeSheet.value
+  if (s?.mode === 'detail') return `Lv.${s.level} ${BADGES.find((b) => b.level === s.level)?.name ?? ''}`
+  return '十級徽章'
+})
+
+/** 切換清單／放大時，原本被點的按鈕會消失，把焦點移到內容區，鍵盤與讀報軟體才不會掉到頁面最上面 */
+async function showBadgeSheet(s: BadgeSheet) {
+  badgeSheet.value = s
+  await nextTick()
+  badgeBody.value?.focus()
+}
+
+function replayCelebration(level: number) {
+  unlockAudio() // 從「看慶祝動畫」按鈕的點擊直接進來，趁這個點擊解鎖聲音
+  const def = BADGES.find((b) => b.level === level)
+  badgeSheet.value = null
+  if (def) celebrate.value = { level: def.level, name: def.name }
+}
 
 async function load() {
   loading.value = true
@@ -99,9 +125,19 @@ onMounted(load)
           <span class="avatar" aria-hidden="true">{{ me.displayName.slice(0, 1) }}</span>
           <div class="grow">
             <h2 id="me-name" class="name">{{ me.displayName }}</h2>
-            <BadgeChip v-if="me.badge" :badge="me.badge" />
-            <span v-else class="small muted">儲存第一張作品就能拿到徽章</span>
+            <p v-if="me.badge" class="badge-line">Lv.{{ me.badge.level }} {{ me.badge.name }}</p>
+            <p v-else class="muted">儲存第一張作品就能拿到徽章</p>
           </div>
+          <button
+            v-if="me.badge"
+            type="button"
+            class="hero-badge"
+            :aria-label="`放大看徽章：Lv.${me.badge.level} ${me.badge.name}`"
+            @click="showBadgeSheet({ mode: 'detail', level: me.badge.level, fromList: false })"
+          >
+            <img :src="badgeArtUrl(me.badge.level)" alt="" />
+          </button>
+          <span v-else class="hero-badge empty" aria-hidden="true"><Icon name="lock" :size="40" /></span>
         </div>
         <div class="stat-row">
           <div class="stat">
@@ -130,7 +166,7 @@ onMounted(load)
           </div>
         </div>
         <p v-else class="small">已經拿到最高等級徽章，太厲害了！</p>
-        <button type="button" class="btn text block" @click="showBadges = true">
+        <button type="button" class="btn text block" @click="showBadgeSheet({ mode: 'list' })">
           <Icon name="medal" :size="20" /> 看全部十種徽章
         </button>
       </section>
@@ -164,7 +200,10 @@ onMounted(load)
             :aria-label="`作品：${a.sloganText.replace(/\n/g, ' ')}，${a.likeCount} 個愛心，${a.downloadCount} 次下載`"
           >
             <img :src="a.imageUrl" alt="" loading="lazy" @error="onImgError" />
-            <span class="mine-stats" aria-hidden="true">♥ {{ a.likeCount }} · ⬇ {{ a.downloadCount }}</span>
+            <span class="mine-stats" aria-hidden="true">
+              <span><Icon name="heart" :size="20" filled /> {{ a.likeCount }}</span>
+              <span><Icon name="download" :size="20" /> {{ a.downloadCount }}</span>
+            </span>
           </RouterLink>
         </div>
         <button v-if="page < totalPages" type="button" class="btn block more" :disabled="more" @click="loadMore">
@@ -205,20 +244,41 @@ onMounted(load)
       <p class="small muted note">Demo 環境以 X-Demo-User 識別使用者，正式版會改接台北通登入。</p>
     </BottomSheet>
 
-    <BottomSheet :open="showBadges" title="十級徽章" @close="showBadges = false">
-      <ol class="list badge-list">
-        <li v-for="b in BADGES" :key="b.level" class="list-row" :class="{ got: count >= b.threshold }">
-          <img :src="badgeIconDataUrl(b.level)" alt="" width="36" height="36" />
-          <span class="grow">
-            <span class="row-title">Lv.{{ b.level }} {{ b.name }}</span>
-            <span class="small muted block">累積 {{ b.threshold }} 張</span>
-          </span>
-          <span class="small" :class="count >= b.threshold ? 'got-label' : 'muted'">
-            {{ count >= b.threshold ? '已取得' : '未取得' }}
-          </span>
-        </li>
-      </ol>
+    <BottomSheet :open="!!badgeSheet" :title="badgeSheetTitle" @close="badgeSheet = null">
+      <div ref="badgeBody" class="sheet-body" tabindex="-1">
+        <BadgeDetail
+          v-if="badgeSheet?.mode === 'detail'"
+          :level="badgeSheet.level"
+          :count="count"
+          :from-list="badgeSheet.fromList"
+          @replay="replayCelebration(badgeSheet.level)"
+          @back="showBadgeSheet({ mode: 'list' })"
+        />
+        <ol v-else class="list badge-list">
+          <li v-for="b in BADGES" :key="b.level">
+            <button
+              type="button"
+              class="list-row badge-row"
+              :class="{ got: count >= b.threshold }"
+              @click="showBadgeSheet({ mode: 'detail', level: b.level, fromList: true })"
+            >
+              <img :src="badgeArtUrl(b.level)" alt="" width="56" height="56" loading="lazy" />
+              <span class="grow">
+                <span class="row-title">Lv.{{ b.level }} {{ b.name }}</span>
+                <span class="small muted block">累積 {{ b.threshold }} 張</span>
+              </span>
+              <span class="small" :class="count >= b.threshold ? 'got-label' : 'muted'">
+                {{ count >= b.threshold ? '已取得' : '未取得' }}
+              </span>
+              <Icon name="chevron-right" :size="20" />
+              <span class="visually-hidden">，點一下放大看徽章</span>
+            </button>
+          </li>
+        </ol>
+      </div>
     </BottomSheet>
+
+    <BadgeCelebration :badge="celebrate" @close="celebrate = null" />
   </div>
 </template>
 
@@ -239,11 +299,51 @@ onMounted(load)
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+  min-width: 0;
+}
+.badge-line {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  color: var(--tp-secondary-800);
+}
+/* 目前徽章：大圖放在右邊，點一下可以放大 */
+.hero-badge {
+  flex: none;
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
+}
+.hero-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.hero-badge:active {
+  transform: scale(0.96);
+}
+.hero-badge.empty {
+  border: 3px dashed var(--tp-grey-300);
+  color: var(--tp-grey-500);
+  filter: none;
+}
+@media (max-width: 380px) {
+  .avatar {
+    display: none;
+  }
+  .hero-badge {
+    width: 96px;
+    height: 96px;
+  }
 }
 .avatar {
   flex: none;
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--tp-primary-300), var(--tp-primary-500));
   color: #fff;
@@ -283,15 +383,15 @@ onMounted(load)
   margin-bottom: 6px;
 }
 .progress {
-  height: 10px;
-  border-radius: 5px;
-  background: var(--tp-grey-100);
+  height: 16px;
+  border-radius: 8px;
+  background: var(--tp-grey-200);
   overflow: hidden;
 }
 .progress span {
   display: block;
   height: 100%;
-  border-radius: 5px;
+  border-radius: 8px;
   background: linear-gradient(90deg, var(--tp-primary-400), var(--tp-secondary-500));
 }
 span.block {
@@ -308,10 +408,11 @@ span.block {
   object-fit: cover;
   filter: grayscale(0.6);
 }
+/* 兩欄：長輩手機上每張作品約 180px 寬，字才看得清楚（原本三欄約 120px） */
 .mine-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
 }
 .mine-item {
   position: relative;
@@ -331,11 +432,20 @@ span.block {
   left: 0;
   right: 0;
   bottom: 0;
-  padding: 12px 6px 4px;
+  display: flex;
+  gap: 14px;
+  padding: 28px 10px 8px;
   color: #fff;
-  font-size: 0.75rem;
-  font-weight: 600;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+}
+.mine-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .more {
   margin-top: 12px;
@@ -359,9 +469,29 @@ span.block {
   padding: 0;
   box-shadow: none;
 }
-.badge-list li:not(.got) img {
+.sheet-body {
+  outline: none;
+}
+/* li 包住按鈕後，相鄰列的分隔線要改畫在 li 之間 */
+.badge-list li + li .badge-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  border-top: 1px solid var(--c-line);
+}
+.badge-row {
+  min-height: 76px;
+}
+.badge-row img {
+  flex: none;
+  border-radius: 50%;
+  object-fit: contain;
+}
+.badge-row:not(.got) img {
   filter: grayscale(1);
-  opacity: 0.5;
+  opacity: 0.55;
 }
 .got-label {
   color: var(--tp-primary-700);

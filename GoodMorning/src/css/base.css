@@ -76,8 +76,9 @@ a {
   color: var(--c-brand-strong);
 }
 
+/* 焦點框用 primary-700（對白底 5.89:1）；原本的金黃色對白底只有 1.75:1，看不見 */
 :focus-visible {
-  outline: 3px solid var(--tp-secondary-500);
+  outline: 3px solid var(--c-action);
   outline-offset: 2px;
 }
 
@@ -104,9 +105,9 @@ a {
 
 /* Figma List item/title：48 高、H3 Semibold */
 .section-title {
-  font-size: var(--tp-font-h3);
-  line-height: var(--tp-lh-h3);
-  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
   margin: 0;
   padding: 18px 4px 8px;
   color: var(--c-text);
@@ -123,23 +124,23 @@ a {
   min-height: 48px;
   padding: 0 14px;
   border-radius: 8px;
-  border: 1px solid var(--tp-grey-200);
+  border: 2px solid var(--tp-grey-500);
   background: var(--c-surface);
   color: var(--c-text);
 }
 .searchbar input::placeholder {
-  color: var(--tp-grey-400);
+  color: var(--c-text-3);
 }
 .searchbar input:focus {
   outline: none;
-  border-color: var(--tp-primary-500);
+  border-color: var(--c-action);
 }
 .searchbar .go {
   flex: none;
   width: 48px;
   height: 48px;
   border-radius: 8px;
-  background: var(--tp-primary-500);
+  background: var(--c-action);
   color: #fff;
   display: inline-flex;
   align-items: center;
@@ -155,56 +156,60 @@ a {
   line-height: var(--tp-lh-body);
 }
 
-/* ===== 按鈕：Figma Button/m（48）、Button/L（56），圓角 8，H3 Regular 16 ===== */
+/*
+ * ===== 按鈕：Figma Button/m（48）、Button/L（56），圓角 8 =====
+ * 長輩友善化：高度 52／60、字 18px 半粗、框 2px、顏色改用 primary-700（白字 5.89:1，原本主色只有 2.39:1）
+ */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 48px;
-  min-width: 48px;
-  padding: 10px 16px;
+  gap: 8px;
+  min-height: 52px;
+  min-width: 52px;
+  padding: 12px 18px;
   border-radius: 8px;
   font-size: var(--tp-font-h3);
   line-height: var(--tp-lh-h3);
-  font-weight: 400;
+  font-weight: 600;
   background: var(--c-surface);
-  color: var(--tp-primary-500);
-  border: 1px solid var(--tp-primary-500);
+  color: var(--c-action);
+  border: 2px solid var(--c-action);
   text-decoration: none;
 }
 .btn:active {
   background: var(--tp-primary-50);
 }
 .btn.large {
-  min-height: 56px;
+  min-height: 60px;
 }
 .btn.block {
   width: 100%;
 }
 .btn.primary {
-  background: var(--tp-primary-500);
-  border-color: var(--tp-primary-500);
+  background: var(--c-action);
+  border-color: var(--c-action);
   color: #fff;
 }
 .btn.primary:active {
-  background: var(--tp-primary-600);
-  border-color: var(--tp-primary-600);
+  background: var(--c-action-press);
+  border-color: var(--c-action-press);
 }
 .btn.alarm {
-  background: var(--tp-red-500);
-  border-color: var(--tp-red-500);
+  background: var(--c-danger-strong);
+  border-color: var(--c-danger-strong);
   color: #fff;
 }
 .btn.text {
   border-color: transparent;
   background: transparent;
 }
+/* 停用：灰底灰字（對比 4.30，原本 2.94），並明顯降低存在感 */
 .btn:disabled,
 .btn[aria-disabled='true'] {
   background: var(--c-disable);
   border-color: var(--c-disable);
-  color: var(--tp-grey-500);
+  color: var(--tp-grey-600);
   cursor: not-allowed;
 }
 .btn.text:disabled {
@@ -220,10 +225,12 @@ a {
   flex-direction: column;
   gap: 10px;
 }
+/* 底部提示是操作指引，字放大到 18px 半粗，用 primary-700（原本主色 2.39:1 幾乎看不到） */
 .section-bar .one-line {
-  color: var(--tp-primary-500);
-  font-size: var(--tp-font-body);
-  line-height: var(--tp-lh-body);
+  color: var(--c-action);
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
   text-align: center;
 }
 .section-bar .btns {
@@ -280,20 +287,28 @@ button.list-row:active {
   min-height: 48px;
   padding: 0 16px;
   border-radius: 8px;
-  border: 1px solid var(--tp-grey-200);
+  border: 2px solid var(--tp-grey-400);
   background: var(--c-surface);
-  color: var(--tp-grey-700);
+  color: var(--tp-grey-800);
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
+/* 選取中：深色框＋粗體＋打勾，不只靠顏色分辨（文字 primary-800 on primary-50 為 9.33:1） */
 .chip[aria-pressed='true'],
 .chip[aria-checked='true'] {
   background: var(--tp-primary-50);
-  border-color: var(--tp-primary-500);
-  color: var(--tp-primary-500);
-  font-weight: 600;
+  border-color: var(--c-action);
+  color: var(--tp-primary-800);
+  font-weight: 700;
+}
+.chip[aria-pressed='true']::before,
+.chip[aria-checked='true']::before {
+  content: '✓';
+  /* 支援的瀏覽器：給讀報軟體空白替代文字，狀態已由 aria-checked／aria-pressed 提供，不重複唸 */
+  content: '✓' / '';
+  font-weight: 800;
 }
 
 .card {

@@ -93,6 +93,7 @@ VITE_API_MODE=http API_PROXY_TARGET=http://localhost:8080 npm run dev
 | `VITE_API_MODE` | `mock` | `mock`＝瀏覽器內示範資料；`http`＝呼叫後端 |
 | `VITE_API_BASE_URL` | `/api` | openapi `servers.url` |
 | `VITE_DEMO_USERS` | `user-a,user-b,user-c` | `X-Demo-User` allowlist，需與後端一致 |
+| `VITE_SHARE_URL` | 空（用目前網站首頁） | 獲得徽章慶祝畫面「分享給親友」分享的連結；正式上線後填台北通裡這個服務的連結 |
 | `API_PROXY_TARGET` | 無 | 只給 `npm run dev` 用的 /api 代理目標 |
 
 `VITE_*` 會進入前端 bundle，不可放任何密鑰。
@@ -149,7 +150,9 @@ docker run -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morni
 
 ## 7. 設計與無障礙
 
-- Tokens：`src/css/tokens.css`（TownPass Figma page `1:2`，2026-10-25 驗證值）；字級以 rem 表示，基準放大到 18px。
+- Tokens：`src/css/tokens.css`（TownPass Figma page `1:2`，2026-10-25 驗證值）；字級以 rem 表示。長輩友善化後內文基準 18px、輔助文字 16px（Figma 原為 16／14），頁面上沒有小於 16px 的文字（已用瀏覽器掃描作品牆、製作四個分頁、排行榜、我的）。
+- 對比：主色 primary-500 白字只有 2.39:1，只留給裝飾；按鈕、選取狀態、焦點框、連結改用同色票的 primary-700（`--c-action`，白字 5.89:1）；紅色用 `--c-danger-strong`（白字 5.64:1）；`--c-text-3` 改 grey-600。選取狀態除顏色外加打勾、粗體、粗框或底線；開關旁直接寫「開／關」。`tests/contrast.test.ts` 讀 `tokens.css` 驗證這些配對（文字 ≥ 4.5:1、非文字 ≥ 3:1、字級下限），改色票時會被擋下。
+- 提示訊息（toast）停留 7 秒、錯誤 10 秒，可點一下關閉。
 - 觸控目標：以 Playwright 掃描製作頁四個分頁，所有按鈕、連結與輸入框皆 ≥ 48 × 48（開關本體 52 × 32，可點範圍為整列 56px 高的 label）。
 - Dialog：底部面板有名稱、開啟時焦點移入、Tab 鎖在面板內、Esc／遮罩可關閉、關閉後焦點回到觸發按鈕（已自動化驗證回到「下載」按鈕）。
 - 分段控制：tablist／radiogroup 語意，方向鍵、Home、End 可切換。
@@ -175,6 +178,8 @@ docker run -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morni
 - 背景（`public/data/backgrounds.json`、`public/backgrounds/*.jpg`）：**真實照片**，10 張臺北地標，來自 Unsplash，依 [Unsplash License](https://unsplash.com/license) 可免費使用、修改與商用，不強制標示；編輯器仍標示「照片：攝影師／Unsplash」並連到原圖頁。圓山大飯店與國立故宮博物院設為儲存 3 張後解鎖。陽明山草原那張在 Unsplash 標示為臺北，但確切拍攝地點未驗證。
 - 新增背景：照片放進 `public/backgrounds/`，在 `backgrounds.json` 加一筆（id 不重複，填攝影師與出處）。
 - 徽章圖示：程式產生的示意 SVG；正式版由後端回傳 S3 presigned URL。
+- 徽章大圖：`public/badges/lv1.webp`–`lv3.webp`（設計稿，1254 × 1254）；Lv.4 以上尚無設計稿，退回示意圖示。新增大圖：放進 `public/badges/`，在 `src/config/badges.ts` 的 `BADGE_ART_FILES` 加一行。「我的」頁面大圖放在個人資料卡右側、可點開放大；十級徽章清單每一列也可點開放大；獲得新徽章時由 `BadgeCelebration.vue` 顯示全螢幕慶祝畫面（徽章轉圈登場，需按「太棒了！」關閉；`prefers-reduced-motion` 時不播動畫）。畫面上有「分享給親友」（`composables/share.ts`：系統分享 → 複製連結 → 顯示文字讓人長按複製，連結見 `VITE_SHARE_URL`）與右上角「音效：開／關」（`composables/sound.ts`：Web Audio 現場合成約 3.5 秒的歡樂音效，無音檔；音高刻意避開太尖的高頻；iPhone 靜音開關打開時網頁聲音會被靜音；觸發慶祝的按鈕要在點擊當下呼叫 `unlockAudio()`）。
+- 排行榜：單欄大卡片（`LeaderboardView.vue` 重用 `ArtworkCard` 的 `rank`、`score`、`large`），手機一欄、寬螢幕自動多欄；API 層（`getLeaderboard`）沒有改。
 - 示範作品：首次開啟時用同一套編輯器自動產生 5 張，愛心與下載數為假資料。「我的 › 重設示範資料」可清空重來。
 
 ## 10. 專案結構
