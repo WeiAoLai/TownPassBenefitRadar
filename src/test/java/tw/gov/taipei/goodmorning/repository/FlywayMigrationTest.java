@@ -76,6 +76,46 @@ class FlywayMigrationTest {
         assertThat(uniqueIndexColumns).containsExactly("user_id", "artwork_id");
     }
 
+    @Test
+    void seedsTheTenDeliveredPolicies() throws SQLException {
+        var titles = queryStrings("""
+                SELECT title
+                  FROM policies
+                 ORDER BY id
+                """);
+
+        assertThat(titles).containsExactly(
+                "115年地價稅開徵",
+                "115年度300億元中央擴大租金補貼",
+                "臺北市低收入戶生活補助",
+                "臺北市中低收入戶健保費補助",
+                "臺北市生育補助",
+                "臺北市友善托育補助",
+                "不孕症試管嬰兒補助3.0",
+                "臺北市敬老卡每月600點補助",
+                "臺北市中低收入老人生活津貼",
+                "臺北市中低收入老人特別照顧津貼");
+    }
+
+    @Test
+    void normalizesPoliciesWithoutAnEndDateAsOpenEnded() throws SQLException {
+        var openEndedCount = queryStrings("""
+                SELECT COUNT(*)
+                  FROM policies
+                 WHERE end_date = '9999-12-31'
+                """);
+        var availableOnBaselineDate = queryStrings("""
+                SELECT COUNT(*)
+                  FROM policies
+                 WHERE is_active = TRUE
+                   AND start_date <= '2026-11-07'
+                   AND end_date >= '2026-11-07'
+                """);
+
+        assertThat(openEndedCount).containsExactly("8");
+        assertThat(availableOnBaselineDate).containsExactly("10");
+    }
+
     private static List<String> queryStrings(String sql) throws SQLException {
         try (Connection connection = DriverManager.getConnection(
                         MARIADB.getJdbcUrl(), MARIADB.getUsername(), MARIADB.getPassword());
