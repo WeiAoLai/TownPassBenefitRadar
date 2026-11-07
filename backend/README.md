@@ -1,6 +1,6 @@
 # Good Morning Backend
 
-台北政策長輩圖 Demo 後端，使用 Spring Boot 4、MariaDB、S3、Prometheus 與 Grafana。開發與測試全程在 container 內執行，本機不需要安裝 Java 或 Maven。
+台北政策長輩圖 Demo 後端，使用 Spring Boot 4、MariaDB、S3、Prometheus、Grafana、Loki 與 Grafana Alloy。開發與測試全程在 container 內執行，本機不需要安裝 Java 或 Maven。
 
 ## 本機啟動
 
@@ -24,7 +24,7 @@ Demo API 必須帶 `X-Demo-User: user-a`、`user-b` 或 `user-c`。Spring Boot �
 ## 驗證
 
 ```bash
-docker compose run --rm api mvn verify
+docker compose exec -T api env -u SPRING_FLYWAY_URL -u SPRING_FLYWAY_USER -u SPRING_FLYWAY_PASSWORD mvn verify
 ruby scripts/check-openapi.rb
 bash scripts/check-db-schema.sh
 bash scripts/smoke-test.sh
@@ -44,6 +44,20 @@ bash scripts/smoke-test.sh
 Prometheus 每 15 秒透過 Compose 內網抓取 `api:8081/actuator/prometheus`。Actuator 使用獨立 management port `8081`，業務 API port `8080` 不提供 `/api/actuator/*`，避免 JVM 與 DB pool metrics 進入公開 API。正式環境可改由既有的 Prometheus 或 Amazon Managed Service for Prometheus 抓取，但 scrape endpoint 必須保持在 private network。
 
 已 provision 的 dashboard 包含 request rate、5xx ratio、HTTP p50/p95 latency、JVM heap、HikariCP connections 與 process CPU。Prometheus 與 Grafana 資料分別保存在 `prometheus-data`、`grafana-data` volumes。
+
+## Loki 與 Grafana Alloy
+
+Grafana Alloy 透過唯讀 Docker socket 收集 `good-morning` Compose project 的 container stdout/stderr，並送到僅開放於 Compose 內網的 Loki。Loki 預設保留 168 小時，資料存在 `loki-data` volume；Alloy 的讀取位置存在 `alloy-data` volume。一般 `docker compose down` 不會刪除資料，只有明確執行 `docker compose down -v` 才會刪除這些 volumes。
+
+在 Grafana 左側選擇 **Explore**，datasource 選擇 **Loki**。常用 LogQL：
+
+```logql
+{compose_project="good-morning", compose_service="api"}
+{compose_project="good-morning", compose_service="api"} |= "level=ERROR"
+{compose_project="good-morning", compose_service="api"} |= "traceId=<X-Request-ID>"
+```
+
+Alloy、Loki 與 API 彼此解耦；logging pipeline 暫時故障不會中斷業務 API。Loki `3100` 與 Alloy `12345` 不映射到 host，也不應加入 ALB target group。
 
 ## Logging 與問題追蹤
 
@@ -77,6 +91,7 @@ API_BIND_ADDRESS=0.0.0.0
 API_PORT=8080
 MANAGEMENT_BIND_ADDRESS=0.0.0.0
 MANAGEMENT_PORT=8081
+LOKI_RETENTION=168h
 GRAFANA_BIND_ADDRESS=0.0.0.0
 GRAFANA_PORT=3000
 GRAFANA_DOMAIN=grafana.example.com
@@ -102,7 +117,7 @@ Flyway 預設啟用 migration validation，且禁止 `clean`。若 migration 失
 - API target group：HTTP `8080`。
 - API health check：port `8081`、path `/actuator/health`。
 - Grafana target group：HTTP `3000`、health check `/api/health`，使用獨立 host rule，例如 `grafana.example.com`。
-- EC2 security group 的 `8080`、`8081`、`3000` 只接受 ALB security group；Prometheus `9090` 不開放。
+- EC2 security group 的 `8080`、`8081`、`3000` 只接受 ALB security group；Prometheus `9090`、Loki `3100` 與 Alloy `12345` 不開放。
 - ALB 負責 HTTPS termination；container 內部維持 HTTP。
 - 下載 API 的 rate limit 由 AWS WAF rate-based rule 實作，超限 custom response 使用 HTTP 429。
 
