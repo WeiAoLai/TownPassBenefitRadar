@@ -3,3 +3,8 @@ dist
 .env.local
 .DS_Store
 public/travel-img
+dist-e2e
+test-results
+playwright-report
+e2e
+dist-e2e-http

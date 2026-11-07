@@ -7,11 +7,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "dev:alb": "VITE_API_MODE=http API_PROXY_TARGET=http://taipei-code-fest-alb-747927445.ap-southeast-2.elb.amazonaws.com vite --host",
+    "prod": "VITE_API_MODE=http API_PROXY_TARGET=http://taipei-code-fest-alb-747927445.ap-southeast-2.elb.amazonaws.com vite --host",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview --host",
     "typecheck": "vue-tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "qrcode": "1.5.4",
@@ -19,6 +20,7 @@
     "vue-router": "4.5.1"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/qrcode": "1.5.5",
     "@vitejs/plugin-vue": "5.2.4",
     "typescript": "5.8.3",
