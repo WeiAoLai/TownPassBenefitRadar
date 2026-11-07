@@ -1,0 +1,222 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Taipei Code Fest - ALB + EC2 Docker Compose + Private S3
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: 請選擇預設的 VPC
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnets in at least two Availability Zones. EC2 uses the first subnet.
+
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: EC2 SSH 金鑰對
+
+Resources:
+
+  # ==========================================
+  # 1. Security Groups
+  # ==========================================
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP and Grafana traffic to ALB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow traffic from ALB and SSH
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+
+        # SSH
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+        # Frontend
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+
+  # ==========================================
+  # 2. Private S3 Bucket
+  # ==========================================
+
+  AppS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "taipei-code-fest-assets-${AWS::AccountId}"
+
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # ==========================================
+  # 3. IAM Role
+  # ==========================================
+
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "taipei-code-fest-ec2-role-${AWS::Region}"
+
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        - PolicyName: S3ArtworkManagementPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+
+              - Sid: ReadStaticAssets
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${AppS3Bucket}/backgrounds/*"
+                  - !Sub "arn:aws:s3:::${AppS3Bucket}/badges/*"
+
+              - Sid: ManageArtworkObjects
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub "arn:aws:s3:::${AppS3Bucket}/artworks/*"
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "taipei-code-fest-ec2-profile-${AWS::Region}"
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # ==========================================
+  # 4. EC2 Instance
+  # ==========================================
+
+  DockerEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3a.xlarge
+      KeyName: !Ref KeyName
+
+      ImageId: '{{resolve:ssm:/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id}}'
+
+      SubnetId: !Select [0, !Ref SubnetIds]
+
+      SecurityGroupIds:
+        - !Ref EC2SecurityGroup
+
+      IamInstanceProfile: !Ref EC2InstanceProfile
+
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 2
+
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 50
+            VolumeType: gp3
+            DeleteOnTermination: true
+
+  EC2ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref DockerEC2Instance
+
+  # ==========================================
+  # 5. Application Load Balancer
+  # ==========================================
+
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: taipei-code-fest-alb
+      Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+
+  # ==========================================
+  # 6. Frontend Target Group
+  # ==========================================
+
+  FrontendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: frontend-tg
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VpcId
+      TargetType: instance
+
+      HealthCheckPath: /healthz
+
+      Targets:
+        - Id: !Ref DockerEC2Instance
+
+  # ==========================================
+  # 7. Application Listener
+  # ==========================================
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+Outputs:
+
+  ALBTestURL:
+    Description: Application URL
+    Value: !Join ['', ['http://', !GetAtt ApplicationLoadBalancer.DNSName]]
+
+  GrafanaURL:
+    Description: Grafana URL through the application listener
+    Value: !Sub "http://${ApplicationLoadBalancer.DNSName}/grafana/"
+
+  EC2PublicIP:
+    Description: EC2 Elastic IP
+    Value: !Ref EC2ElasticIP
+
+  S3BucketName:
+    Description: Backend S3 Bucket Name
+    Value: !Ref AppS3Bucket

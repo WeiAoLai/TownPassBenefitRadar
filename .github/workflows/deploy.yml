@@ -4,7 +4,11 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch: # 保留手動觸發功能，方便隨時部署
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-ec2
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -13,33 +17,50 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 將 GitHub 上的最新程式碼傳送至 EC2 (透過 ignore 保護 .env 不被覆蓋)
-      - name: Copy files to EC2 via SCP
+      - name: Package tracked deployment files
+        run: git archive --format=tar.gz --output=deployment.tar.gz HEAD docker-compose.yml .env.example GoodMorning backend
+
+      - name: Copy deployment archive to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "."
+          source: deployment.tar.gz
           target: "/home/ubuntu/taipei-code-fest-app"
           overwrite: true
-          ignore: .env, .git, node_modules, target # 【保護】不覆蓋機密的 .env 與編譯暫存檔
 
-      # 連線進入 EC2，安全地進行容器重啟與清理
-      - name: Build and Restart Docker Compose via SSH
+      - name: Deploy Docker Compose and verify routes
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 30m
           script: |
+            set -eu
             cd /home/ubuntu/taipei-code-fest-app
-            
-            # 停止舊容器（保留資料庫 Volume，資料不會不見）
-            docker-compose down
-            
-            # 重新打包並在背景啟動
-            docker-compose up -d --build
-            
-            # 自動清理舊的廢棄映像檔，釋放硬碟空間
+            tar -xzf deployment.tar.gz
+            rm deployment.tar.gz
+            if [ ! -r .env ]; then
+              echo 'Create the EC2 .env from .env.example before deploying.' >&2
+              exit 1
+            fi
+
+            docker compose config --quiet
+            if ! docker compose up --build --wait --wait-timeout 300; then
+              docker compose ps
+              exit 1
+            fi
+
+            check_route() {
+              status=$(curl --silent --show-error --output /dev/null --max-time 10 \
+                --write-out '%{http_code}' "$@")
+              echo "$1 returned HTTP $status"
+              test "$status" = 200
+            }
+
+            check_route http://127.0.0.1/healthz
+            check_route http://127.0.0.1/api/v1/me --header 'X-Demo-User: user-a'
+            check_route http://127.0.0.1/grafana/api/health
             docker image prune -f

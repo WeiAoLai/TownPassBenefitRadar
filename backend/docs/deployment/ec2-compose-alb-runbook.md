@@ -1,15 +1,17 @@
 # EC2 Docker Compose + ALB 部署 Runbook
 
-目標是讓單台 EC2 在準備好 IAM role 與 `.env` 後，只需執行根目錄的 Docker Compose，再設定 ALB rules，即可使用前端、API、Swagger、Grafana metrics 與 Loki logs。
+使用 [`infra/cloudformation.yml`](../../../infra/cloudformation.yml) 建立或更新同一個 stack。範本包含具名 IAM role 與 instance profile，送出 change set 時需確認 `CAPABILITY_NAMED_IAM`。ALB 將前端、API、Swagger 與 Grafana 的流量送至 EC2 上的 Nginx。
+
+- 更新既有 stack 時，沿用原有參數並檢查 change set。預期會移除舊 API rule、Grafana listener 和兩個對應 target groups。如果 change set 顯示 EC2 要被替換，先備份 `.env` 與 Docker volumes。原本的 root EBS 設定會在舊 EC2 終止時刪除磁碟。
+- 新 stack 請選擇同一 VPC 內、跨至少兩個可用區且有 Internet Gateway 路由的 public subnets。EC2 使用第一個 subnet，GitHub Actions 透過 `EC2PublicIP` 輸出的 Elastic IP 連入。
 
 ## 1. EC2 前置設定
 
-- 安裝 Docker Engine 與 Docker Compose v2。
-- EC2 instance role 必須能存取指定 S3 bucket；至少允許 bucket 的 `s3:ListBucket`，以及 assets objects 的 `s3:GetObject`、`s3:PutObject`、`s3:DeleteObject`。
-- S3 內須已有約定的 backgrounds 與 badges object keys。
-- 不要在 EC2 放長效 `AWS_ACCESS_KEY_ID`／`AWS_SECRET_ACCESS_KEY`；後端會使用 instance role。
+- 在 Ubuntu 安裝 Docker Engine、Buildx 與 Docker Compose v2（2.17 或更新）。以 `ubuntu` 使用者執行 `docker info` 與 `docker compose version` 確認權限和版本。
+- `AWS_S3_BUCKET` 使用 stack 的 `S3BucketName`，`AWS_REGION` 使用 bucket 所在 Region。後端透過 IMDSv2 使用 EC2 instance role，AWS access key 相關欄位留空。
+- 用具備寫入權限的 AWS 身分上傳背景及徽章至後端所用的 object keys，例如 `backgrounds/taipei-sunrise.png` 和 `badges/1/badge.png`。範本的 EC2 role 可讀取這兩個前綴並管理 `artworks/*`。
 
-建立環境檔：
+在 `/home/ubuntu/taipei-code-fest-app` 建立環境檔。可先把 repo 的 `.env.example` 傳到 EC2，或在第一次 workflow 上傳後使用已解開的範例檔。已有 `.env` 時直接編輯該檔。
 
 ```bash
 cp .env.example .env
@@ -21,7 +23,7 @@ chmod 600 .env
 ```dotenv
 DB_PASSWORD=<strong-password>
 DB_ROOT_PASSWORD=<different-strong-password>
-AWS_REGION=ap-southeast-2
+AWS_REGION=<bucket-region>
 AWS_S3_BUCKET=<actual-bucket-name>
 GRAFANA_ADMIN_PASSWORD=<strong-password>
 GRAFANA_ROOT_URL=http://<ALB-DNS>/grafana/
@@ -29,13 +31,15 @@ GRAFANA_ROOT_URL=http://<ALB-DNS>/grafana/
 
 若 ALB 有 TLS listener，`GRAFANA_ROOT_URL` 改用 `https://`。網址必須保留 `/grafana/` 與結尾斜線。
 
-## 2. 一次啟動整組服務
+## 2. 部署整組服務
+
+在 GitHub Actions secrets 設定 `EC2_HOST`（stack 的 `EC2PublicIP`）與 `EC2_SSH_KEY`（對應 `KeyName` 的私鑰）。Push 到 `main` 或手動執行 **Deploy Full Stack to EC2**。Workflow 上傳 Git 追蹤的部署檔案，讀取 EC2 上的 `.env`，等待 Compose healthchecks，再測試 Nginx、API 和 Grafana。
 
 在 repository 根目錄執行：
 
 ```bash
 docker compose config --quiet
-docker compose up -d --build
+docker compose up --build --wait --wait-timeout 300
 docker compose ps
 ```
 
@@ -61,7 +65,7 @@ Listener default action 轉送 frontend target group：
 
 **既有 ALB 的 `/api/*`、`/grafana/*` 特殊規則須刪除或改指向 frontend target group**，否則仍會走舊連接埠。Nginx 自動把 `/api/` 代理到 backend、`/grafana/` 代理到 Grafana，並支援 Grafana Live WebSocket。Grafana sub-path 已由 Compose 固定啟用，只需設定公開 `GRAFANA_ROOT_URL`。
 
-`/healthz` 代表入口 Nginx 可用；API 與監控服務的健康狀態仍由 Compose healthcheck 與 smoke test 驗證。
+`/healthz` 代表入口 Nginx 可用。API 與監控服務的健康狀態仍由 Compose healthcheck 與 smoke test 驗證。
 
 ## 5. 部署後 smoke test
 
@@ -94,6 +98,8 @@ echo "${trace_id}"
 - `http://<ALB-DNS>/api/v1/me`：加上 `X-Demo-User` 後回傳使用者資料
 - `http://<ALB-DNS>/api/swagger-ui/index.html`：Swagger UI
 - `http://<ALB-DNS>/grafana/`：Grafana
+
+到 EC2 Target Groups 確認 `frontend-tg` 的 EC2 為 `healthy`，並從瀏覽器開啟一張由 S3 預簽網址提供的圖片。
 
 Grafana 的 **Good Morning** folder 應自動出現 dashboards。Metrics 最多等一個 15 秒 scrape interval；Logs 可在 Explore 選 Loki 後查詢：
 
