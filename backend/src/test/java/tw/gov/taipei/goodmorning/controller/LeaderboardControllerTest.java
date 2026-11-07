@@ -49,7 +49,7 @@ class LeaderboardControllerTest {
                 .setCustomArgumentResolvers(new CurrentUserArgumentResolver())
                 .build();
 
-        mockMvc.perform(get("/api/leaderboard").contextPath("/api"))
+        mockMvc.perform(get("/api/v1/leaderboard").contextPath("/api"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].rank").value(2))
                 .andExpect(jsonPath("$[0].score").value(9))

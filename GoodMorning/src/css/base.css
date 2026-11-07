@@ -6,11 +6,10 @@
 html {
   -webkit-text-size-adjust: 100%;
   /*
-   * 字級跟著螢幕寬度自適應：以 Pixel Pro（寬 412）為基準 1rem = 16px，
-   * 越窄越小，最小 13px；平板、橫向維持 16px。全站字級都用 rem，會一起縮放。
-   *   寬 430（iPhone Pro Max）16px｜412（Pixel Pro）16px｜390（iPhone 13）14.5px
-   *   375（iPhone SE）13.5px｜360 以下 13px
-   * 用 rem 表示上下限，使用者調大瀏覽器預設字級時仍會跟著放大。
+   * 字級跟著螢幕寬度自適應（產品決定）：以 Pixel Pro（寬 412）為基準 1rem = 16px，越窄越小，最小 13px；平板、橫向維持 16px。
+   *   寬 430（iPhone Pro Max）16px｜412（Pixel Pro）16px｜390（iPhone 13）14.5px｜375（iPhone SE）13.5px｜360 以下 13px
+   * 取捨：窄螢幕上內文仍 ≥ 16px，輔助文字會低於 16px，與台北通無障礙 DT 有出入（README 無障礙對照表記錄為部分符合）。
+   * 上下限用 rem 表示，使用者調大瀏覽器／系統字級時仍會一起放大；tests/contrast.test.ts 檢查最小值與基準。
    */
   font-size: clamp(0.8125rem, calc(6.82vw - 0.756rem), 1rem);
 }
@@ -339,28 +338,49 @@ button.list-row:active {
   }
 }
 
+/*
+ * 動畫開關：系統設定「減少動態」會自動關閉；使用者也可以在「我的 › 設定」手動切換
+ * （composables/motion.ts 在 <html> 上設 data-motion="on"／"off"，手動選擇優先於系統設定）。
+ */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  html:not([data-motion='on']) *,
+  html:not([data-motion='on']) *::before,
+  html:not([data-motion='on']) *::after {
     animation: none !important;
     transition: none !important;
   }
 }
+html[data-motion='off'] *,
+html[data-motion='off'] *::before,
+html[data-motion='off'] *::after {
+  animation: none !important;
+  transition: none !important;
+}
 
-/* iOS 風格開關：<input type="checkbox" role="switch" class="switch"> */
+/* 換頁後把焦點移到頁面標題（讓讀報軟體唸出新頁面）；標題本身不是操作元件，不畫焦點框 */
+h1:focus {
+  outline: none;
+}
+
+/*
+ * iOS 風格開關：<input type="checkbox" role="switch" class="switch">
+ * 視覺軌道 52 × 32；用透明邊框把可點範圍撐到 68 × 48（台北通 TS：觸控目標至少 48）。
+ */
 .switch {
   appearance: none;
   -webkit-appearance: none;
   flex: none;
-  width: 52px;
-  height: 32px;
-  border-radius: 16px;
+  box-sizing: border-box;
+  width: 68px;
+  height: 48px;
+  border: 8px solid transparent;
+  border-radius: 24px;
+  background-clip: padding-box;
   /* 關閉狀態的軌道 grey-500（對白底 3.66:1，原 grey-200 只有 1.5:1） */
-  background: var(--tp-grey-500);
+  background-color: var(--tp-grey-500);
   position: relative;
   transition: background-color 0.2s ease;
-  margin: 8px 0;
+  margin: 0 -8px 0 0;
 }
 .switch::after {
   content: '';
@@ -375,7 +395,7 @@ button.list-row:active {
   transition: transform 0.2s ease;
 }
 .switch:checked {
-  background: var(--c-action);
+  background-color: var(--c-action);
 }
 .switch:checked::after {
   transform: translateX(20px);

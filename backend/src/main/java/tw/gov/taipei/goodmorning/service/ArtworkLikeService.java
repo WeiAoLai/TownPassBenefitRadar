@@ -1,5 +1,7 @@
 package tw.gov.taipei.goodmorning.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +13,8 @@ import tw.gov.taipei.goodmorning.security.CurrentUser;
 
 @Service
 public class ArtworkLikeService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ArtworkLikeService.class);
 
     private final ArtworkRepository artworks;
     private final ArtworkLikeRepository likes;
@@ -30,19 +34,35 @@ public class ArtworkLikeService {
                     "Authors cannot like their own artwork");
         }
 
-        if (likes.insertIfAbsent(currentUser.id(), artworkId) == 1) {
+        var changed = likes.insertIfAbsent(currentUser.id(), artworkId) == 1;
+        if (changed) {
             artworks.incrementLikeCount(artworkId);
         }
-        return new LikeStateResponse(artworkId, true, artworks.findLikeCountById(artworkId));
+        var likeCount = artworks.findLikeCountById(artworkId);
+        LOGGER.info(
+                "artwork_like_set artworkId={} userId={} liked=true changed={} likeCount={}",
+                artworkId,
+                currentUser.id(),
+                changed,
+                likeCount);
+        return new LikeStateResponse(artworkId, true, likeCount);
     }
 
     @Transactional
     public LikeStateResponse unlike(CurrentUser currentUser, long artworkId) {
         findOwnerId(artworkId);
-        if (likes.deleteByUserIdAndArtworkId(currentUser.id(), artworkId) == 1) {
+        var changed = likes.deleteByUserIdAndArtworkId(currentUser.id(), artworkId) == 1;
+        if (changed) {
             artworks.decrementLikeCount(artworkId);
         }
-        return new LikeStateResponse(artworkId, false, artworks.findLikeCountById(artworkId));
+        var likeCount = artworks.findLikeCountById(artworkId);
+        LOGGER.info(
+                "artwork_like_set artworkId={} userId={} liked=false changed={} likeCount={}",
+                artworkId,
+                currentUser.id(),
+                changed,
+                likeCount);
+        return new LikeStateResponse(artworkId, false, likeCount);
     }
 
     private Long findOwnerId(long artworkId) {

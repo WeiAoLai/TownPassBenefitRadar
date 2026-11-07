@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import tw.gov.taipei.goodmorning.dto.PolicyResponse;
@@ -12,6 +13,7 @@ import tw.gov.taipei.goodmorning.service.PolicyService;
 
 @Validated
 @RestController
+@RequestMapping(ApiPaths.V1)
 public class PolicyController {
 
     private final PolicyService policyService;

@@ -85,4 +85,19 @@ describe('字級下限', () => {
     expect(rem('--tp-font-h3')).toBeGreaterThanOrEqual(1.125)
     expect(rem('--tp-font-body')).toBeGreaterThanOrEqual(1)
   })
+
+  it('根字級依螢幕寬度縮放：Pixel Pro（412）以上 16px、最小 13px，上下限以 rem 表示（跟著使用者字級設定）', () => {
+    const base = readFileSync(new URL('../src/css/base.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const m = /(?:^|\n)html\s*\{[^}]*?font-size:\s*([^;]+);/.exec(base)
+    expect(m, 'base.css 找不到 html { font-size }').not.toBeNull()
+    const c = /^clamp\(\s*([\d.]+)rem\s*,\s*calc\(\s*([\d.]+)vw\s*-\s*([\d.]+)rem\s*\)\s*,\s*([\d.]+)rem\s*\)$/.exec(m![1].trim())
+    expect(c, '根字級應為 clamp(最小rem, calc(Xvw - Yrem), 最大rem)').not.toBeNull()
+    const [min, vw, sub, max] = c!.slice(1).map(Number)
+    const px = (width: number) => Math.min(max * 16, Math.max(min * 16, (vw / 100) * width - sub * 16))
+    expect(min * 16).toBeGreaterThanOrEqual(13)
+    expect(max).toBe(1)
+    expect(px(412)).toBeCloseTo(16, 0)
+    // 內文（1.125rem）在 iPhone 13 寬度仍 ≥ 16px
+    expect(px(390) * 1.125).toBeGreaterThanOrEqual(16)
+  })
 })

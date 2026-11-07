@@ -90,26 +90,28 @@ const emit = defineEmits<{ imageError: [] }>()
   background: var(--tp-orange-300);
   color: var(--tp-grey-950);
 }
+/* 窄螢幕、大字時作者名與徽章可以換行，名字不會被截成「秀英…」（台北通 DT：大字不遺失內容） */
 .meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 0 8px;
   padding: 0 0 0 10px;
 }
 .author {
   display: flex;
+  flex: 1 1 5rem;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 0 6px;
   min-width: 0;
+  padding: 6px 0;
 }
-/* 作品卡兩欄只有約 190px 寬，作者名維持 16px（18px 時四個字的名字會被截成「秀英…」） */
 .name {
   font-size: var(--tp-font-body);
   font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .mine {
   font-size: var(--tp-font-body);

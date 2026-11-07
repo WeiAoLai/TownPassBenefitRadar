@@ -9,11 +9,12 @@ cp .env.example .env
 docker compose up --build -d
 docker compose ps
 bash scripts/smoke-test.sh
+bash scripts/monitoring-smoke-test.sh
 ```
 
 預設入口：
 
-- API：`http://localhost:8088/api`
+- API v1 base URL：`http://localhost:8088/api/v1`
 - Health：`http://localhost:8088/health`
 - Swagger UI：`http://localhost:8088/api/swagger-ui.html`
 - Checked-in contract：`openapi.yaml`
@@ -31,6 +32,33 @@ bash scripts/smoke-test.sh
 
 完整測試包含 Flyway、MariaDB repository、併發按讚、S3、OpenAPI 契約、QR Code 解碼與 controller/service 測試。
 
+## Prometheus 與 Grafana
+
+本機 `docker compose up --build -d` 會一併啟動 Prometheus 與 Grafana：
+
+- Prometheus：`http://localhost:9090`
+- Grafana：`http://localhost:3000`
+- 預載 dashboard：`Good Morning / Good Morning Backend`
+- Grafana 本機預設帳號：`admin` / `change-me`，請在 `.env` 覆寫 `GRAFANA_ADMIN_PASSWORD`。
+
+Prometheus 每 15 秒透過 Compose 內網抓取 `api:8080/api/actuator/prometheus`。公開 Nginx 入口會封鎖 `/api/actuator/*`，只保留 `/health`，避免 JVM 與 DB pool metrics 外洩。正式環境可改由既有的 Prometheus 或 Amazon Managed Service for Prometheus 抓取，但 scrape endpoint 必須保持在 private network。
+
+已 provision 的 dashboard 包含 request rate、5xx ratio、HTTP p50/p95 latency、JVM heap、HikariCP connections 與 process CPU。Prometheus 與 Grafana 資料分別保存在 `prometheus-data`、`grafana-data` volumes。
+
+## Logging 與問題追蹤
+
+- 每個 API response 都會回傳 `X-Request-ID`；若入口未提供，後端會產生 UUID。
+- Spring Boot access log 包含 method、path、status、duration、user ID 與相同的 MDC `traceId`。
+- Nginx 以 JSON 輸出 access log，並把自己的 request ID 傳給 Spring Boot，因此可跨服務查詢。
+- 未預期例外與 S3 dependency failure 會記錄 stack trace；作品建立、按讚與下載會記錄不含個資的業務事件。
+- 不記錄 request body、密碼、身分資料、圖片內容或 presigned URL。
+
+查詢單次 request：
+
+```bash
+docker compose logs api nginx | grep '<X-Request-ID>'
+```
+
 ## 環境變數
 
 本機 Compose 預設使用 LocalStack S3，`.env.example` 的 `test` credential 只適用於 LocalStack。真實 AWS 環境應由 ECS task role、EC2 instance profile 或 IRSA 提供 IAM credential，不要把 access key 寫進 image、Git 或部署設定檔。
@@ -42,10 +70,18 @@ SPRING_PROFILES_ACTIVE=demo
 SPRING_DATASOURCE_URL=jdbc:mariadb://<host>:3306/good_morning?sessionVariables=time_zone='+00:00'
 SPRING_DATASOURCE_USERNAME=<secret reference>
 SPRING_DATASOURCE_PASSWORD=<secret reference>
+SPRING_FLYWAY_ENABLED=true
+SPRING_FLYWAY_URL=jdbc:mariadb://<host>:3306/good_morning?sessionVariables=time_zone='+00:00'
+SPRING_FLYWAY_USER=<migration secret reference>
+SPRING_FLYWAY_PASSWORD=<migration secret reference>
 AWS_REGION=ap-southeast-2
 AWS_S3_BUCKET=<asset bucket>
 PRESIGNED_URL_TTL=PT15M
 ```
+
+Flyway 會在應用程式啟動時執行 `classpath:db/migration`，成功後才完成 Spring Boot 啟動。若未提供 `SPRING_FLYWAY_URL/USER/PASSWORD`，會沿用 `SPRING_DATASOURCE_*`；demo 可使用同一組帳號。正式環境建議提供獨立 migration 帳號，該帳號需要 schema DDL/DML 權限，runtime datasource 帳號則只保留應用程式需要的 CRUD 權限。部署時不要把密碼寫入 image 或 Git，請使用平台的 secret reference。
+
+Flyway 預設啟用 migration validation，且禁止 `clean`。若 migration 失敗，應用程式會直接啟動失敗，不會在不完整 schema 上提供服務；可從 log 搜尋 `Flyway` 或 `flyway_schema_history` 排查。
 
 部署到真實 AWS 時不要設定 `S3_ENDPOINT` 或 `S3_PUBLIC_ENDPOINT`；這兩個值只供 LocalStack 使用。Bucket 需預先包含背景與徽章 object key，作品則由 API 寫入 `artworks/{userId}/{uuid}.png`。
 

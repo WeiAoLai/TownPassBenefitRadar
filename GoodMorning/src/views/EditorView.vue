@@ -9,8 +9,8 @@ import BottomSheet from '../components/BottomSheet.vue'
 import BadgeCelebration from '../components/BadgeCelebration.vue'
 import Icon from '../components/Icon.vue'
 import Segmented from '../components/Segmented.vue'
-import { distanceKm, getLocation, openLink, type LatLng } from '../composables/bridge'
-import { toast } from '../composables/toast'
+import { openLink } from '../composables/bridge'
+import { announce, toast } from '../composables/toast'
 import { startDownload } from '../composables/artworkActions'
 import { unlockAudio } from '../composables/sound'
 import { draft, resetDraft } from '../editor/draft'
@@ -48,50 +48,9 @@ const serverBackgrounds = ref<Background[]>([])
 /** 前端圖庫有資料就用圖庫（依使用者作品數解鎖）；圖庫載入失敗才退回後端清單 */
 const buildBackgrounds = (server: Background[], artworkCount: number) =>
   catalog.value.length ? catalogBackgrounds(catalog.value, artworkCount) : server
-/**
- * 背景圖庫（行政區、攝影師、出處、經緯度），與 /backgrounds 以「名稱」對應：
- * 後端的背景 id 由資料庫決定，不一定和前端圖庫相同；名稱對不到的背景就不顯示攝影師、也不參與距離排序。
- */
+/** 前端背景圖庫（照片、解鎖門檻） */
 const catalog = ref<BackgroundItem[]>([])
-const infoByName = computed(() => new Map<string, BackgroundItem>(catalog.value.map((b) => [b.name, b])))
-const infoOf = (b: Background | null | undefined) => (b ? infoByName.value.get(b.name) : undefined)
 const currentBg = computed(() => backgrounds.value.find((b) => b.id === draft.backgroundId) ?? null)
-/* 離我最近：使用者按下按鈕才定位，位置只留在這個頁面的記憶體裡，不送出、不儲存 */
-const myPos = ref<LatLng | null>(null)
-const locating = ref(false)
-const sortedBackgrounds = computed(() => {
-  const pos = myPos.value
-  const list = backgrounds.value.map((b) => {
-    const info = infoOf(b)
-    const km = pos && info ? distanceKm(pos, { lat: info.lat, lng: info.lng }) : null
-    return { ...b, km }
-  })
-  return pos ? [...list].sort((a, b) => (a.km ?? 1e9) - (b.km ?? 1e9)) : list
-})
-const fmtKm = (km: number) => (km < 1 ? `${Math.round(km * 1000)} 公尺` : `${km.toFixed(km < 10 ? 1 : 0)} 公里`)
-
-async function sortByNearby() {
-  if (myPos.value) {
-    myPos.value = null
-    return
-  }
-  locating.value = true
-  try {
-    const pos = await getLocation()
-    if (!pos) {
-      toast('沒有取得位置，可以直接從下面挑背景', 'info')
-      return
-    }
-    myPos.value = pos
-    toast('已依距離排序，最近的地標在最前面', 'success', 2500)
-  } finally {
-    locating.value = false
-  }
-}
-
-const currentInfo = computed(() => infoOf(currentBg.value))
-/** 有任何背景帶經緯度才提供「離我最近」 */
-const canSortByNearby = computed(() => backgrounds.value.filter((b) => infoOf(b)).length > 1)
 const categories = ref<string[]>([])
 const category = ref<string>(draft.policy?.category ?? '')
 const policies = ref<Policy[]>([])
@@ -129,6 +88,39 @@ const swatches = TEXT_STYLES.map((s) => ({ ...s, img: '' }))
 const canvas = ref<HTMLCanvasElement | null>(null)
 const stage = ref<HTMLElement | null>(null)
 const editorEl = ref<HTMLElement | null>(null)
+
+/* ---------------- 版面模式：釘住（預設）或整頁捲動 ---------------- */
+const toolsEl = ref<HTMLElement | null>(null)
+const actionEl = ref<HTMLElement | null>(null)
+/**
+ * flow = 整頁捲動。預覽、工具分頁、底部按鈕列都釘在畫面上時，工具區剩下的高度太小
+ * （矮螢幕、字級放大、鍵盤彈出）就改成整頁捲動：分頁列與底部按鈕列仍然黏住，預覽圖跟著內容捲動。
+ * 判斷只看「釘住時工具區會剩多高」，不看目前是哪個模式，所以不會來回跳動。
+ */
+const flow = ref(false)
+/** 整頁捲動時，分頁列與底部按鈕列是否黏住：兩條加起來佔畫面一半以上（小螢幕＋大字）就不黏，整頁都拿來捲動 */
+const stickyBars = ref(true)
+/** 釘住時工具區至少要有這麼高（rem，隨字級放大）才維持釘住版面 */
+const MIN_PANEL_REM = 11.5
+const wideLayout =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(orientation: landscape) and (min-width: 640px), (min-width: 900px)')
+    : null
+let layoutRo: ResizeObserver | null = null
+
+function updateLayoutMode() {
+  const main = document.querySelector('main')
+  const tools = toolsEl.value
+  const action = actionEl.value
+  const stageEl = stage.value
+  if (!main || !tools || !action || !stageEl) return
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  // 釘住時預覽佔的高度：直式 = 34% 螢幕高（寬度不夠就以寬度為準）＋上下留白；橫式兩欄時預覽在左欄，不佔右欄高度
+  const stageH = wideLayout?.matches ? 0 : Math.min(0.34 * window.innerHeight, stageEl.clientWidth - 32) + 16
+  const panelH = main.clientHeight - stageH - tools.offsetHeight - action.offsetHeight
+  flow.value = panelH < MIN_PANEL_REM * rem
+  stickyBars.value = tools.offsetHeight + action.offsetHeight <= 0.45 * main.clientHeight
+}
 let ctx: CanvasRenderingContext2D | null = null
 let layouts: Layout[] = []
 let bgImage: HTMLImageElement | null = null
@@ -298,6 +290,7 @@ function onUp(e: PointerEvent) {
 async function loadAll() {
   loadError.value = null
   loading.value = { bg: true, cat: true, pol: false }
+  announce('載入中')
   try {
     const [u, server, cats, cat] = await Promise.all([
       api.getCurrentUser(),
@@ -371,10 +364,6 @@ async function onPhotoPicked(e: Event) {
   } finally {
     photoLoading.value = false
   }
-}
-
-function removePhoto() {
-  customPhoto.value = null
 }
 
 function pickPolicy(p: Policy) {
@@ -556,12 +545,23 @@ onMounted(() => {
   } else {
     window.addEventListener('resize', sizeCanvas)
   }
+  // 版面模式：螢幕尺寸、鍵盤、字級（分頁列與按鈕列的高度會跟著變）改變時重新判斷
+  updateLayoutMode()
+  if (typeof ResizeObserver !== 'undefined') {
+    layoutRo = new ResizeObserver(updateLayoutMode)
+    for (const el of [document.querySelector('main'), toolsEl.value, actionEl.value]) if (el) layoutRo.observe(el)
+  }
+  window.addEventListener('resize', updateLayoutMode)
+  window.visualViewport?.addEventListener('resize', updateLayoutMode)
   loadAll()
 })
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
   ro?.disconnect()
+  layoutRo?.disconnect()
   window.removeEventListener('resize', sizeCanvas)
+  window.removeEventListener('resize', updateLayoutMode)
+  window.visualViewport?.removeEventListener('resize', updateLayoutMode)
 })
 
 const canvasLabel = computed(() => {
@@ -573,7 +573,7 @@ const canvasLabel = computed(() => {
 </script>
 
 <template>
-  <div ref="editorEl" class="editor">
+  <div ref="editorEl" class="editor" :class="{ flow, sticky: flow && stickyBars }">
     <div ref="stage" class="stage">
       <canvas
         ref="canvas"
@@ -588,7 +588,7 @@ const canvasLabel = computed(() => {
     </div>
 
     <div class="right">
-    <div class="tools">
+    <div ref="toolsEl" class="tools">
       <Segmented v-model="tool" :options="tools" label="編輯工具" mode="tabs" id-prefix="tool" />
     </div>
 
@@ -605,41 +605,29 @@ const canvasLabel = computed(() => {
       role="tabpanel"
       aria-labelledby="tool-tab-bg"
     >
-      <div class="my-photo" :class="{ on: !!customPhoto }">
-        <img v-if="customPhoto" :src="customPhoto.thumb" alt="" class="my-thumb" />
-        <span v-else class="my-thumb empty" aria-hidden="true"><Icon name="camera" :size="28" /></span>
-        <span class="grow">
-          <strong class="my-title">{{ customPhoto ? '正在用你的照片' : '用自己的照片' }}</strong>
-          <span class="small muted block">{{ customPhoto ? '照片會成為作品的一部分，儲存後大家都看得到' : '拍一張或從相簿挑，會裁成正方形' }}</span>
-        </span>
-        <span class="my-acts">
-          <button type="button" class="btn" :class="customPhoto ? '' : 'primary'" :disabled="photoLoading" @click="choosePhoto">
-            {{ photoLoading ? '讀取中…' : customPhoto ? '換一張' : '選照片' }}
-          </button>
-          <button v-if="customPhoto" type="button" class="btn text" @click="removePhoto">不用了</button>
-        </span>
-        <input ref="photoInput" type="file" accept="image/*" class="visually-hidden" tabindex="-1" aria-hidden="true" @change="onPhotoPicked" />
-      </div>
-      <p class="panel-title or">{{ customPhoto ? '或換回台北地標' : '或選一張台北地標' }}</p>
-      <div v-if="currentBg && !customPhoto" class="bg-current">
-        <span class="grow cur-name">
-          <span class="small muted">目前</span>
-          <strong>{{ currentBg.name }}</strong>
-          <span v-if="currentInfo" class="small muted">{{ currentInfo.district }}</span>
-        </span>
-      </div>
       <p v-if="bgTainted" class="notice small">這張照片無法輸出，請換一張背景</p>
-      <button v-if="canSortByNearby" type="button" class="btn block" :aria-pressed="!!myPos" :disabled="locating" @click="sortByNearby">
-        <Icon name="flag" :size="20" />
-        {{ locating ? '定位中…' : myPos ? '恢復原本順序' : '離我最近的地標排前面' }}
-      </button>
-      <p v-if="canSortByNearby && !myPos" class="small muted">按下後會詢問定位權限；位置只用來排序，不會儲存或上傳。</p>
+      <input ref="photoInput" type="file" accept="image/*" class="visually-hidden" tabindex="-1" aria-hidden="true" @change="onPhotoPicked" />
       <div v-if="loading.bg" class="bg-grid">
         <div v-for="i in 6" :key="i" class="bg-item skeleton" />
       </div>
       <div v-else class="bg-grid" role="radiogroup" aria-label="選擇背景">
         <button
-          v-for="b in sortedBackgrounds"
+          type="button"
+          role="radio"
+          class="bg-item mine"
+          :class="{ on: !!customPhoto }"
+          :aria-checked="!!customPhoto"
+          :aria-label="customPhoto ? '我的照片（再按一次換一張）' : '用自己的照片'"
+          :disabled="photoLoading"
+          @click="choosePhoto"
+        >
+          <img v-if="customPhoto" :src="customPhoto.thumb" alt="" />
+          <span v-else class="mine-icon" aria-hidden="true"><Icon name="camera" :size="32" /></span>
+          <span class="bg-name">{{ photoLoading ? '讀取中…' : '我的照片' }}</span>
+          <span v-if="customPhoto" class="tick"><Icon name="check" :size="18" /></span>
+        </button>
+        <button
+          v-for="b in backgrounds"
           :key="b.id"
           type="button"
           role="radio"
@@ -651,7 +639,7 @@ const canvasLabel = computed(() => {
           @click="pickBackground(b)"
         >
           <img :src="bgSrc(b)" alt="" loading="lazy" decoding="async" @error="($event.target as HTMLImageElement).classList.add('broken')" />
-          <span class="bg-name">{{ b.name }}<span v-if="b.km != null" class="km">{{ fmtKm(b.km) }}</span></span>
+          <span class="bg-name">{{ b.name }}</span>
           <span v-if="!b.unlocked" class="lock">
             <Icon name="lock" :size="22" />
             <span>存 {{ b.unlockThreshold }} 張解鎖</span>
@@ -659,9 +647,6 @@ const canvasLabel = computed(() => {
           <span v-if="!customPhoto && draft.backgroundId === b.id" class="tick"><Icon name="check" :size="18" /></span>
         </button>
       </div>
-      <p v-if="currentInfo && !customPhoto" class="credit small muted">
-        照片：<a :href="currentInfo.photoUrl" target="_blank" rel="noopener" @click.prevent="openLink(currentInfo.photoUrl)">{{ currentInfo.author }}／Unsplash</a>
-      </p>
     </section>
 
     <!-- 政策 -->
@@ -710,14 +695,17 @@ const canvasLabel = computed(() => {
           </span>
         </button>
       </div>
-      <button
+      <!-- 會開啟外部網頁，用連結（不是按鈕）讓讀報軟體唸成「連結」 -->
+      <a
         v-if="draft.policy"
-        type="button"
+        :href="draft.policy.sourceUrl"
+        target="_blank"
+        rel="noopener"
         class="btn text block source"
-        @click="openLink(draft.policy.sourceUrl)"
+        @click.prevent="openLink(draft.policy.sourceUrl)"
       >
         <Icon name="link" :size="20" /> 看「{{ draft.policy.title }}」政策說明
-      </button>
+      </a>
     </section>
 
     <!-- 文字 -->
@@ -743,8 +731,8 @@ const canvasLabel = computed(() => {
           </button>
         </div>
         <label class="field">
-          <span class="field-label">問候語（可換行，留空就不顯示）</span>
-          <textarea v-model="layer.text" rows="2" maxlength="40" />
+          <h2 class="field-label">問候語</h2>
+          <textarea v-model="layer.text" class="text-box" rows="2" maxlength="40" />
         </label>
       </template>
       <template v-else>
@@ -754,7 +742,7 @@ const canvasLabel = computed(() => {
         </p>
         <div v-else class="field">
           <h2 class="field-label">政策標語</h2>
-          <p class="slogan-readonly" aria-describedby="slogan-help">{{ draft.policy.slogan }}</p>
+          <p class="text-box" aria-describedby="slogan-help">{{ draft.policy.slogan }}</p>
           <span id="slogan-help" class="small muted">
             標語由市府提供，不能修改；可以到「樣式」換顏色、大小和位置，字太多會自動縮小。
           </span>
@@ -840,21 +828,23 @@ const canvasLabel = computed(() => {
 
       <label class="switch-row list-row">
         <span class="grow">
-          顯示 QR Code 位置
-          <span class="small muted block">下載時右下角會加上政策 QR Code</span>
+          標出 <span lang="en">QR Code</span> 的位置
+          <span class="small muted block"
+            >只是編輯時的提示框，關掉也不影響成品；存到手機相簿時，右下角一定會自動加上政策 <span lang="en">QR Code</span></span
+          >
         </span>
         <span class="switch-state" aria-hidden="true">{{ showQrZone ? '開' : '關' }}</span>
         <input v-model="showQrZone" type="checkbox" role="switch" class="switch" />
       </label>
 
       <button type="button" class="btn text block" @click="resetDraft(true)">
-        <Icon name="refresh" :size="20" /> 文字全部重來
+        <Icon name="undo" :size="20" /> 文字全部重來
       </button>
     </section>
 
 
     <!-- Figma Section_one line text_button/m：固定在畫面底部，按鈕不會被捲走 -->
-    <div class="section-bar actionbar">
+    <div ref="actionEl" class="section-bar actionbar">
       <p class="one-line" :id="saveHint ? 'save-hint' : undefined" aria-live="polite">
         {{ saveHint ?? '按住圖上的文字可以拖曳位置' }}
       </p>
@@ -869,7 +859,7 @@ const canvasLabel = computed(() => {
           :aria-describedby="saveHint ? 'save-hint' : undefined"
           @click="save"
         >
-          <Icon name="check" :size="20" /> {{ saving ? '儲存中…' : limitReached ? '今天已做滿' : '儲存作品' }}
+          <Icon name="save" :size="20" /> {{ saving ? '儲存中…' : limitReached ? '今天已做滿' : '儲存作品' }}
         </button>
       </div>
     </div>
@@ -885,6 +875,10 @@ const canvasLabel = computed(() => {
         </p>
         <p v-if="remaining != null" class="saved-left small muted">
           {{ remaining > 0 ? `今天還能再做 ${remaining} 張` : `今天的 ${DAILY_ARTWORK_LIMIT} 張做完了，明天再來！` }}
+        </p>
+        <!-- 這裡的圖是剛存好的原圖；政策 QR Code 是按「存到手機相簿」時才加上去的，先說清楚，免得以為不見了 -->
+        <p class="saved-left small muted">
+          右下角的政策 <span lang="en">QR Code</span>，會在你按「存到手機相簿」時自動加上
         </p>
         <div v-for="b in saved.unlocked" :key="b.id" class="reward">
           <span class="reward-title">解鎖新背景「{{ b.name }}」</span>
@@ -971,6 +965,41 @@ const canvasLabel = computed(() => {
   min-width: 0;
 }
 
+/*
+ * 整頁捲動（flow）：矮螢幕、字級放大、鍵盤彈出時，工具區不被壓扁（見 script 的 updateLayoutMode）。
+ * 預覽跟著內容捲動、縮小一點，兩側留白才好讓手指從旁邊滑動頁面；
+ * 工具分頁黏在上方、底部按鈕列黏在下方，儲存永遠按得到。
+ */
+.editor.flow {
+  height: auto;
+  min-height: 100%;
+  --canvas: min(100%, 32vh);
+}
+@supports (height: 1svh) {
+  .editor.flow {
+    --canvas: min(100%, 32svh);
+  }
+}
+.editor.flow .right {
+  flex: 1 0 auto;
+}
+.editor.flow .panel {
+  flex: 1 0 auto;
+  overflow: visible;
+}
+/* 分頁列與按鈕列黏住（兩條加起來沒佔掉畫面一半時才黏，見 script 的 stickyBars） */
+.editor.flow.sticky .tools {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+.editor.flow.sticky .actionbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+}
+
 /* 橫式手機、平板、桌機：兩欄，各自完整顯示 */
 @media (orientation: landscape) and (min-width: 640px), (min-width: 900px) {
   .editor {
@@ -997,21 +1026,25 @@ const canvasLabel = computed(() => {
   .canvas {
     min-width: 160px;
   }
+  /* 兩欄 + 整頁捲動：左邊預覽黏在上方，右邊內容一路往下 */
+  .editor.flow {
+    align-items: start;
+    --canvas: min(100%, calc(100vh - 160px));
+  }
+  @supports (height: 1svh) {
+    .editor.flow {
+      --canvas: min(100%, calc(100svh - 160px));
+    }
+  }
+  .editor.flow .stage {
+    position: sticky;
+    top: 0;
+  }
+  .editor.flow .right {
+    height: auto;
+  }
 }
 
-/* 很矮的畫面（橫式手機、字級放大、鍵盤彈出）：改成整頁捲動，工具區不會被壓扁 */
-@media (max-height: 560px) {
-  .editor {
-    height: auto;
-  }
-  .right {
-    height: auto;
-    display: block;
-  }
-  .panel {
-    overflow: visible;
-  }
-}
 
 /* 工具區的每個區塊維持原本高度，內容多就往下排、由工具區捲動，不會被壓扁截掉 */
 .panel > * {
@@ -1022,65 +1055,6 @@ const canvasLabel = computed(() => {
   line-height: 1.75rem;
   font-weight: 700;
   margin-top: 6px;
-}
-/* 背景 */
-.my-photo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: var(--radius-m);
-  background: var(--c-surface);
-  box-shadow: var(--shadow-1);
-  border: 2px solid transparent;
-}
-.my-title {
-  display: block;
-}
-.my-photo.on {
-  border-color: var(--tp-primary-500);
-}
-.my-thumb {
-  flex: none;
-  width: 56px;
-  height: 56px;
-  border-radius: 8px;
-  object-fit: cover;
-}
-.my-thumb.empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--tp-primary-50, #edf8fa);
-  color: var(--tp-primary-700);
-}
-.my-acts {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 4px;
-}
-.panel-title.or {
-  margin: 4px 0 -4px;
-}
-.bg-current {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 4px 0 14px;
-  border-radius: var(--radius-m);
-  background: var(--c-surface);
-  box-shadow: var(--shadow-1);
-}
-.cur-name {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
 .search input {
   width: 100%;
@@ -1102,21 +1076,6 @@ const canvasLabel = computed(() => {
 .bg-item img.broken {
   visibility: hidden;
 }
-.credit {
-  text-align: center;
-}
-/* 照片出處連結：點擊範圍至少 48px 高（原本只有一行字的高度 23px） */
-.credit a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 48px;
-}
-.km {
-  display: block;
-  font-weight: 400;
-  font-size: 0.75rem;
-  opacity: 0.9;
-}
 .bg-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1130,6 +1089,17 @@ const canvasLabel = computed(() => {
   border: 3px solid transparent;
   background: var(--tp-grey-100);
   min-height: 48px;
+}
+.bg-item.mine {
+  background: var(--tp-primary-50);
+  color: var(--c-action);
+}
+.mine-icon {
+  position: absolute;
+  inset: 0 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .bg-item img {
   width: 100%;
@@ -1185,12 +1155,9 @@ const canvasLabel = computed(() => {
   font-weight: 600;
 }
 /* 政策標語預覽：最多顯示兩行（原本單行截斷，長輩看不到內容就很難選） */
+/* 政策標語預覽：完整顯示、自動換行，不截斷（字級放大時也不會少看到字） */
 .row-sub {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
+  display: block;
   margin-top: 2px;
 }
 .radio {
@@ -1231,26 +1198,24 @@ h2.field-label {
   margin: 0;
   font-size: inherit;
 }
-.slogan-readonly {
+/* 問候語（可編輯）與政策標語（唯讀）共用同一種文字框 */
+.text-box {
+  display: block;
+  width: 100%;
   margin: 0;
   padding: 12px 14px;
   border-radius: var(--radius-m);
   background: var(--tp-grey-50);
   border: 1px solid var(--tp-grey-200);
+  font: inherit;
   font-size: 1.25rem;
   line-height: 1.6;
   white-space: pre-line;
   color: var(--c-text);
+  resize: none;
 }
-.field textarea {
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: var(--radius-m);
-  border: 2px solid var(--tp-grey-500);
-  background: var(--c-surface);
-  font-size: 1.25rem;
-  line-height: 1.6;
-  resize: vertical;
+textarea.text-box {
+  white-space: pre-wrap;
 }
 .field textarea:focus {
   border-color: var(--c-action);

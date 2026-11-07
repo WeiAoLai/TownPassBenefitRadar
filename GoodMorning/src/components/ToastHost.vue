@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { dismiss, toasts } from '../composables/toast'
+import { dismiss, liveMessage, toasts } from '../composables/toast'
 </script>
 
 <template>
   <div class="host" role="status" aria-live="polite">
+    <!-- 看不見的播報文字（載入中等），讀報軟體會唸 -->
+    <span class="visually-hidden">{{ liveMessage }}</span>
     <TransitionGroup name="toast">
       <button
         v-for="t in toasts"
@@ -15,6 +17,7 @@ import { dismiss, toasts } from '../composables/toast'
         @click="dismiss(t.id)"
       >
         {{ t.text }}
+        <span v-if="t.kind === 'error'" class="hint">點一下關閉</span>
       </button>
     </TransitionGroup>
   </div>
@@ -46,6 +49,12 @@ import { dismiss, toasts } from '../composables/toast'
   font-weight: 700;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
   text-align: center;
+}
+.toast .hint {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--tp-font-body);
+  font-weight: 400;
 }
 .toast.success {
   background: var(--tp-primary-700);

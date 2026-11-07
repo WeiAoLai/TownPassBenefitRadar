@@ -7,6 +7,8 @@ import type { Artwork } from '../api/types'
 import BadgeChip from '../components/BadgeChip.vue'
 import Icon from '../components/Icon.vue'
 import { startDownload, toggleLike } from '../composables/artworkActions'
+import { setPageTitle } from '../composables/pageTitle'
+import { announce } from '../composables/toast'
 
 const route = useRoute()
 const art = ref<Artwork | null>(null)
@@ -15,10 +17,12 @@ const loading = ref(true)
 
 async function load() {
   loading.value = true
+  announce('載入中')
   error.value = null
   try {
     art.value = await api.getArtwork(Number(route.params.id))
-    document.title = `${art.value.owner.displayName} 的作品`
+    // h1 與 document.title 一起換成「某某 的作品」
+    setPageTitle(`${art.value.owner.displayName} 的作品`)
   } catch (e) {
     error.value = friendlyMessage(e)
   } finally {
