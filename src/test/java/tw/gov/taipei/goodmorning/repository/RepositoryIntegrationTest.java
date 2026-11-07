@@ -105,6 +105,9 @@ class RepositoryIntegrationTest {
         assertThat(page.getContent())
                 .extracting(Artwork::getId)
                 .containsExactly(created.get(3).getId(), created.get(2).getId());
+        assertThat(artworks.findDetailedById(created.getFirst().getId()))
+                .hasValueSatisfying(found ->
+                        assertThat(found.getOwner().getDisplayName()).isEqualTo("Owner"));
     }
 
     @Test
@@ -126,6 +129,10 @@ class RepositoryIntegrationTest {
                 fixtures.owner(), fixtures.background(), fixtures.policy(),
                 "早安台北", fixtures.policy().getSourceUrl(), "artworks/test/liked.png"));
         artworkLikes.saveAndFlush(new ArtworkLike(fixtures.owner(), artwork));
+
+        assertThat(artworkLikes.findArtworkIdsByUserIdAndArtworkIdIn(
+                        fixtures.owner().getId(), java.util.Set.of(artwork.getId())))
+                .containsExactly(artwork.getId());
 
         assertThatThrownBy(() ->
                         artworkLikes.saveAndFlush(new ArtworkLike(fixtures.owner(), artwork)))
