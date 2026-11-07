@@ -85,4 +85,11 @@ describe('字級下限', () => {
     expect(rem('--tp-font-h3')).toBeGreaterThanOrEqual(1.125)
     expect(rem('--tp-font-body')).toBeGreaterThanOrEqual(1)
   })
+
+  it('根字級固定 100%，不隨螢幕寬度縮小（曾用 clamp() 讓 360–390 寬的手機降到 13–14.5px，違反 DT）', () => {
+    const base = readFileSync(new URL('../src/css/base.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const m = /(?:^|\n)html\s*\{[^}]*?font-size:\s*([^;]+);/.exec(base)
+    expect(m, 'base.css 找不到 html { font-size }').not.toBeNull()
+    expect(m![1].trim()).toBe('100%')
+  })
 })

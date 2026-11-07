@@ -3,7 +3,8 @@
  * 獲得新徽章的全螢幕慶祝畫面：徽章轉圈放大登場、光芒與星星、大字恭喜、歡樂音效，並可分享給親友。
  * - 不自動消失，長輩要按大按鈕（或 Esc）才關閉，避免來不及看。
  * - 動畫只用在「進場」與緩慢的光芒／星星，沒有快速閃爍；prefers-reduced-motion 時 base.css 會關掉所有動畫，直接顯示最終畫面。
- * - 音效右上角可關閉（記在手機上）；觸發本畫面的按鈕要先呼叫 unlockAudio()，見 composables/sound.ts。
+ * - 音效（合成音效＋隨機一句稱讚）預設開啟，右上角可關閉（記在手機上）；關閉本畫面時聲音立刻淡出。
+ *   觸發本畫面的按鈕要先呼叫 unlockAudio()，見 composables/sound.ts。
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { badgeArtUrl } from '../config/badges'

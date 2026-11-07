@@ -21,13 +21,13 @@ function back() {
       <Icon name="chevron-left" :size="24" />
     </button>
     <span v-else class="spacer" aria-hidden="true" />
-    <h1 class="title">
+    <h1 class="title" tabindex="-1">
       <span class="logo" aria-hidden="true">✿</span>
       {{ title }}
     </h1>
     <span class="spacer"><slot name="end" /></span>
   </header>
-  <h1 v-else class="visually-hidden">{{ title }}</h1>
+  <h1 v-else class="visually-hidden" tabindex="-1">{{ title }}</h1>
 </template>
 
 <style scoped>

@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import FeedView from '../views/FeedView.vue'
+import { titleOverride } from '../composables/pageTitle'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -40,5 +41,6 @@ export const router = createRouter({
 
 router.afterEach((to) => {
   // TownPass 以頁面標題作為 AppBar 標題
+  titleOverride.value = null
   document.title = to.meta.title
 })
