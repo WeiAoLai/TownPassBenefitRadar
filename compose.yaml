@@ -14,6 +14,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-good_morning}
       AWS_REGION: ${AWS_REGION:-ap-southeast-2}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-good-morning-local}
+      PRESIGNED_URL_TTL: ${PRESIGNED_URL_TTL:-PT15M}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
       S3_ENDPOINT: http://localstack:4566
