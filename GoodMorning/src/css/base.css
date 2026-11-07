@@ -230,6 +230,10 @@ a {
   flex-direction: column;
   gap: 10px;
 }
+/* 沒有提示時整行收起來，不留空白 */
+.section-bar .one-line:empty {
+  display: none;
+}
 /* 底部提示是操作指引，字放大到 18px 半粗，用 primary-700（原本主色 2.39:1 幾乎看不到） */
 .section-bar .one-line {
   color: var(--c-action);
@@ -245,6 +249,11 @@ a {
 .section-bar .btns > .btn {
   flex: 1 1 0;
   min-width: 0;
+  /* 底部常駐按鈕壓矮一點，讓出畫面給預覽與工具；仍維持觸控最小 48px（台北通 TS） */
+  min-height: 48px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  line-height: 1.4;
 }
 
 /* ===== Figma Table item：白底、56 高、Grey/100 分隔線 ===== */

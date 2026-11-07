@@ -657,20 +657,15 @@ const canvasLabel = computed(() => {
       role="tabpanel"
       aria-labelledby="tool-tab-policy"
     >
-      <h2 class="panel-title">1. 選政策類別</h2>
-      <div class="chips" role="radiogroup" aria-label="政策類別">
-        <button
-          v-for="c in categories"
-          :key="c"
-          type="button"
-          class="chip"
-          role="radio"
-          :aria-checked="category === c"
-          @click="category = c"
-        >
-          {{ c }}
-        </button>
-      </div>
+      <label class="field">
+        <h2 class="panel-title">1. 選政策類別</h2>
+        <span class="select-wrap">
+          <select v-model="category" class="select" :disabled="loading.cat || !categories.length">
+            <option v-for="c in categories" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <Icon name="chevron-right" class="select-arrow" />
+        </span>
+      </label>
       <h2 class="panel-title">2. 選要宣傳的政策</h2>
       <div v-if="loading.pol" class="list">
         <div v-for="i in 2" :key="i" class="list-row"><span class="grow skeleton" style="height: 40px" /></div>
@@ -743,12 +738,7 @@ const canvasLabel = computed(() => {
         <div v-else class="field">
           <h2 class="field-label">政策標語</h2>
           <p class="text-box" aria-describedby="slogan-help">{{ draft.policy.slogan }}</p>
-          <span id="slogan-help" class="small muted">
-            標語由市府提供，不能修改；可以到「樣式」換顏色、大小和位置，字太多會自動縮小。
-          </span>
-          <button type="button" class="btn block" @click="tool = 'policy'">
-            <Icon name="flag" :size="20" /> 換一個政策
-          </button>
+          <span id="slogan-help" class="small muted">標語由市府提供，不能修改</span>
         </div>
       </template>
     </section>
@@ -799,7 +789,6 @@ const canvasLabel = computed(() => {
       </div>
 
       <h2 class="panel-title">大小與位置</h2>
-      <p class="small muted">在圖上按住文字可以移動；拖右下角的圓形把手可以調整文字框大小（字會在框內自動換行），字的大小用下面的 −／＋ 調整</p>
       <div class="pos-wrap">
         <div class="pos-grid" role="group" aria-label="快速放到九宮格位置">
           <button
@@ -829,9 +818,6 @@ const canvasLabel = computed(() => {
       <label class="switch-row list-row">
         <span class="grow">
           標出 <span lang="en">QR Code</span> 的位置
-          <span class="small muted block"
-            >只是編輯時的提示框，關掉也不影響成品；存到手機相簿時，右下角一定會自動加上政策 <span lang="en">QR Code</span></span
-          >
         </span>
         <span class="switch-state" aria-hidden="true">{{ showQrZone ? '開' : '關' }}</span>
         <input v-model="showQrZone" type="checkbox" role="switch" class="switch" />
@@ -845,9 +831,7 @@ const canvasLabel = computed(() => {
 
     <!-- Figma Section_one line text_button/m：固定在畫面底部，按鈕不會被捲走 -->
     <div ref="actionEl" class="section-bar actionbar">
-      <p class="one-line" :id="saveHint ? 'save-hint' : undefined" aria-live="polite">
-        {{ saveHint ?? '按住圖上的文字可以拖曳位置' }}
-      </p>
+      <p class="one-line" :id="saveHint ? 'save-hint' : undefined" aria-live="polite">{{ saveHint ?? '' }}</p>
       <div class="btns">
         <button type="button" class="btn" :disabled="randomizing || !!loadError" @click="randomize">
           <Icon name="dice" :size="20" /> {{ randomizing ? '挑選中…' : '隨機一張' }}
@@ -875,10 +859,6 @@ const canvasLabel = computed(() => {
         </p>
         <p v-if="remaining != null" class="saved-left small muted">
           {{ remaining > 0 ? `今天還能再做 ${remaining} 張` : `今天的 ${DAILY_ARTWORK_LIMIT} 張做完了，明天再來！` }}
-        </p>
-        <!-- 這裡的圖是剛存好的原圖；政策 QR Code 是按「存到手機相簿」時才加上去的，先說清楚，免得以為不見了 -->
-        <p class="saved-left small muted">
-          右下角的政策 <span lang="en">QR Code</span>，會在你按「存到手機相簿」時自動加上
         </p>
         <div v-for="b in saved.unlocked" :key="b.id" class="reward">
           <span class="reward-title">解鎖新背景「{{ b.name }}」</span>
@@ -1121,6 +1101,10 @@ const canvasLabel = computed(() => {
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
+  /* 名稱太長就用「…」截斷；完整名稱在按鈕的 aria-label 裡，讀報軟體唸得到 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .lock {
   position: absolute;
@@ -1197,6 +1181,41 @@ const canvasLabel = computed(() => {
 h2.field-label {
   margin: 0;
   font-size: inherit;
+}
+/* 政策類別：原生下拉選單（手機會叫出系統的選擇器） */
+.select-wrap {
+  position: relative;
+  display: block;
+}
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  margin: 0;
+  padding: 10px 48px 10px 14px;
+  border-radius: var(--radius-m);
+  background: var(--tp-grey-50);
+  border: 1px solid var(--tp-grey-200);
+  font: inherit;
+  font-size: 1.25rem;
+  color: var(--c-text);
+}
+.select:focus-visible {
+  outline: 3px solid var(--c-action);
+  outline-offset: 2px;
+}
+.select:disabled {
+  opacity: 0.6;
+}
+.select-arrow {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  pointer-events: none;
+  color: var(--tp-grey-800);
 }
 /* 問候語（可編輯）與政策標語（唯讀）共用同一種文字框 */
 .text-box {
