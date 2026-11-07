@@ -28,11 +28,45 @@ docker compose exec -T api env -u SPRING_FLYWAY_URL -u SPRING_FLYWAY_USER -u SPR
 ruby scripts/check-openapi.rb
 bash scripts/check-db-schema.sh
 ruby scripts/check-grafana-dashboards.rb
+ruby scripts/check-k6.rb
 bash scripts/smoke-test.sh
 bash scripts/monitoring-smoke-test.sh
 ```
 
 完整測試包含 Flyway、MariaDB repository、併發按讚、S3、OpenAPI 契約、QR Code 解碼與 controller/service 測試。
+
+## k6 階梯式壓測
+
+k6 使用官方 `grafana/k6:2.3.0` image，並行執行約 80% 查詢與 20% 完整作品流程。預設 read VUs 為 `5 → 20 → 50 → 0`，write VUs 為 `1 → 4 → 10 → 0`，階段時間依序為 `30s → 1m → 2m → 30s`。
+
+本機 Compose 壓測：
+
+```bash
+docker compose --profile performance run --rm k6-local
+```
+
+AWS ALB 壓測，`BASE_URL` 必須包含 `/api`：
+
+```bash
+BASE_URL=https://api.example.com/api \
+  docker compose --profile performance run --rm k6-aws
+```
+
+預設驗收門檻為整體 HTTP 失敗率小於 1%、checks 成功率高於 99%、查詢 p95 小於 500ms、寫入 p95 小於 2 秒。任一門檻失敗時 k6 會回傳非零 exit code。執行時可同時查看 Grafana 的 Demo 總覽與維運排查 Dashboard。
+
+所有設定可透過 `K6_` 前綴的 Compose 環境變數覆寫。例如以下短測試只使用 1 個 read VU 與 1 個 write VU：
+
+```bash
+K6_WARMUP_DURATION=2s \
+K6_NORMAL_DURATION=2s \
+K6_PEAK_DURATION=2s \
+K6_COOLDOWN_DURATION=1s \
+K6_READ_WARMUP_VUS=1 K6_READ_NORMAL_VUS=1 K6_READ_PEAK_VUS=1 \
+K6_WRITE_WARMUP_VUS=1 K6_WRITE_NORMAL_VUS=1 K6_WRITE_PEAK_VUS=1 \
+  docker compose --profile performance run --rm k6-local
+```
+
+本機與 AWS summary 分別輸出至 `performance/results/local-summary.json`、`performance/results/aws-summary.json`。write scenario 會真的建立作品並寫入 MariaDB 與 S3，也會執行按讚、下載與取消讚；由於目前沒有刪除作品 API，壓測資料不會自動清除。
 
 ## Prometheus 與 Grafana
 

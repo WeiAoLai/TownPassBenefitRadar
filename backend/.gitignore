@@ -19,6 +19,8 @@ target/
 .localstack/
 .mariadb/
 logs/
+performance/results/*
+!performance/results/.gitkeep
 
 # Git worktrees
 .worktrees/
