@@ -1,6 +1,17 @@
 # 早安政策圖 / Good Morning Policy Cards
 
+- [前端詳細 README](./GoodMorning/README.md)
+- [後端詳細 README](./backend/README.md)
+
 TownPass WebView 微服務，讓長輩用台北景點或自己的照片製作問候圖，加入市政政策標語與 QR Code，再儲存分享給親友。
+
+## Features
+
+- 一鍵產生長輩圖，自動搭配背景、問候語與市政政策。
+- 自行調整照片、文字、字體、顏色與位置，並避開 QR Code。
+- 儲存或分享作品，從作品牆查看排行榜與最新作品。
+- 透過每日提醒、徽章與成就鼓勵持續創作。
+- 支援 TownPass WebView、手機原生選單與 48 px 觸控目標。
 
 ## Architecture
 

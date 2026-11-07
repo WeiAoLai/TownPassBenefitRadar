@@ -13,6 +13,10 @@ function back() {
   if (window.history.length > 1) router.back()
   else router.push('/')
 }
+
+function close() {
+  window.close()
+}
 </script>
 
 <template>
@@ -22,16 +26,17 @@ function back() {
     </button>
     <span v-else class="spacer" aria-hidden="true" />
     <h1 class="title" tabindex="-1">
-      <span class="logo" aria-hidden="true">✿</span>
       {{ title }}
     </h1>
-    <span class="spacer"><slot name="end" /></span>
+    <button class="icon-btn close-btn" type="button" aria-label="關閉" @click="close">
+      <Icon name="close" :size="24" />
+    </button>
   </header>
   <h1 v-else class="visually-hidden" tabindex="-1">{{ title }}</h1>
 </template>
 
 <style scoped>
-/* Figma Top navigation（3:5074）：白底 56 高、左側 56 × 56 返回鈕、標題置中 H3 Semibold Grey/700 */
+/* 參考 TownPass 服務頁：品牌色標題列、置中白字、右側關閉；操作區維持 56 × 56。 */
 .topbar {
   flex: none;
   position: relative;
@@ -41,9 +46,8 @@ function back() {
   justify-content: space-between;
   height: calc(var(--topnav-h) + env(safe-area-inset-top));
   padding-top: env(safe-area-inset-top);
-  background: var(--c-surface);
-  color: var(--c-text);
-  border-bottom: 1px solid var(--c-line);
+  background: var(--c-brand);
+  color: var(--c-on-brand);
 }
 .title {
   position: absolute;
@@ -57,13 +61,10 @@ function back() {
   font-size: var(--tp-font-h3);
   line-height: var(--tp-lh-h3);
   font-weight: 600;
-  color: var(--c-text);
+  color: var(--c-on-brand);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.logo {
-  display: none;
 }
 .spacer,
 .icon-btn {
@@ -78,6 +79,9 @@ function back() {
   color: inherit;
 }
 .icon-btn:active {
-  background: var(--tp-grey-50);
+  background: rgb(255 255 255 / 16%);
+}
+.close-btn {
+  margin-left: auto;
 }
 </style>

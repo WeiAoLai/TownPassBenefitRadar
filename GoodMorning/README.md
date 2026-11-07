@@ -1,8 +1,8 @@
 # 早安政策圖 / Good Morning Policy Cards
 
-> 長輩每天在 LINE 群組傳早安圖，市府的政策宣傳卻很少走這條管道。早安政策圖讓長輩挑一張台北地標或自己拍的照片、選一則市政標語，做出熟悉的長輩圖存到手機相簿分享；圖上的 QR Code 讓親友一掃就連回官方政策說明。
+> 長輩每天在 LINE 群組傳早安圖，市府的政策宣傳卻很少走這條管道。早安政策圖先自動配好背景、問候語與政策，使用者確認後就能儲存，也可再進入編輯器調整；成品上的 QR Code 會連回政策說明。
 
-本資料夾是 TownPass（台北通）WebView 微服務的前端。需求以 `good-morning.md`（長輩圖政策宣傳專案需求文件）為準，API 契約以 `openapi.yaml` v0.1.0 為準；TownPass App 端的修改在同一個倉庫的 `TownPass/`。
+本資料夾是 TownPass（台北通）WebView 微服務的前端。需求以 [`../backend/good-morning.md`](../backend/good-morning.md) 為準，API 契約以 [`../backend/openapi.yaml`](../backend/openapi.yaml) v0.1.0 為準；TownPass App 端的修改位於同一個倉庫的 `TownPass/`。
 
 ## 1. 專案簡介 / Project Overview
 
@@ -16,17 +16,18 @@
 
 ### 核心功能
 
-1. **三步驟做出長輩圖**：選背景 → 選政策（標語自動帶入，不能修改）→ 改問候語、調整樣式與位置，或按「隨機一張」一鍵完成。編輯器提供 8 種經典長輩圖字樣、直書／橫書、拖曳與按鈕兩種調整方式。
-2. **台北地標或自己的照片當背景**：10 張台北地標照片；也可以拍照或從相簿挑照片。
-3. **存到手機相簿，附政策 QR Code**：輸出 1080 × 1080 圖片，右下角是台北通外框的 QR Code，掃描後開啟政策說明頁。
-4. **每天早上提醒**：在台北通 App 裡開啟後，每天固定時間跳通知，點通知直接進製作頁。
-5. **徽章、排行榜與作品牆**：累積作品升級十級徽章、解鎖新背景；作品牆可以按愛心，排行榜依愛心與下載數排名。
+1. **先看成品，再決定要不要編輯**：按「幫我做一張」後直接看到完成預覽，可換一張、儲存，或按「自行調整」進入編輯器。
+2. **自動排版並避開 QR Code**：問候語與政策標語會隨機放入九宮格位置，彼此不重疊，也不擋住右下角 QR Code。
+3. **直接拖曳與縮放**：文字方塊可在畫布上拖曳；拖右下角控制點時，文字框與字體會同步縮放。編輯器另提供背景、政策、內容與樣式四個分頁。
+4. **台北地標或自己的照片**：內建 10 張台北地標照片，也能從相簿或相機選圖。字體隨前端一起打包，Android 不需另外安裝字型。
+5. **分享、徽章與作品牆**：成品輸出為 1080 × 1080 PNG，附政策 QR Code；作品牆可切換排行榜與最新作品，累積作品還會取得十級徽章。
+6. **每日提醒**：TownPass App 透過 `daily_reminder` 排程本機通知；mock 模式提供可操作的瀏覽器示範開關。
 
 ### Demo
 
 - Demo URL：尚未公開部署。部署方式見第 9 節（Docker），完成後在台北通 App 的服務設定填入網址。
 - 本機預覽：`npm run dev` 後以手機瀏覽器開啟 `http://<電腦 IP>:5174`，使用瀏覽器內示範資料，不需要後端；要接正式後端用 `npm run prod`。
-- 測試限制：每日提醒、台北通帳號需要在台北通 App 的 WebView 裡才能使用；一般瀏覽器會改用示範帳號，提醒開關會停用並說明原因。
+- 測試限制：mock 模式會用示範帳號，提醒設定只存進瀏覽器 `localStorage`，不會真的傳送通知。TownPass 帳號、原生通知、返回與關閉仍須在 App WebView 內驗證。
 
 ## 2. 系統架構 / System Architecture
 
@@ -108,20 +109,20 @@ fvm flutter run
 
 ```sh
 npm run typecheck   # vue-tsc
-npm test            # vitest：排行榜、徽章、排版、背景圖庫 JSON、對比、分享、每日上限、13 個 API 端點路徑、慶祝語音，共 63 個
+npm test            # vitest：排行榜、徽章、排版、背景圖庫、對比、分享、每日上限、API 路徑與慶祝語音
 npm run build       # vue-tsc + vite build
 
 npx playwright install chromium   # 第一次跑 e2e 前安裝瀏覽器
 npm run test:e2e                  # Playwright end-to-end 測試
 ```
 
-2026-11-08 結果：typecheck、build 通過；單元測試 63 個全數通過。
+2026-11-08 驗證結果：production build 通過，8 個 Vitest 測試檔共 62 項全數通過；新版作品牆 header 的 iPhone 13 E2E 通過。瀏覽器模擬不能當成 iOS、Android 或 TownPass WebView 實機驗證。
 
 **End-to-end 測試**（`e2e/`，Playwright 1.63.0，設定見 `playwright.config.ts`）會自己啟動伺服器，不需要後端：
 
 | 專案 | 環境 | 內容 |
 |---|---|---|
-| `mock-iphone13`、`mock-pixel7` | 正式 build＋示範資料模式，iPhone 13 與 Pixel 7 尺寸 | 隨機一張 → 儲存 → 存到手機相簿；政策類別下拉選單；每日上限（第 4 張停用）；政策標語唯讀、問候語可改；舊草稿標語還原；拖曳把手只改文字框、字級不變；「我的照片」選照片；鎖住的背景只提示；四個工具分頁觸控目標 ≥ 48 × 48；「我的」提醒開關在一般瀏覽器停用；模擬台北通：只顯示暱稱、開提醒送出 `daily_reminder` |
+| `mock-iphone13`、`mock-pixel7` | 正式 build＋示範資料模式，iPhone 13 與 Pixel 7 尺寸 | 一鍵產生 → 預覽 → 儲存或自行調整；政策標語唯讀、問候語可改；文字拖曳與等比例縮放；隨機排版避開另一段文字與 QR Code；原生政策類別下拉選單；每日上限；自選照片；鎖定背景提示；四個工具分頁的觸控目標 ≥ 48 × 48；作品牆切換排行榜／最新；mock 提醒開關可操作並保存；模擬 TownPass 帳號與 `daily_reminder` 收送格式 |
 | `http-iphone13` | 串接模式，`/api/v1/**` 由測試內照 openapi 寫的假後端回應 | 所有請求都在 `/api/v1` 底下且帶 `X-Demo-User`；儲存送出的 `backgroundId` 是後端存在的背景、`sloganText` 是政策原文 |
 
 背景照片缺檔時測試仍可執行（畫面會顯示載入失敗提示，不影響流程）。實機與台北通 WebView 內的測試不在此範圍。
@@ -151,11 +152,11 @@ npm run test:e2e                  # Playwright end-to-end 測試
 | `set` | `hour`（0–23，預設 7）、`minute`（0–59）、`title`、`content`、`url` | 先要通知權限，拒絕就回 `permission: false`，畫面提示到手機設定開啟；同意後排每天固定時間（台北時間）的本機通知，重設會覆蓋 |
 | `cancel` | — | 取消排程 |
 
-**瀏覽器開發模式**：沒有 `window.flutterObject` 時，`open_link` 改用 `window.open`、`userinfo` 回到示範帳號、提醒開關停用並提示「在台北通 App 裡打開才能設定」。
+**瀏覽器開發模式**：沒有 `window.flutterObject` 時，`open_link` 改用 `window.open`，`userinfo` 回到示範帳號。mock 模式的提醒開關可操作，狀態與時間存於 `localStorage`，只用來示範流程，不會建立系統通知；http 模式若不在 TownPass 內則停用提醒。
 
 **權限、拒絕與取消**：本服務不使用定位。通知權限在打開提醒開關時才詢問，拒絕時提示到手機設定開啟。拍照／相簿由系統選單處理，取消就維持原背景。
 
-**標題**：在台北通內隱藏網頁自己的標題列，由 App AppBar 顯示 `document.title`；頁面仍保留供輔助科技讀取的 `h1`。
+**標題**：一般瀏覽器顯示品牌色 header、置中標題與關閉按鈕；在 TownPass 內隱藏網頁 header，由 App AppBar 顯示 `document.title`。頁面仍保留供輔助科技讀取的 `h1`。
 
 **http 模式的身分**：openapi v0.1.0 只定義 `X-Demo-User`，台北通登入需要後端新增驗證方式；在那之前 http 模式仍送示範帳號，台北通帳號只用於 mock 模式。
 
@@ -185,13 +186,13 @@ npm run test:e2e                  # Playwright end-to-end 測試
 | 5.1 | 選背景 | 10 張地標照片由前端圖庫提供；解鎖依目前使用者的累積作品數（`GET /api/v1/me` 的 `artworkCount`）判斷，鎖定的背景顯示「存 N 張解鎖」；背景格第一格是「我的照片」 | Unsplash 照片，[Unsplash License](https://unsplash.com/license)；清單 `public/data/backgrounds.json` |
 | 5.3 | 自己的照片 | `<input type="file" accept="image/*">` 叫出拍照／相簿選單；手機端裁成 1080 正方形 | 使用者提供；只上傳合成後的作品，不上傳原圖與 EXIF |
 | 5.4 | 選政策、帶入標語 | 類別（原生下拉選單）→ 政策清單（單選）→ 標語自動帶入；**標語不能修改**，確保圖上的文字與市府公告一致，送出的 `sloganText` 一律是政策原文 | http 模式為後端資料；mock 模式為**示範資料**（`src/api/mock/fixtures.ts`），見下方說明 |
-| 5.5 | 隨機一張 | `GET /api/v1/policies/random`，並隨機挑問候語、字樣與已解鎖背景 | 同 5.4 |
-| 5.6 | 編輯文字 | 兩個圖層：問候語（可自由輸入或選常用問候語）、政策標語（文字固定，只能調整樣式與位置）；8 種字樣、直書／橫書與對齊（橫書靠左／置中／靠右、直書靠上／置中／靠下，皆為圖示按鈕）、3 種內建字型；拖曳移動；拖右下角把手調整文字框大小（橫書改寬度與換行、直書改每行字數），字級不變；字級用 −／＋ 按鈕調整；另有九宮格定位與微調按鈕；只有超出畫布時才自動縮小 | — |
+| 5.5 | 一鍵產生與預覽 | `GET /api/v1/policies/random` 後隨機挑問候語、文字樣式與已解鎖背景；兩段文字從九宮格位置中挑選，不互相重疊，也避開 QR Code。使用者可直接換一張、儲存，或按「自行調整」進入編輯器的「背景」分頁 | 同 5.4 |
+| 5.6 | 自行調整 | 兩個文字圖層：問候語可輸入或選常用內容；政策標語固定，只能調整呈現方式。畫布支援直接拖曳文字，拖右下角控制點時，文字框與字體同步等比例縮放。另有 8 種文字樣式、直書／橫書、對齊方式與 3 種隨前端打包的繁中字型 | — |
 | 5.7 | 儲存作品 | 前端輸出 1080 × 1080 PNG → `POST /api/v1/artworks`；儲存成功視窗直接顯示手機上剛畫好的圖（先解碼完才開視窗，不從網路重新下載）；每人每天最多 3 張（台北時間 00:00 重置） | — |
 | 5.8 | 存到手機相簿 | `GET /api/v1/artworks/{id}/download` 取得附 QR Code 的成品；系統分享（選「儲存影像」）、長按儲存、下載檔案三種方式 | QR 外框使用台北通官方 logo（GPL-3.0） |
 | 5.9 | 徽章與解鎖 | 十級徽章（公比 2）、進度條；Lv.1–3 有大圖，獲得時全螢幕慶祝並可分享 | 徽章大圖為團隊提供的設計稿 |
-| 5.10 | 作品牆、愛心、排行榜 | `PUT/DELETE /api/v1/artworks/{id}/like` 樂觀更新；`GET /api/v1/leaderboard` 前 100 名 | — |
-| 5.11 | 每天早上提醒 | 見第 4 節 `daily_reminder` | — |
+| 5.10 | 作品牆、愛心、排行榜 | 作品牆以分頁切換「排行榜」與「最新」；排行榜取前 10 筆，只有前三名顯示名次。愛心以 `PUT/DELETE /api/v1/artworks/{id}/like` 樂觀更新，排行榜資料來自 `GET /api/v1/leaderboard` | — |
+| 5.11 | 每天早上提醒 | TownPass 內使用第 4 節的 `daily_reminder`；mock 模式以 `localStorage` 示範開關與時間設定 | — |
 
 **模擬、快取、衍生或生成資料**：
 
@@ -213,26 +214,26 @@ npm run test:e2e                  # Playwright end-to-end 測試
 | 草稿、編輯、刪除、公開 | 只有本機草稿；不提供編輯既有作品與刪除；所有作品公開 | `editor/draft.ts` |
 | 解鎖背景 | 前端判斷：每位使用者依自己的作品數解鎖；圓山大飯店、國立故宮博物院存滿 3 張解鎖 | `backgrounds.json` `unlockThreshold`、`data/backgrounds.ts` `catalogBackgrounds()` |
 | 徽章公比、顯示 | 公比 2；顯示最高等級，「我的」可看十級一覽 | `config/badges.ts` |
-| 排行榜 | 全期間前 100 名 | `LeaderboardView.vue` |
+| 排行榜 | API 可回傳完整排行；作品牆只顯示前 10 筆，只有前三名顯示名次 | `FeedView.vue` |
 | 下載格式 | 1080 × 1080 PNG | — |
 | 每日上限 | 每人每天 3 張，只限制儲存；編輯、隨機、下載、愛心不受限 | `config/limits.ts` |
 | 送給後端的 `backgroundId` | openapi 必填。後端有同名背景就送它的 id，沒有就送後端第一張已解鎖的背景（只作紀錄，作品圖已含前端照片）；使用自己的照片時同樣處理。建議後端改為選填或新增 `customBackground` | `data/backgrounds.ts` `serverBackgroundId()` |
 
 ## 6. 設計與無障礙 / Design & Accessibility
 
-- Figma UI kit：[城市通 Town Pass UI kit](https://www.figma.com/design/bPPjugysKFKSCuBP5SptG8) 頁面 `1:2`；Top navigation → `TopBar.vue`、Foot tab bar → `TabBar.vue`、Button/m・L → `.btn`、Tab primary／secondary → `Segmented.vue`、Pop up → `BottomSheet.vue`、Section bar → 編輯器底部按鈕列。
+- Figma UI kit：[城市通 Town Pass UI kit](https://www.figma.com/design/yCpXgoSE0rIhpB7SewpTp3/城市通-Town-Pass-Open-Source-Gov-Mobile-App-UI-kit-and-design-system--Community-?node-id=1-2) 頁面 `1:2`；Foot tab bar、按鈕、分頁與底部面板沿用 kit 的尺寸與色票。瀏覽器版 header 依產品需求改為品牌色底、白字置中與右側關閉按鈕；TownPass 內仍使用原生 AppBar。
 - Typography 與 colors：`src/css/tokens.css`（Figma 2026-10-25 驗證值）、`src/css/base.css`。長輩友善化：內文基準 18px、輔助文字 16px（Figma 原為 16／14）。
 - 版面：以 **Pixel Pro（412 × 約 780 的 WebView）** 為基準並自適應：螢幕夠高時，直式預覽與工具分頁黏在上方、底部按鈕列黏在下方，內容在中間捲動；**螢幕較矮、字級放大或鍵盤彈出，導致釘住版面的工具區低於約 11.5rem 時，製作頁自動改成整頁捲動**（`EditorView.vue` 的 `updateLayoutMode`）：預覽跟著內容捲動，工具分頁與底部按鈕列仍黏住（兩條加起來佔畫面一半以上就不黏，整頁拿來捲動）；橫式或寬度 900 以上改成左預覽、右工具的兩欄（整頁捲動時左邊預覽黏住）；作品牆依寬度自動多欄。
 - 字級自適應（產品決定）：根字級依螢幕寬度縮放，Pixel Pro（412）以上 16px、iPhone 13（390）14.5px、iPhone SE（375）13.5px，最小 13px；上下限以 rem 表示，使用者調大字級時一起放大。窄螢幕上內文仍 ≥ 16px，輔助文字會低於 16px，與台北通 DT 有出入（見下表）。`tests/contrast.test.ts` 檢查基準與最小值。
-- 對比：主色 primary-500 白字只有 2.39:1，只留給裝飾；按鈕、選取狀態、焦點框、連結改用同色票的 primary-700（`--c-action`，白字 5.89:1）；紅色用 `--c-danger-strong`（白字 5.64:1）；`--c-text-3` 改 grey-600。選取狀態除顏色外加打勾、粗體、粗框或底線；開關旁直接寫「開／關」。`tests/contrast.test.ts` 讀 `tokens.css` 驗證這些配對（文字 ≥ 4.5:1、非文字 ≥ 3:1、字級下限），改色票時會被擋下。
-- 提示訊息（toast）一般停留 7 秒；錯誤不會自己消失，點一下才關閉。「載入中」等狀態用 `announce()` 寫進 `ToastHost` 裡常駐的 `role="status"` 區域給讀報軟體唸。
+- 對比：一般文字使用 grey-800／grey-700，輔助文字使用 grey-600；焦點框使用 primary-700，危險操作使用加深紅色。按鈕與選取狀態依產品決定使用 primary-500，白字與白底上的主色文字對比為 2.39:1，未達一般文字 4.5:1，列為已知限制。選取狀態另加打勾、粗體、粗框或底線，開關旁直接顯示「開／關」。`tests/contrast.test.ts` 會檢查已納入規範的文字、焦點與警示色配對。
+- 製作流程的成功、錯誤與載入狀態直接顯示在操作區，不用浮動 toast，避免遮住畫布。其他頁面的非阻斷訊息仍由 `ToastHost` 處理；錯誤不會自動消失。「載入中」等狀態會透過常駐的 `role="status"` 區域播報。
 - 觸控目標：以 Playwright 掃描製作頁四個分頁，所有按鈕、連結與輸入框皆 ≥ 48 × 48（開關本體 52 × 32，可點範圍為整列 56px 高的 label）。
 - Dialog：底部面板有名稱、開啟時焦點移入、Tab 鎖在面板內、Esc／遮罩可關閉、關閉後焦點回到觸發按鈕（已自動化驗證回到「下載」按鈕）。
 - 分段控制：tablist／radiogroup 語意，方向鍵、Home、End 可切換。
-- 畫布：`role="img"` 並以 `aria-label` 描述背景、問候語與標語；拖曳有按鈕替代。
+- 畫布：`role="img"` 並以 `aria-label` 描述背景、問候語與標語。文字移動與縮放目前依賴單指拖曳，尚無鍵盤或按鈕替代，列為已知限制。
 - 動態訊息：toast 為 `role="status"`，錯誤為 `role="alert"`；系統「減少動態」會關閉動畫，「我的 › 設定」另有「動畫效果」開關（手動選擇優先，`composables/motion.ts`，NCC 1.3）。換頁後焦點移到頁面 `h1`（`App.vue`），作品頁的 `h1` 與 `document.title` 一致（`composables/pageTitle.ts`）。
 - 不鎖定縮放（viewport 未設 `maximum-scale`）；每個路由有獨立 `document.title`，hash 路由讓返回鍵可用。
-- 文字放大：以 9 種手機尺寸（320×480、360×560、375×600、390×700、412×780、430×800、768×1024，橫式 700×360、780×412）× 文字 100%／150%／200% 掃描作品牆、製作四個分頁、排行榜、我的：沒有小於 48px 的觸控目標、沒有橫向捲動；製作頁在矮螢幕或大字時改整頁捲動，儲存與工具分頁仍按得到。重複掃描方式：在頁面上加 `html{font-size:200% !important}` 模擬，逐一量測。
+- 文字放大：曾以 9 種手機尺寸（320×480、360×560、375×600、390×700、412×780、430×800、768×1024，橫式 700×360、780×412）搭配 100%、150%、200% 文字，檢查作品牆、製作四個分頁與我的頁面。製作頁在矮螢幕或大字時會改成整頁捲動。這是瀏覽器尺寸模擬，仍需以 VoiceOver、TalkBack 與 TownPass WebView 實機重測。
 - 尚未以 VoiceOver／TalkBack 與台北通實機實測。
 
 ### 台北通 12 類無障礙對照（2026-11-08 審查）
@@ -242,14 +243,14 @@ npm run test:e2e                  # Playwright end-to-end 測試
 | AT | 替代文字 | 符合 | 作品圖有標語替代文字，裝飾圖與圖示隱藏，畫布有說明 |
 | AV | 時序媒體 | **部分符合（已知偏離）** | 沒有影片。慶祝音效（合成音效＋隨機一句真人稱讚，約 4–7 秒）依產品決定**預設開啟**，與「不自動播放」有出入；緩解：只在使用者自己按了「儲存作品」或「看慶祝動畫」之後才播、慶祝畫面右上角與「我的 › 設定」都能關、關掉後記住、關閉慶祝畫面聲音立刻淡出（`composables/sound.ts`） |
 | NT | 通知 | 符合 | toast `status`／`alert`，載入中以 `announce()` 播報；所有視窗有名稱、焦點進出與 Esc |
-| TS | 觸控 | 符合 | 目標 ≥ 48px（開關可點範圍 68 × 48）；拖曳有單指替代 |
-| FC | 焦點 | 符合 | 順序由上到下；焦點框 primary-700；換頁後焦點移到 `h1` |
+| TS | 觸控 | 符合 | 操作目標 ≥ 48px（開關可點範圍 68 × 48）；畫布拖曳只需單指操作 |
+| FC | 焦點 | **部分符合（已知偏離）** | 一般控制項有順序與可見焦點，換頁後焦點移到 `h1`；畫布上的文字移動與縮放尚無鍵盤替代 |
 | FM | 表單 | 符合 | 欄位都有可見標籤與說明，時間欄用原生 `type="time"` |
 | LK | 連結 | 符合 | 外開網頁一律是連結語意（`<a>`），名稱說明去哪（「看政策說明」） |
 | DC | 動態內容 | 符合 | 無閃爍；系統「減少動態」與「我的 › 設定 › 動畫效果」都能關閉動畫；錯誤訊息不會自己消失 |
 | ST | 結構 | 符合 | 每頁一個 `h1`，與 `document.title` 一致；有 header／main／nav |
 | AD | 可調適 | 符合 | 直橫向、安全區、矮螢幕與大字時整頁捲動；9 種尺寸掃描無橫向捲動 |
-| DT | 可辨識 | **部分符合（已知偏離）** | 依產品決定，根字級隨螢幕寬度縮小（最小 13px），窄螢幕的輔助文字會低於 16px；內文仍 ≥ 16px、對比有測試、不鎖縮放、200% 文字可操作 |
+| DT | 可辨識 | **部分符合（已知偏離）** | 根字級會隨螢幕寬度縮小，最小 13px；窄螢幕的輔助文字可能低於 16px。primary-500 上的白字與白底上的主色文字對比為 2.39:1；頁面不鎖縮放，200% 文字仍可操作 |
 | PD | 可預期 | 符合 | `lang="zh-Hant-TW"`、英文片段標 `lang="en"`、導覽順序固定、同功能同圖示 |
 
 NCC 2017 補充：1.1 通知權限在打開提醒時才詢問、拒絕後核心流程不受影響；台北通帳號由 App 提供，在「我的 › 設定」說明只公開暱稱。6.6 有 `<noscript>` 說明。
@@ -258,7 +259,7 @@ NCC 2017 補充：1.1 通知權限在打開提醒時才詢問、拒絕後核心�
 
 - 支援基準：iOS 15.0 以上（taipei-doit/TownPass `IPHONEOS_DEPLOYMENT_TARGET = 15.0`）；Android 依 Flutter 預設 `minSdkVersion`，未另行查證版本號。建置目標 `es2020`、`safari15`、`chrome87`。
 - 實機測試：尚未進行。
-- 受限環境測試：Playwright Chromium 模擬 iPhone SE（375）、iPhone 13（390）、Pixel Pro（412）視窗尺寸；屬瀏覽器模擬，不代表實機的記憶體、效能或 WebView 行為。
+- 受限環境測試：Playwright 主要以 iPhone 13 與 Pixel 7 裝置設定執行；另曾用 320–768px 直式與橫式視窗檢查文字放大。這些結果不代表實機記憶體、效能或 WebView 行為。
 - 降級策略：
   - `ResizeObserver` 不存在時改用 resize 事件；Web Share 不支援檔案時隱藏分享鈕，改用長按儲存或下載。
   - IndexedDB／localStorage 不可用時，mock 資料與草稿只保留在記憶體。
@@ -276,7 +277,7 @@ GoodMorning/
 ├─ public/
 │  ├─ backgrounds/          背景照片（Unsplash）
 │  ├─ badges/               徽章大圖 Lv.1–3
-│  ├─ brand/                台北通 logo（官方 logo_S.svg）
+│  ├─ brand/                台北通 logo
 │  └─ data/backgrounds.json 背景圖庫清單、攝影師、解鎖門檻
 ├─ src/
 │  ├─ api/          types（對應 openapi）、http、mock、errors
@@ -287,7 +288,7 @@ GoodMorning/
 │  ├─ data/         backgrounds（讀取背景圖庫）
 │  ├─ editor/       layout、render（canvas）、styles、scene、draft、qr、customPhoto、townpassLogo
 │  ├─ router/
-│  └─ views/        Feed、Editor、Artwork、Leaderboard、Me
+│  └─ views/        Feed、Editor、Artwork、Me
 ├─ tests/
 ├─ Dockerfile、nginx.conf.template、docker/10-api-proxy.sh
 └─ .env.example
@@ -376,7 +377,7 @@ docker run --rm -p 8080:80 -e BACKEND_URL=http://backend:8080 good-morning
 
 ### 開發階段
 
-使用 Claude（Anthropic）協助撰寫程式、測試與文件，所有變更由團隊人工 review 後才合併。未輸入真實個資、帳號或位置資料；測試使用合成的示範帳號與假的位置。
+使用 Claude（Anthropic）與 Codex（OpenAI）協助撰寫程式、測試與文件。所有變更都由團隊人工 review 後才合併。未輸入真實個資、帳號或位置資料；測試使用合成的示範帳號與假資料。
 
 ### 執行階段
 
