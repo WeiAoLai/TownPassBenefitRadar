@@ -1,0 +1,712 @@
+openapi: 3.1.0
+info:
+  title: 長輩圖政策宣傳 API
+  version: 0.1.0
+  description: |
+    長輩圖政策宣傳專案 MVP 的前後端 API 契約。
+    Demo 環境以 X-Demo-User header 識別目前使用者。
+servers:
+  - url: /api
+    description: 與前端同網域的 API base path
+tags:
+  - name: Me
+  - name: Backgrounds
+  - name: Policies
+  - name: Artworks
+  - name: Leaderboard
+security:
+  - DemoUser: []
+paths:
+  /me:
+    get:
+      tags: [Me]
+      operationId: getCurrentUser
+      summary: 取得目前使用者與徽章資訊
+      responses:
+        "200":
+          description: 目前使用者
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /me/artworks:
+    get:
+      tags: [Me, Artworks]
+      operationId: listMyArtworks
+      summary: 取得目前使用者的作品
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 個人作品分頁，依建立時間由新到舊
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtworkPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /backgrounds:
+    get:
+      tags: [Backgrounds]
+      operationId: listBackgrounds
+      summary: 取得所有啟用中的背景與目前使用者的解鎖狀態
+      responses:
+        "200":
+          description: 背景清單
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Background"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /policy-categories:
+    get:
+      tags: [Policies]
+      operationId: listPolicyCategories
+      summary: 取得目前可選政策的類別
+      responses:
+        "200":
+          description: 政策類別名稱清單
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+              example:
+                - 社會福利
+                - 交通安全
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /policies:
+    get:
+      tags: [Policies]
+      operationId: listPolicies
+      summary: 依類別取得目前可選的政策
+      parameters:
+        - name: category
+          in: query
+          required: true
+          description: 完整的政策類別名稱
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+      responses:
+        "200":
+          description: 政策清單
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Policy"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /policies/random:
+    get:
+      tags: [Policies]
+      operationId: getRandomPolicy
+      summary: 隨機取得一筆目前可選的政策
+      description: |
+        只會選擇 isActive 為 true，且台北當地日期位於 startDate 與 endDate
+        之間的政策。連續呼叫可能回傳相同政策；此 API 不隨機選擇背景。
+      responses:
+        "200":
+          description: 隨機政策
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /artworks:
+    get:
+      tags: [Artworks]
+      operationId: listArtworks
+      summary: 取得公開作品
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: 公開作品分頁，依建立時間由新到舊
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtworkPage"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    post:
+      tags: [Artworks]
+      operationId: createArtwork
+      summary: 建立作品
+      description: |
+        圖片必須是 1080 x 1080 PNG，且不得超過 10 MB。
+        後端會先上傳 S3，成功後才建立資料庫紀錄。
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/CreateArtworkRequest"
+            encoding:
+              image:
+                contentType: image/png
+      responses:
+        "201":
+          description: 作品建立成功
+          headers:
+            Location:
+              description: 新作品 URI
+              schema:
+                type: string
+                example: /api/artworks/123
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /artworks/{artworkId}:
+    get:
+      tags: [Artworks]
+      operationId: getArtwork
+      summary: 取得作品詳情
+      parameters:
+        - $ref: "#/components/parameters/ArtworkId"
+      responses:
+        "200":
+          description: 作品詳情
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /artworks/{artworkId}/like:
+    put:
+      tags: [Artworks]
+      operationId: likeArtwork
+      summary: 將作品設為已按愛心
+      description: 此操作具冪等性；重複呼叫不會重複增加愛心數。
+      parameters:
+        - $ref: "#/components/parameters/ArtworkId"
+      responses:
+        "200":
+          description: 最新愛心狀態
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikeState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+    delete:
+      tags: [Artworks]
+      operationId: unlikeArtwork
+      summary: 取消作品愛心
+      description: 此操作具冪等性；未按愛心時呼叫仍回傳未按愛心狀態。
+      parameters:
+        - $ref: "#/components/parameters/ArtworkId"
+      responses:
+        "200":
+          description: 最新愛心狀態
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikeState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /artworks/{artworkId}/download:
+    get:
+      tags: [Artworks]
+      operationId: downloadArtwork
+      summary: 下載附政策 QR Code 的 PNG
+      description: |
+        QR Code 由後端即時合成。作者可以下載自己的作品，但不增加下載數；
+        非作者每次成功產生下載檔案都增加一次下載數。
+      parameters:
+        - $ref: "#/components/parameters/ArtworkId"
+      responses:
+        "200":
+          description: 1080 x 1080 PNG
+          headers:
+            Content-Disposition:
+              description: 下載檔名
+              schema:
+                type: string
+                example: attachment; filename="artwork-123.png"
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /leaderboard:
+    get:
+      tags: [Leaderboard]
+      operationId: getLeaderboard
+      summary: 取得全期間作品排行榜前 100 名
+      description: |
+        score = max(likeCount, downloadCount)。同分使用 competition ranking，
+        例如 1、2、2、4；同分顯示順序依建立時間由新到舊。
+      responses:
+        "200":
+          description: 排行榜
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+components:
+  securitySchemes:
+    DemoUser:
+      type: apiKey
+      in: header
+      name: X-Demo-User
+      description: Demo 使用者 allowlist 中的代號，例如 user-a。
+
+  parameters:
+    ArtworkId:
+      name: artworkId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    Page:
+      name: page
+      in: query
+      description: 從 0 開始的頁碼
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      description: 每頁筆數
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Request 欄位或內容不合法
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: 缺少或無效的 X-Demo-User
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: 目前使用者無權執行，例如使用未解鎖背景
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: 指定資源不存在
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: 業務狀態衝突，例如作者對自己的作品按愛心
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    PayloadTooLarge:
+      description: 上傳圖片超過 10 MB
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    TooManyRequests:
+      description: 超過 API rate limit
+      headers:
+        Retry-After:
+          description: 建議重試等待秒數
+          schema:
+            type: integer
+            minimum: 1
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    InternalServerError:
+      description: 未預期的後端錯誤
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    ServiceUnavailable:
+      description: S3 或資料庫暫時不可用
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    CurrentUser:
+      type: object
+      required:
+        - id
+        - account
+        - displayName
+        - artworkCount
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        account:
+          type: string
+          maxLength: 64
+        displayName:
+          type: string
+          maxLength: 100
+        artworkCount:
+          type: integer
+          format: int64
+          minimum: 0
+        badge:
+          oneOf:
+            - $ref: "#/components/schemas/Badge"
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+      example:
+        id: 1
+        account: user-a
+        displayName: 小明
+        artworkCount: 4
+        badge:
+          level: 3
+          name: 四方送暖
+          iconUrl: https://example.invalid/presigned-badge-url
+        createdAt: "2026-11-07T08:30:00Z"
+
+    Badge:
+      type: object
+      required: [level, name, iconUrl]
+      properties:
+        level:
+          type: integer
+          minimum: 1
+          maximum: 10
+        name:
+          type: string
+        iconUrl:
+          type: string
+          format: uri
+          description: 有效期 15 分鐘的 S3 presigned URL
+
+    Background:
+      type: object
+      required: [id, name, imageUrl, unlockThreshold, unlocked]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        name:
+          type: string
+          maxLength: 100
+        imageUrl:
+          type: string
+          format: uri
+          description: 有效期 15 分鐘的 S3 presigned URL
+        unlockThreshold:
+          type: integer
+          minimum: 0
+        unlocked:
+          type: boolean
+
+    Policy:
+      type: object
+      required: [id, category, title, slogan, sourceUrl, startDate, endDate]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        category:
+          type: string
+          maxLength: 100
+        title:
+          type: string
+          maxLength: 200
+        slogan:
+          type: string
+          maxLength: 500
+        sourceUrl:
+          type: string
+          format: uri
+          pattern: "^https://"
+        startDate:
+          type: string
+          format: date
+          description: 政策開始日期，包含當日
+        endDate:
+          type: string
+          format: date
+          description: 政策結束日期，包含當日且不得早於 startDate
+
+    AuthorSummary:
+      type: object
+      required: [id, displayName]
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        displayName:
+          type: string
+          maxLength: 100
+        badge:
+          oneOf:
+            - $ref: "#/components/schemas/Badge"
+            - type: "null"
+
+    Artwork:
+      type: object
+      required:
+        - id
+        - owner
+        - backgroundId
+        - policyId
+        - sloganText
+        - imageUrl
+        - likeCount
+        - downloadCount
+        - likedByMe
+        - ownedByMe
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          minimum: 1
+        owner:
+          $ref: "#/components/schemas/AuthorSummary"
+        backgroundId:
+          type: integer
+          format: int64
+          minimum: 1
+        policyId:
+          type: integer
+          format: int64
+          minimum: 1
+        sloganText:
+          type: string
+          maxLength: 500
+        imageUrl:
+          type: string
+          format: uri
+          description: 有效期 15 分鐘的 S3 presigned URL
+        likeCount:
+          type: integer
+          format: int64
+          minimum: 0
+        downloadCount:
+          type: integer
+          format: int64
+          minimum: 0
+        likedByMe:
+          type: boolean
+        ownedByMe:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    ArtworkPage:
+      type: object
+      required: [content, page, size, totalElements, totalPages]
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/Artwork"
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+
+    CreateArtworkRequest:
+      type: object
+      required: [image, backgroundId, policyId, sloganText]
+      properties:
+        image:
+          type: string
+          format: binary
+          contentMediaType: image/png
+          description: 1080 x 1080 PNG，最大 10 MB
+        backgroundId:
+          type: integer
+          format: int64
+          minimum: 1
+        policyId:
+          type: integer
+          format: int64
+          minimum: 1
+        sloganText:
+          type: string
+          minLength: 1
+          maxLength: 500
+
+    LikeState:
+      type: object
+      required: [artworkId, liked, likeCount]
+      properties:
+        artworkId:
+          type: integer
+          format: int64
+          minimum: 1
+        liked:
+          type: boolean
+        likeCount:
+          type: integer
+          format: int64
+          minimum: 0
+
+    LeaderboardEntry:
+      type: object
+      required: [rank, score, artwork]
+      properties:
+        rank:
+          type: integer
+          minimum: 1
+        score:
+          type: integer
+          format: int64
+          minimum: 0
+        artwork:
+          $ref: "#/components/schemas/Artwork"
+
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details，加上穩定業務錯誤碼與 trace ID。
+      required: [type, title, status, code, traceId]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+          description: 前端可依賴的穩定業務錯誤碼
+          example: ARTWORK_IMAGE_INVALID
+        traceId:
+          type: string
+          description: 用於查詢後端 log，不包含個資
