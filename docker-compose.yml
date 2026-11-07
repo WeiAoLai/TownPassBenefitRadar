@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # ==============================
+  # 前端服務 (Vue)
+  # ==============================
+  frontend:
+    build:
+      context: ./GoodMorning    # 告訴 Docker 去 GoodMorning 資料夾找
+      dockerfile: Dockerfile    # 使用該資料夾內的 Dockerfile
+    container_name: vue-frontend
+    ports:
+      - "80:80"                 # 將容器的 80 Port 對接到 EC2 的 80 Port
+    restart: always
+
+  # ==============================
+  # 後端服務 (Spring Boot)
+  # ==============================
+  backend:
+    build:
+      context: ./backend        # 告訴 Docker 去 backend 資料夾找
+      dockerfile: Dockerfile    # 使用該資料夾內的 Dockerfile
+    container_name: spring-backend
+    ports:
+      - "8080:8080"             # 將容器的 8080 Port 對接到 EC2 的 8080 Port
+    env_file:
+      - .env                    # 讓後端讀取 EC2 本地的環境變數
+    restart: always
+    # depends_on:               # 如果有 MariaDB, Elasticsearch 記得加上 depend_on
+    #   - mariadb
+    #   - elasticsearch
+
+  # ... (下方保留原本的 mariadb, elasticsearch, prometheus 等設定與 volumes)
