@@ -5,8 +5,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  /* 長輩是主要使用者：基準字級放大到 18px，仍跟著系統字級縮放 */
-  font-size: 112.5%;
+  /* 依 Figma 字級（16px = 1rem），跟著系統字級縮放 */
+  font-size: 100%;
 }
 
 body {
@@ -96,15 +96,54 @@ a {
 .page {
   max-width: 600px;
   margin: 0 auto;
-  padding: 16px 16px 32px;
+  padding: 16px max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left));
+}
+.page.wide {
+  max-width: 1120px;
 }
 
+/* Figma List item/title：48 高、H3 Semibold */
 .section-title {
   font-size: var(--tp-font-h3);
   line-height: var(--tp-lh-h3);
   font-weight: 600;
-  margin: 20px 4px 8px;
+  margin: 0;
+  padding: 18px 4px 8px;
   color: var(--c-text);
+}
+
+/* Figma searchbar：輸入框＋Primary 方形搜尋鈕 */
+.searchbar {
+  display: flex;
+  gap: 8px;
+}
+.searchbar input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--tp-grey-200);
+  background: var(--c-surface);
+  color: var(--c-text);
+}
+.searchbar input::placeholder {
+  color: var(--tp-grey-400);
+}
+.searchbar input:focus {
+  outline: none;
+  border-color: var(--tp-primary-500);
+}
+.searchbar .go {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: var(--tp-primary-500);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .muted {
@@ -116,56 +155,91 @@ a {
   line-height: var(--tp-lh-body);
 }
 
-/* ===== 按鈕（Figma：medium 48 / large 56） ===== */
+/* ===== 按鈕：Figma Button/m（48）、Button/L（56），圓角 8，H3 Regular 16 ===== */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 48px;
   min-width: 48px;
-  padding: 10px 20px;
-  border-radius: 999px;
-  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 400;
   background: var(--c-surface);
-  color: var(--c-brand-strong);
-  border: 1.5px solid var(--c-brand);
-  transition: transform 0.08s ease, background-color 0.15s ease;
+  color: var(--tp-primary-500);
+  border: 1px solid var(--tp-primary-500);
+  text-decoration: none;
 }
 .btn:active {
-  transform: scale(0.97);
+  background: var(--tp-primary-50);
 }
 .btn.large {
   min-height: 56px;
-  font-size: 1.05rem;
 }
 .btn.block {
   width: 100%;
 }
 .btn.primary {
-  background: var(--c-brand);
-  border-color: var(--c-brand);
-  color: var(--c-on-brand);
+  background: var(--tp-primary-500);
+  border-color: var(--tp-primary-500);
+  color: #fff;
 }
 .btn.primary:active {
   background: var(--tp-primary-600);
+  border-color: var(--tp-primary-600);
+}
+.btn.alarm {
+  background: var(--tp-red-500);
+  border-color: var(--tp-red-500);
+  color: #fff;
 }
 .btn.text {
   border-color: transparent;
   background: transparent;
 }
-.btn:disabled {
-  opacity: 0.45;
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  background: var(--c-disable);
+  border-color: var(--c-disable);
+  color: var(--tp-grey-500);
   cursor: not-allowed;
-  transform: none;
+}
+.btn.text:disabled {
+  background: transparent;
 }
 
-/* ===== iOS 風格 grouped list ===== */
+/* Figma Section_one line text_button：白底、陰影、上方一行提示文字 */
+.section-bar {
+  background: var(--c-surface);
+  box-shadow: var(--shadow-1);
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.section-bar .one-line {
+  color: var(--tp-primary-500);
+  font-size: var(--tp-font-body);
+  line-height: var(--tp-lh-body);
+  text-align: center;
+}
+.section-bar .btns {
+  display: flex;
+  gap: 10px;
+}
+.section-bar .btns > .btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* ===== Figma Table item：白底、56 高、Grey/100 分隔線 ===== */
 .list {
   background: var(--c-surface);
   border-radius: var(--radius-m);
   overflow: hidden;
-  box-shadow: var(--shadow-1);
 }
 .list-row {
   display: flex;
@@ -194,38 +268,37 @@ button.list-row:active {
   min-width: 0;
 }
 
-/* ===== chip ===== */
+/* ===== 篩選標籤：沿用 Tab secondary 的選取樣式（Primary/50 底、Primary/500 框與字） ===== */
+/* 自動換行：每個標籤都完整顯示，不會被畫面邊緣截掉 */
 .chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
-  padding: 2px 2px 6px;
-  scrollbar-width: none;
-}
-.chips::-webkit-scrollbar {
-  display: none;
 }
 .chip {
   flex: none;
   min-height: 48px;
-  padding: 0 18px;
-  border-radius: 999px;
-  border: 1.5px solid var(--tp-grey-200);
+  padding: 0 16px;
+  border-radius: 8px;
+  border: 1px solid var(--tp-grey-200);
   background: var(--c-surface);
-  font-weight: 600;
+  color: var(--tp-grey-700);
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .chip[aria-pressed='true'],
 .chip[aria-checked='true'] {
-  background: var(--c-brand);
-  border-color: var(--c-brand);
-  color: var(--c-on-brand);
+  background: var(--tp-primary-50);
+  border-color: var(--tp-primary-500);
+  color: var(--tp-primary-500);
+  font-weight: 600;
 }
 
 .card {
   background: var(--c-surface);
   border-radius: var(--radius-m);
-  box-shadow: var(--shadow-1);
 }
 
 .empty {

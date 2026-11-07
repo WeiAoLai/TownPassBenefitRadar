@@ -55,31 +55,61 @@ function onKey(e: KeyboardEvent, i: number) {
 </template>
 
 <style scoped>
+/*
+ * Figma Tab（3:5036）
+ * tabs  → Tab primary：白底，選取為 Primary/500 Semibold 字＋底線，未選 Grey/700 Regular
+ * radio → Tab secondary：白框 Grey/200，選取為 Primary/50 底＋Primary/500 下框
+ */
 .seg {
   display: flex;
-  padding: 3px;
-  border-radius: 12px;
-  background: var(--tp-grey-100);
-  gap: 2px;
+  gap: 0;
 }
 .seg-btn {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 48px;
+  min-height: 46px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  border-radius: 10px;
-  font-weight: 600;
-  color: var(--tp-grey-700);
   padding: 0 6px;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  color: var(--tp-grey-700);
+  position: relative;
 }
-.seg-btn[aria-selected='true'],
-.seg-btn[aria-checked='true'] {
+.seg[role='tablist'] .seg-btn[aria-selected='true'] {
+  color: var(--tp-primary-500);
+  font-weight: 600;
+}
+.seg[role='tablist'] .seg-btn[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tp-primary-500);
+}
+.seg[role='radiogroup'] {
+  border-bottom: 1px solid var(--tp-grey-200);
+}
+.seg[role='radiogroup'] .seg-btn {
+  min-height: 48px;
   background: var(--c-surface);
-  color: var(--tp-primary-700);
-  box-shadow: 0 1px 3px rgba(23, 27, 29, 0.16);
+  border: 1px solid var(--tp-grey-200);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+}
+.seg[role='radiogroup'] .seg-btn + .seg-btn {
+  margin-left: -1px;
+}
+.seg[role='radiogroup'] .seg-btn[aria-checked='true'] {
+  background: var(--tp-primary-50);
+  color: var(--tp-primary-500);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--tp-primary-500);
 }
 @media (max-width: 400px) {
   .seg-btn .icon {

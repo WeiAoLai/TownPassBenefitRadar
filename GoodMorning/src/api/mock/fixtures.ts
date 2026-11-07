@@ -1,7 +1,7 @@
 /**
  * ⚠️ 示範資料（mock）。正式上線前由政策內容人員 A、視覺素材人員 B 替換並驗證。
  * sourceUrl 暫時指向各主管機關首頁，需換成具體政策頁並由後端檢查可用性。
- * 背景圖來自臺北旅遊網景點（public/data/taipei-attractions.json），見 src/data/attractions.ts。
+ * 背景：Unsplash 照片（public/data/backgrounds.json），見 src/data/backgrounds.ts。
  */
 export const MOCK_USERS = [
   { id: 1, account: 'user-a', displayName: '小明', createdAt: '2026-11-01T02:00:00Z' },
@@ -115,9 +115,9 @@ export const MOCK_POLICIES = [
 
 /** 首次開啟時預先產生的示範作品 */
 export const MOCK_SEED_ARTWORKS = [
-  { ownerId: 2, backgroundId: 260, policyId: 6, greeting: '早安', greetingStyle: 'red-orange', sloganStyle: 'gold-blue', likes: 42, downloads: 18, ago: 5 },
-  { ownerId: 3, backgroundId: 68, policyId: 5, greeting: '平安喜樂', greetingStyle: 'gold-red', sloganStyle: 'white-black', likes: 25, downloads: 61, ago: 4 },
-  { ownerId: 2, backgroundId: 217, policyId: 1, greeting: '午安', greetingStyle: 'blue-glow', sloganStyle: 'pink-white', likes: 25, downloads: 9, ago: 3 },
-  { ownerId: 3, backgroundId: 189, policyId: 8, greeting: '天天開心', greetingStyle: 'rainbow', sloganStyle: 'green-white', likes: 12, downloads: 25, ago: 2 },
-  { ownerId: 2, backgroundId: 1, policyId: 3, greeting: '晚安', greetingStyle: 'gold-blue', sloganStyle: 'blue-glow', likes: 7, downloads: 3, ago: 1 },
+  { ownerId: 2, backgroundId: 4, policyId: 6, greeting: '早安', greetingStyle: 'red-orange', sloganStyle: 'gold-blue', likes: 42, downloads: 18, ago: 5 },
+  { ownerId: 3, backgroundId: 3, policyId: 5, greeting: '平安喜樂', greetingStyle: 'gold-red', sloganStyle: 'white-black', likes: 25, downloads: 61, ago: 4 },
+  { ownerId: 2, backgroundId: 1, policyId: 1, greeting: '午安', greetingStyle: 'blue-glow', sloganStyle: 'pink-white', likes: 25, downloads: 9, ago: 3 },
+  { ownerId: 3, backgroundId: 8, policyId: 8, greeting: '天天開心', greetingStyle: 'rainbow', sloganStyle: 'green-white', likes: 12, downloads: 25, ago: 2 },
+  { ownerId: 2, backgroundId: 5, policyId: 3, greeting: '晚安', greetingStyle: 'gold-blue', sloganStyle: 'blue-glow', likes: 7, downloads: 3, ago: 1 },
 ]

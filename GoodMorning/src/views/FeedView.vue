@@ -41,16 +41,11 @@ onMounted(() => load(true))
 </script>
 
 <template>
-  <div class="page">
-    <RouterLink to="/create" class="hero card">
-      <div class="hero-text">
-        <p class="hero-title">今天也來一張早安圖</p>
-        <p class="small muted">選台北景點、挑一則市政好消息，做好就能分享給親友</p>
-      </div>
-      <span class="hero-cta"><Icon name="brush" /> 開始製作</span>
-    </RouterLink>
-
-    <h2 class="section-title">大家的作品</h2>
+  <div class="page wide">
+    <div class="head">
+      <h2 class="section-title">大家的作品</h2>
+      <RouterLink to="/create" class="btn primary"><Icon name="brush" :size="20" /> 做一張</RouterLink>
+    </div>
 
     <div v-if="!items.length && loading" class="grid" aria-busy="true">
       <div v-for="i in 4" :key="i" class="card ph skeleton" />
@@ -73,43 +68,21 @@ onMounted(() => load(true))
 </template>
 
 <style scoped>
-.hero {
+.head {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 18px;
-  text-decoration: none;
-  color: var(--c-text);
-  background: linear-gradient(135deg, var(--tp-primary-50), var(--tp-secondary-50));
-  border: 1px solid var(--tp-primary-100);
-}
-.hero-title {
-  font-size: var(--tp-font-h2);
-  line-height: var(--tp-lh-h2);
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-.hero-cta {
-  align-self: flex-start;
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 48px;
-  padding: 0 20px;
-  border-radius: 999px;
-  background: var(--c-brand);
-  color: #fff;
-  font-weight: 600;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
 }
+.head .section-title {
+  padding: 0 4px;
+}
+/* 自適應：手機單欄，寬度夠就自動多欄 */
 .grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-@media (min-width: 520px) {
-  .grid {
-    grid-template-columns: 1fr 1fr;
-  }
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
+  gap: 10px;
 }
 .ph {
   aspect-ratio: 1;

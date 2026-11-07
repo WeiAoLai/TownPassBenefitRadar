@@ -81,6 +81,13 @@ function drawFallback(ctx: CanvasRenderingContext2D) {
   ctx.fillRect(0, 0, SIZE, SIZE)
 }
 
+/** 縮放把手半徑（1080 座標） */
+export const HANDLE_R = 44
+export const handlePoint = (b: Layout['box']) => ({
+  x: Math.min(SIZE - HANDLE_R - 4, b.x + b.w),
+  y: Math.min(SIZE - HANDLE_R - 4, b.y + b.h),
+})
+
 export interface RenderOptions {
   /** 編輯時標示選取中的文字框 */
   selected?: number | null
@@ -125,6 +132,30 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene, opts: R
     ctx.lineDashOffset = 18
     ctx.strokeStyle = 'rgba(70,141,155,0.95)'
     ctx.strokeRect(b.x, b.y, b.w, b.h)
+    // 右下角縮放把手：拖曳可放大縮小文字
+    const h = handlePoint(b)
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.arc(h.x, h.y, HANDLE_R, 0, Math.PI * 2)
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    ctx.lineWidth = 6
+    ctx.strokeStyle = '#5ab4c5'
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.lineWidth = 5
+    ctx.lineCap = 'round'
+    ctx.moveTo(h.x - 14, h.y - 14)
+    ctx.lineTo(h.x + 11, h.y + 11)
+    ctx.moveTo(h.x + 11, h.y + 11)
+    ctx.lineTo(h.x + 11, h.y + 1)
+    ctx.moveTo(h.x + 11, h.y + 11)
+    ctx.lineTo(h.x + 1, h.y + 11)
+    ctx.moveTo(h.x - 14, h.y - 14)
+    ctx.lineTo(h.x - 11, h.y - 1)
+    ctx.moveTo(h.x - 14, h.y - 14)
+    ctx.lineTo(h.x - 1, h.y - 11)
+    ctx.stroke()
     ctx.restore()
   }
   return layouts
@@ -157,17 +188,31 @@ export function canvasToBlob(c: HTMLCanvasElement, type = 'image/png'): Promise<
   })
 }
 
-/** 載入圖片；跨網域圖片（S3 presigned URL）需設定 crossOrigin，S3 bucket 也要開 CORS */
+/**
+ * 載入圖片。先以 CORS 模式載入（S3 開了 CORS、同網域、data/blob 都可輸出 PNG）；
+ * 對方沒開 CORS 時改用一般模式，仍可顯示預覽，但標記為 tainted：畫進 canvas 後無法輸出。
+ */
 export function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    if (!src.startsWith('data:') && !src.startsWith('blob:')) img.crossOrigin = 'anonymous'
-    img.decoding = 'async'
-    img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('圖片載入失敗'))
-    img.src = src
-  })
+  const load = (cors: boolean) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      if (cors) img.crossOrigin = 'anonymous'
+      img.decoding = 'async'
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('圖片載入失敗'))
+      img.src = src
+    })
+  const sameOrigin = src.startsWith('data:') || src.startsWith('blob:') || new URL(src, document.baseURI).origin === location.origin
+  if (sameOrigin) return load(false)
+  return load(true).catch(() =>
+    load(false).then((img) => {
+      img.dataset.tainted = '1'
+      return img
+    }),
+  )
 }
+
+export const isTainted = (img: Drawable | null) => !!img && 'dataset' in img && (img as HTMLImageElement).dataset.tainted === '1'
 
 /** 樣式預覽小圖 */
 export function styleSwatch(styleId: string, font: TextLayer['font'] = 'sans', px = 120): string {

@@ -2,7 +2,7 @@
 import type { Artwork } from '../api/types'
 import BadgeChip from './BadgeChip.vue'
 import Icon from './Icon.vue'
-import { startDownload, toggleLike } from '../composables/artworkActions'
+import { toggleLike } from '../composables/artworkActions'
 
 const props = defineProps<{ artwork: Artwork; rank?: number; score?: number }>()
 const emit = defineEmits<{ imageError: [] }>()
@@ -26,7 +26,6 @@ const emit = defineEmits<{ imageError: [] }>()
       <div class="author">
         <span class="name">{{ artwork.owner.displayName }}</span>
         <BadgeChip :badge="artwork.owner.badge" compact />
-        <span v-if="artwork.ownedByMe" class="mine">我的</span>
       </div>
       <div class="acts">
         <button
@@ -40,15 +39,6 @@ const emit = defineEmits<{ imageError: [] }>()
         >
           <Icon name="heart" :filled="artwork.likedByMe" />
           <span aria-hidden="true">{{ artwork.likeCount }}</span>
-        </button>
-        <button
-          type="button"
-          class="act"
-          :aria-label="`下載，已下載 ${artwork.downloadCount} 次`"
-          @click="startDownload(artwork)"
-        >
-          <Icon name="download" />
-          <span aria-hidden="true">{{ artwork.downloadCount }}</span>
         </button>
       </div>
     </div>
@@ -76,7 +66,7 @@ const emit = defineEmits<{ imageError: [] }>()
   top: 10px;
   left: 10px;
   padding: 4px 12px;
-  border-radius: 999px;
+  border-radius: 8px;
   font-weight: 700;
   background: rgba(23, 27, 29, 0.75);
   color: #fff;
@@ -95,7 +85,7 @@ const emit = defineEmits<{ imageError: [] }>()
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 4px 4px 4px 14px;
+  padding: 0 0 0 10px;
 }
 .author {
   display: flex;
@@ -112,7 +102,7 @@ const emit = defineEmits<{ imageError: [] }>()
 .mine {
   font-size: var(--tp-font-body);
   padding: 0 8px;
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--c-brand-soft);
   color: var(--c-brand-strong);
 }
@@ -127,7 +117,7 @@ const emit = defineEmits<{ imageError: [] }>()
   min-width: 48px;
   min-height: 48px;
   padding: 0 10px;
-  border-radius: 24px;
+  border-radius: 8px;
   color: var(--tp-grey-700);
   font-weight: 600;
 }

@@ -10,7 +10,7 @@
 
 | 需求 | 畫面 | 實作摘要 |
 |---|---|---|
-| US-01 選用景點背景 | 製作 › 背景 | 臺北旅遊網 374 個臺北市景點照片；可搜尋景點／行政區、依分類篩選，鎖定的背景顯示「存 N 張解鎖」 |
+| US-01 選用景點背景 | 製作 › 背景 | 10 張臺北地標照片（Unsplash），鎖定的背景顯示「存 N 張解鎖」，並標示攝影師 |
 | US-02 依政策類別載入標語 | 製作 › 政策 | 類別 chip → 政策清單（單選），選定後標語自動帶入 |
 | US-03 隨機產生 | 製作 › 隨機 | `GET /policies/random`，並隨機挑問候語、文字樣式、已解鎖背景 |
 | US-04 儲存作品 | 製作 › 儲存 | 前端輸出 1080 × 1080 PNG → `POST /artworks`（multipart） |
@@ -32,9 +32,21 @@
 - **QR Code 位置提示**：預覽右下角以虛線標出下載後 QR Code 會覆蓋的區域，可關閉。
 - **草稿自動保存**：切換分頁、網路失敗、WebView 被系統回收後都還在。
 
-### 手機原生風格
+### 依 TownPass Figma UI kit 設計
 
-TownPass 漸層標題列、底部 4 分頁導覽、iOS 風格分段控制、grouped list、底部面板（bottom sheet）、開關、toast、骨架載入。只有內容區捲動，標題列與導覽固定。
+依 [城市通 Town Pass UI kit](https://www.figma.com/design/bPPjugysKFKSCuBP5SptG8) 頁面 `1:2` 的元件實作：
+
+| Figma 元件 | 本專案 |
+|---|---|
+| Top navigation（3:5074）：白底 56、返回鈕 56 × 56、標題 H3 Semibold Grey/700 | `TopBar.vue` |
+| Foot tab bar（3:5129）：白底、上框 Grey/100、圖示 24、Body 14 | `TabBar.vue`（選取中為 Primary/500） |
+| Button/m 48、Button/L 56：圓角 8；Primary、Second、Disable | `base.css` `.btn` |
+| Section_one line text_button/m：白底陰影、提示文字＋兩顆按鈕 | 編輯器底部「隨機一張／儲存作品」 |
+| Tab primary（底線）／Tab secondary（框） | `Segmented.vue`（工具分頁／單選） |
+| Pop up：置中白卡 | `BottomSheet.vue`（下載、儲存成功、切換帳號） |
+| searchbar、Table item | 背景搜尋、清單列 |
+
+版面以 **Pixel Pro（412 × 約 780 的 WebView）** 為基準並自適應：直式時預覽與工具分頁黏在上方、底部按鈕列黏在下方，內容在中間捲動；橫式或寬度 900 以上改成左預覽、右工具的兩欄；作品牆依寬度自動多欄。
 
 ## 2. 系統架構
 
@@ -81,7 +93,6 @@ VITE_API_MODE=http API_PROXY_TARGET=http://localhost:8080 npm run dev
 | `VITE_API_MODE` | `mock` | `mock`＝瀏覽器內示範資料；`http`＝呼叫後端 |
 | `VITE_API_BASE_URL` | `/api` | openapi `servers.url` |
 | `VITE_DEMO_USERS` | `user-a,user-b,user-c` | `X-Demo-User` allowlist，需與後端一致 |
-| `VITE_TRAVEL_IMAGE_BASE` | `travel-img/` | 景點照片位置（預設同網域代理） |
 | `API_PROXY_TARGET` | 無 | 只給 `npm run dev` 用的 /api 代理目標 |
 
 `VITE_*` 會進入前端 bundle，不可放任何密鑰。
@@ -90,7 +101,7 @@ VITE_API_MODE=http API_PROXY_TARGET=http://localhost:8080 npm run dev
 
 ```sh
 npm run typecheck
-npm test          # 16 個單元測試：排行榜、徽章、排版、景點 JSON 完整性
+npm test          # 15 個單元測試：排行榜、徽章、排版、背景圖庫 JSON
 npm run build
 ```
 
@@ -98,9 +109,9 @@ npm run build
 
 1. **S3 bucket 必須開 CORS**（`GET`，`AllowedOrigins` 為前端網域）。編輯器用 canvas 合成背景圖，presigned URL 若沒有 `Access-Control-Allow-Origin`，畫布會被汙染而無法輸出 PNG。前端已設定 `crossOrigin="anonymous"`。
 2. **下載 API 需支援 fetch**：前端以 `fetch` 帶 `X-Demo-User` 取得 PNG，`Content-Disposition` 檔名會被讀取。
-3. **景點照片要走同網域代理**：臺北旅遊網圖片沒有 `Access-Control-Allow-Origin`，直連會讓 canvas 無法輸出。前端一律請求 `travel-img/{圖片id}`，`vite dev`／`vite preview` 與 `nginx.conf.template` 都已把它代理到 `https://www.travel.taipei/image/{id}`。後端若把背景搬到 S3（需求 5.6），把 `VITE_TRAVEL_IMAGE_BASE` 指向新位置即可。
-4. **背景資料表**：`Background.id` 直接沿用臺北旅遊網景點 id，後端可用 `public/data/taipei-attractions.json` 匯入；解鎖門檻見 `src/data/attractions.ts`（`SEASONAL_IDS`）。
-5. **QR Code 版面建議**（mock 已依此實作，見 `src/editor/qr.ts`）：右下角距邊 28px、白底圓角卡 252 × 292、QR 220 × 220、quiet zone 2 模組、錯誤修正 M、下方「掃我看政策」。前端預覽的虛線提示框使用同一組數字，後端若改版面請同步 `QR_LAYOUT`。
+3. **背景照片**：10 張臺北地標照片來自 Unsplash（Unsplash License，可免費修改與商用），放在 `public/backgrounds/`，與前端同網域，canvas 可直接輸出 PNG。正式版依需求 5.6 搬到 S3 時，S3 需開 CORS。
+4. **背景資料表**：`Background` 資料可直接由 `public/data/backgrounds.json` 匯入（id、名稱、檔名、解鎖門檻、攝影師、出處）。
+5. **QR Code 版面建議**（mock 已依此實作，見 `src/editor/qr.ts`）：右下角距邊 28px、白底圓角卡 260 × 320、6px 主色（#5AB4C5）外框、QR 220 × 220、quiet zone 2 模組、錯誤修正 M、下方台北通 logo（官方 `logo_S.svg`，取自 taipei-doit/TownPass，GPL-3.0）＋「掃我看政策」。前端預覽的虛線提示框使用同一組數字，後端若改版面請同步 `QR_LAYOUT`。
 6. **錯誤碼**：前端依 HTTP status 顯示白話訊息（`src/api/errors.ts`），`code` 目前用到 `ARTWORK_IMAGE_INVALID`；其他 code 歡迎補進對照。
 7. **presigned URL 15 分鐘到期**：圖片載入失敗時，前端會重抓一次清單取得新 URL。
 8. **部署**：`Dockerfile` 以 nginx 提供靜態檔，`/api/` 反向代理到 `BACKEND_URL`（預設 `http://backend:8080`），上傳上限 12 MB。根目錄 `.github/workflows/deploy.yml` 目前的前端路徑是 `./frontend`，要部署本服務請把 `WORKING_DIRECTORY` 改為 `./GoodMorning`。
@@ -122,7 +133,7 @@ docker run -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morni
 | 6 徽章公比 | 採公比 2 | `config/badges.ts` |
 | 7 顯示哪個徽章 | 顯示最高等級；「我的」另可看十級一覽 | `MeView.vue` |
 | 8 排行榜 | 全期間前 100 名（依 openapi） | `LeaderboardView.vue` |
-| 5 解鎖背景 | 「季節限定」5 個景點：陽明山夜景、迪化街年貨大街、竹子湖海芋季、平菁街42巷櫻花、復興三路櫻花隧道，存滿 3 張解鎖 | `data/attractions.ts` |
+| 5 解鎖背景 | 圓山大飯店、國立故宮博物院，存滿 3 張解鎖 | `public/data/backgrounds.json` `unlockThreshold` |
 | 9 QR 規格 | 見上方第 4 點 | `editor/qr.ts` |
 | 10 下載格式 | 1080 × 1080 PNG（依 openapi） | — |
 
@@ -158,11 +169,11 @@ docker run -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morni
 
 ## 9. 資料來源與示範資料
 
-**本服務目前全部是示範資料**，畫面頂端會顯示「示範資料」標示：
+政策與作品目前是示範資料（mock 模式），背景照片是真實資料：
 
 - 政策（`src/api/mock/fixtures.ts`）：9 筆有效、1 筆已過期（驗證日期過濾）。標語為測試文案，`sourceUrl` 暫時指向各主管機關首頁，上線前由政策內容人員替換為具體政策頁並驗證。
-- 背景（`public/data/taipei-attractions.json`）：**真實資料**，來自臺北旅遊網 Open API `GET /open-api/zh-tw/Attractions/All`（需 `accept: application/json`，每頁 30 筆，2026-11-07 抓取 470 筆）。保留地址在臺北市且有照片的 374 筆，每筆存 id、名稱、行政區、分類、前 3 張照片、介紹頁網址、更新日期。API 說明指向臺北市政府資料開放平台（data.taipei）；照片能否用於長輩圖二次創作與標示方式，上線前請視覺素材人員確認（需求 7.5）。編輯器背景面板已標示「景點照片：臺北旅遊網」。
-- 更新背景資料：`node scripts/fetch-attractions.mjs`（Node 18 以上，會覆寫 JSON）。
+- 背景（`public/data/backgrounds.json`、`public/backgrounds/*.jpg`）：**真實照片**，10 張臺北地標，來自 Unsplash，依 [Unsplash License](https://unsplash.com/license) 可免費使用、修改與商用，不強制標示；編輯器仍標示「照片：攝影師／Unsplash」並連到原圖頁。圓山大飯店與國立故宮博物院設為儲存 3 張後解鎖。陽明山草原那張在 Unsplash 標示為臺北，但確切拍攝地點未驗證。
+- 新增背景：照片放進 `public/backgrounds/`，在 `backgrounds.json` 加一筆（id 不重複，填攝影師與出處）。
 - 徽章圖示：程式產生的示意 SVG；正式版由後端回傳 S3 presigned URL。
 - 示範作品：首次開啟時用同一套編輯器自動產生 5 張，愛心與下載數為假資料。「我的 › 重設示範資料」可清空重來。
 
@@ -170,14 +181,14 @@ docker run -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-morni
 
 ```text
 GoodMorning/
-├─ public/data/taipei-attractions.json   臺北旅遊網景點（背景圖庫）
-├─ scripts/fetch-attractions.mjs        重新抓取上面的 JSON
+├─ public/data/backgrounds.json   背景圖庫（Unsplash 照片清單與攝影師）
+├─ public/backgrounds/            背景照片
 ├─ src/
 │  ├─ api/          types（對應 openapi）、http、mock、errors
 │  ├─ components/   TopBar、TabBar、Segmented、BottomSheet、DownloadSheet、ArtworkCard…
 │  ├─ composables/  bridge（TownPass）、toast、artworkActions（愛心、下載）
 │  ├─ config/       badges（徽章、排行榜計分）
-│  ├─ data/         attractions（讀取景點 JSON、圖片代理、季節限定解鎖）
+│  ├─ data/         backgrounds（讀取背景圖庫 JSON）
 │  ├─ css/          tokens、base
 │  ├─ editor/       layout（排版純函式）、render（canvas）、styles、scene、draft、qr
 │  ├─ router/

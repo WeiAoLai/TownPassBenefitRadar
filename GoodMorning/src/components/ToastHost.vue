@@ -38,7 +38,7 @@ import { dismiss, toasts } from '../composables/toast'
   max-width: 560px;
   min-height: 48px;
   padding: 12px 20px;
-  border-radius: 999px;
+  border-radius: 8px;
   background: var(--tp-grey-800);
   color: #fff;
   font-weight: 600;

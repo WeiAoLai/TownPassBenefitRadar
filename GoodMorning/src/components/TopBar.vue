@@ -18,7 +18,7 @@ function back() {
 <template>
   <header v-if="!hosted" class="topbar">
     <button v-if="route.meta.back" class="icon-btn" type="button" aria-label="返回上一頁" @click="back">
-      <Icon name="chevron-left" :size="28" />
+      <Icon name="chevron-left" :size="24" />
     </button>
     <span v-else class="spacer" aria-hidden="true" />
     <h1 class="title">
@@ -31,6 +31,7 @@ function back() {
 </template>
 
 <style scoped>
+/* Figma Top navigation（3:5074）：白底 56 高、左側 56 × 56 返回鈕、標題置中 H3 Semibold Grey/700 */
 .topbar {
   flex: none;
   position: relative;
@@ -38,36 +39,45 @@ function back() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: calc(56px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) 4px 0;
-  background: linear-gradient(90deg, var(--tp-primary-400), var(--tp-primary-500) 55%, #5aa1c5);
-  color: var(--c-on-brand);
+  height: calc(var(--topnav-h) + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  background: var(--c-surface);
+  color: var(--tp-grey-950);
+  border-bottom: 1px solid var(--c-line);
 }
 .title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  display: inline-flex;
+  position: absolute;
+  left: 56px;
+  right: 56px;
+  bottom: 0;
+  height: var(--topnav-h);
+  display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
+  color: var(--tp-grey-700);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .logo {
-  font-size: 1.1rem;
-  opacity: 0.9;
+  display: none;
 }
 .spacer,
 .icon-btn {
-  width: 48px;
-  height: 48px;
+  position: relative;
+  width: 56px;
+  height: 56px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .icon-btn {
   color: inherit;
-  border-radius: 50%;
 }
 .icon-btn:active {
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--tp-grey-50);
 }
 </style>

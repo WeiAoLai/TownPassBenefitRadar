@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * 原生風格底部面板（iOS action sheet / Android modal bottom sheet）。
+ * Figma Pop up（3:4934）：置中白卡、標題置中 H3 Semibold、底部按鈕。
  * Dialog 無障礙：有名稱、開啟時焦點移入、Tab 鎖在面板內、Esc 與遮罩可關閉、關閉後焦點回到觸發元件。
  */
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
@@ -67,7 +67,6 @@ onBeforeUnmount(() => {
     <Transition name="sheet">
       <div v-if="open" class="scrim" @click.self="emit('close')">
         <div ref="panel" class="sheet" role="dialog" aria-modal="true" :aria-labelledby="titleId" tabindex="-1">
-          <div class="grabber" aria-hidden="true" />
           <div class="head">
             <h2 :id="titleId" class="sheet-title">{{ title }}</h2>
             <button class="close" type="button" aria-label="關閉" @click="emit('close')">
@@ -88,59 +87,59 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 100;
-  background: rgba(23, 27, 29, 0.45);
+  background: rgba(11, 13, 14, 0.5);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
 }
 .sheet {
   width: 100%;
-  max-width: 600px;
-  max-height: 92vh;
+  max-width: 400px;
+  max-height: 100%;
   overflow-y: auto;
   background: var(--c-surface);
-  border-radius: var(--radius-l) var(--radius-l) 0 0;
-  box-shadow: var(--shadow-sheet);
-  padding: 8px 16px calc(20px + env(safe-area-inset-bottom));
+  border-radius: 8px;
+  padding: 8px 16px 20px;
   outline: none;
 }
-.grabber {
-  width: 40px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--tp-grey-200);
-  margin: 0 auto 4px;
-}
 .head {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 44px;
 }
 .sheet-title {
   font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
   font-weight: 600;
-  padding-left: 4px;
+  color: var(--tp-grey-950);
+  text-align: center;
 }
 .close {
+  position: absolute;
+  right: -8px;
+  top: 0;
   width: 48px;
   height: 48px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  color: var(--tp-grey-600);
+  border-radius: 8px;
+  color: var(--tp-grey-700);
 }
 .close:active {
   background: var(--tp-grey-50);
 }
 .sheet-enter-active,
 .sheet-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.18s ease;
 }
 .sheet-enter-active .sheet,
 .sheet-leave-active .sheet {
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.18s ease;
 }
 .sheet-enter-from,
 .sheet-leave-to {
@@ -148,6 +147,6 @@ onBeforeUnmount(() => {
 }
 .sheet-enter-from .sheet,
 .sheet-leave-to .sheet {
-  transform: translateY(100%);
+  transform: scale(0.96);
 }
 </style>

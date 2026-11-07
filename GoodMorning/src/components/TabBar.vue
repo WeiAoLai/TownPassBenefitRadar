@@ -12,16 +12,17 @@ const tabs = [
 </script>
 
 <template>
+  <!-- Figma Foot tab bar（3:5129）：白底、上框 Grey/100、圖示 24、文字 Body 14 -->
   <nav class="tabbar" aria-label="主要功能">
     <RouterLink
       v-for="t in tabs"
       :key="t.key"
       :to="t.to"
       class="tab"
-      :class="{ active: route.meta.tab === t.key, create: t.key === 'create' }"
+      :class="{ active: route.meta.tab === t.key }"
       :aria-current="route.meta.tab === t.key ? 'page' : undefined"
     >
-      <span class="ico"><Icon :name="t.icon" :size="t.key === 'create' ? 26 : 26" /></span>
+      <Icon :name="t.icon" :size="24" />
       <span class="label">{{ t.label }}</span>
     </RouterLink>
   </nav>
@@ -32,38 +33,29 @@ const tabs = [
   flex: none;
   position: relative;
   z-index: 30;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  min-height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(255, 255, 255, 0.97);
+  display: flex;
+  gap: 8px;
+  padding: 4px 12px env(safe-area-inset-bottom);
+  background: var(--c-surface);
   border-top: 1px solid var(--c-line);
 }
 .tab {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  min-height: 56px;
-  color: var(--tp-grey-600);
+  min-height: 52px;
+  color: var(--tp-grey-950);
   text-decoration: none;
-  font-size: 0.8rem;
-  line-height: 1.1;
+  font-size: var(--tp-font-body);
+  line-height: var(--tp-lh-body);
 }
 .tab.active {
-  color: var(--tp-primary-600);
-  font-weight: 600;
+  color: var(--tp-primary-500);
 }
-.tab.create .ico {
-  width: 44px;
-  height: 32px;
-  border-radius: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.tab.create.active .ico {
-  background: var(--tp-primary-100);
+.label {
+  white-space: nowrap;
 }
 </style>

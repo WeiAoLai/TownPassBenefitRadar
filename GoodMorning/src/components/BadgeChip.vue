@@ -18,7 +18,7 @@ defineProps<{ badge?: Badge | null; compact?: boolean }>()
   align-items: center;
   gap: 4px;
   padding: 2px 10px 2px 4px;
-  border-radius: 999px;
+  border-radius: 4px;
   background: var(--c-accent-soft);
   color: var(--tp-secondary-800);
   font-size: var(--tp-font-body);

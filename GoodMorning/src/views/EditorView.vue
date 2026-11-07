@@ -10,13 +10,14 @@ import Icon from '../components/Icon.vue'
 import Segmented from '../components/Segmented.vue'
 import { openLink } from '../composables/bridge'
 import { toast } from '../composables/toast'
+import { startDownload } from '../composables/artworkActions'
 import { draft, resetDraft } from '../editor/draft'
 import { SIZE, type Layout } from '../editor/layout'
 import { QR_LAYOUT } from '../editor/qr'
-import { exportPng, loadImage, renderScene, styleSwatch } from '../editor/render'
+import { HANDLE_R, exportPng, handlePoint, isTainted, loadImage, renderScene, styleSwatch } from '../editor/render'
 import { GREETING, POSITIONS, SLOGAN } from '../editor/scene'
 import { FONTS, GREETINGS, TEXT_STYLES, type FontKey } from '../editor/styles'
-import { SEASONAL_IDS, SEASONAL_LABEL, loadAttractions, type Attraction, type AttractionCatalog } from '../data/attractions'
+import { loadBackgroundCatalog, type BackgroundItem } from '../data/backgrounds'
 
 type Tool = 'bg' | 'policy' | 'text' | 'style'
 const router = useRouter()
@@ -40,28 +41,11 @@ const orientOptions = [
 const me = ref<CurrentUser | null>(null)
 const backgrounds = ref<Background[]>([])
 /** 臺北旅遊網景點資料（分類、行政區、介紹頁網址），與 /backgrounds 以 id 對應 */
-const catalog = ref<AttractionCatalog | null>(null)
-const attractionById = computed(() => new Map<number, Attraction>((catalog.value?.attractions ?? []).map((a) => [a.id, a])))
-const ALL = '全部'
-const bgFilter = ref<string>(ALL)
-const bgQuery = ref('')
-const PAGE = 18
-const bgLimit = ref(PAGE)
-const bgFilters = computed(() => [ALL, SEASONAL_LABEL, ...(catalog.value?.categories ?? []).filter((c) => c !== '其他' && c !== '借問站')])
-const filteredBackgrounds = computed(() => {
-  const q = bgQuery.value.trim()
-  return backgrounds.value.filter((b) => {
-    const a = attractionById.value.get(b.id)
-    if (bgFilter.value === SEASONAL_LABEL && !SEASONAL_IDS.has(b.id)) return false
-    if (bgFilter.value !== ALL && bgFilter.value !== SEASONAL_LABEL && !a?.categories.includes(bgFilter.value)) return false
-    if (q && !b.name.includes(q) && !a?.district.includes(q)) return false
-    return true
-  })
-})
-const visibleBackgrounds = computed(() => filteredBackgrounds.value.slice(0, bgLimit.value))
-watch([bgFilter, bgQuery], () => (bgLimit.value = PAGE))
+/** 背景圖庫（名稱、行政區、攝影師、出處），與 /backgrounds 以 id 對應 */
+const catalog = ref<BackgroundItem[]>([])
+const infoById = computed(() => new Map<number, BackgroundItem>(catalog.value.map((b) => [b.id, b])))
 const currentBg = computed(() => backgrounds.value.find((b) => b.id === draft.backgroundId) ?? null)
-const currentAttraction = computed(() => (draft.backgroundId ? attractionById.value.get(draft.backgroundId) : undefined))
+const currentInfo = computed(() => (draft.backgroundId ? infoById.value.get(draft.backgroundId) : undefined))
 const categories = ref<string[]>([])
 const category = ref<string>(draft.policy?.category ?? '')
 const policies = ref<Policy[]>([])
@@ -70,6 +54,7 @@ const loadError = ref<string | null>(null)
 const saving = ref(false)
 const randomizing = ref(false)
 const showQrZone = ref(true)
+const bgTainted = ref(false)
 const saved = ref<{ artwork: Artwork; before: CurrentUser | null; after: CurrentUser | null; unlocked: Background[] } | null>(null)
 
 const layer = computed(() => draft.layers[draft.selected])
@@ -78,6 +63,7 @@ const swatches = TEXT_STYLES.map((s) => ({ ...s, img: '' }))
 /* ---------------- 畫布 ---------------- */
 const canvas = ref<HTMLCanvasElement | null>(null)
 const stage = ref<HTMLElement | null>(null)
+const editorEl = ref<HTMLElement | null>(null)
 let ctx: CanvasRenderingContext2D | null = null
 let layouts: Layout[] = []
 let bgImage: HTMLImageElement | null = null
@@ -89,6 +75,8 @@ const imgCache = new Map<number, Promise<HTMLImageElement>>()
 function sizeCanvas() {
   const c = canvas.value
   if (!c) return
+  // 直式手機：工具分頁黏在預覽下方，需要知道預覽區實際高度
+  if (stage.value && editorEl.value) editorEl.value.style.setProperty('--stage-h', `${stage.value.offsetHeight}px`)
   const css = c.getBoundingClientRect().width || 320
   const px = Math.min(SIZE, Math.round(css * Math.min(window.devicePixelRatio || 1, 2)))
   if (c.width !== px) {
@@ -140,6 +128,7 @@ watch(
       const img = await getImage(bg)
       if (draft.backgroundId === bg.id) {
         bgImage = img
+        bgTainted.value = isTainted(img)
         draw()
       }
     } catch {
@@ -149,24 +138,50 @@ watch(
 )
 watch(() => [draft.layers, draft.selected, showQrZone.value], draw, { deep: true })
 
-/* ---------------- 拖曳文字 ---------------- */
-let drag: { idx: number; dx: number; dy: number; id: number } | null = null
+/* ---------------- 拖曳文字：拖框移動、拖右下角把手縮放 ---------------- */
+type Drag =
+  | { mode: 'move'; idx: number; dx: number; dy: number; id: number }
+  | { mode: 'resize'; idx: number; cx: number; cy: number; startDist: number; startSize: number; id: number }
+let drag: Drag | null = null
 
 function toScene(e: PointerEvent) {
   const r = canvas.value!.getBoundingClientRect()
   return { x: ((e.clientX - r.left) / r.width) * SIZE, y: ((e.clientY - r.top) / r.height) * SIZE }
 }
 
+/** 手指的觸控範圍：至少 24 CSS px，換算成 1080 座標 */
+function touchSlop() {
+  const w = canvas.value?.getBoundingClientRect().width || 320
+  return (24 * SIZE) / w
+}
+
 function hit(x: number, y: number): number {
+  const slop = touchSlop()
   for (let i = layouts.length - 1; i >= 0; i--) {
     const b = layouts[i].box
-    if (layouts[i].glyphs.length && x >= b.x - 30 && x <= b.x + b.w + 30 && y >= b.y - 30 && y <= b.y + b.h + 30) return i
+    if (layouts[i].glyphs.length && x >= b.x - slop && x <= b.x + b.w + slop && y >= b.y - slop && y <= b.y + b.h + slop) return i
   }
   return -1
 }
 
 function onDown(e: PointerEvent) {
   const p = toScene(e)
+  const sel = layouts[draft.selected]
+  // 先看是不是抓到選取中文字的縮放把手
+  if (sel?.glyphs.length) {
+    const h = handlePoint(sel.box)
+    if (Math.hypot(p.x - h.x, p.y - h.y) <= HANDLE_R + touchSlop()) {
+      const l = draft.layers[draft.selected]
+      const cx = sel.box.x + sel.box.w / 2
+      const cy = sel.box.y + sel.box.h / 2
+      l.x = cx / SIZE
+      l.y = cy / SIZE
+      l.size = sel.fontSize
+      drag = { mode: 'resize', idx: draft.selected, cx, cy, startDist: Math.max(40, Math.hypot(p.x - cx, p.y - cy)), startSize: sel.fontSize, id: e.pointerId }
+      canvas.value?.setPointerCapture(e.pointerId)
+      return
+    }
+  }
   const i = hit(p.x, p.y)
   if (i < 0) return
   draft.selected = i
@@ -175,13 +190,18 @@ function onDown(e: PointerEvent) {
   // 以目前實際顯示位置（可能被夾在畫布內）為拖曳起點
   l.x = (b.x + b.w / 2) / SIZE
   l.y = (b.y + b.h / 2) / SIZE
-  drag = { idx: i, dx: p.x - l.x * SIZE, dy: p.y - l.y * SIZE, id: e.pointerId }
+  drag = { mode: 'move', idx: i, dx: p.x - l.x * SIZE, dy: p.y - l.y * SIZE, id: e.pointerId }
   canvas.value?.setPointerCapture(e.pointerId)
 }
 function onMove(e: PointerEvent) {
   if (!drag || e.pointerId !== drag.id) return
   const p = toScene(e)
   const l = draft.layers[drag.idx]
+  if (drag.mode === 'resize') {
+    const d = Math.hypot(p.x - drag.cx, p.y - drag.cy)
+    setSize((drag.startSize * d) / drag.startDist)
+    return
+  }
   l.x = Math.min(1, Math.max(0, (p.x - drag.dx) / SIZE))
   l.y = Math.min(1, Math.max(0, (p.y - drag.dy) / SIZE))
 }
@@ -194,10 +214,10 @@ async function loadAll() {
   loadError.value = null
   loading.value = { bg: true, cat: true, pol: false }
   try {
-    loadAttractions()
-      .then((c) => (catalog.value = c))
+    loadBackgroundCatalog()
+      .then((c) => (catalog.value = c.backgrounds))
       .catch(() => {
-        /* 分類篩選是輔助功能，載入失敗時仍可從完整清單挑背景 */
+        /* 攝影師標示是輔助資訊，載入失敗不影響挑背景 */
       })
     const [u, bgs, cats] = await Promise.all([api.getCurrentUser(), api.listBackgrounds(), api.listPolicyCategories()])
     me.value = u
@@ -306,7 +326,14 @@ async function save() {
   }
   saving.value = true
   try {
-    if (!bgImage) throw new Error('背景尚未載入')
+    if (!bgImage) {
+      toast('背景照片還沒載入完成，請稍等一下再按儲存', 'info')
+      return
+    }
+    if (isTainted(bgImage)) {
+      toast('這張背景照片無法輸出，請換一張背景再儲存', 'error', 6000)
+      return
+    }
     let blob: Blob
     try {
       blob = await exportPng({ background: bgImage, layers: draft.layers })
@@ -338,6 +365,14 @@ async function save() {
   } finally {
     saving.value = false
   }
+}
+
+/** 存到手機：關掉儲存成功視窗，打開附 QR Code 成品圖的下載視窗（作者下載不計入下載數） */
+function saveToPhone() {
+  const a = saved.value?.artwork
+  if (!a) return
+  saved.value = null
+  startDownload(a)
 }
 
 function makeAnother() {
@@ -378,7 +413,7 @@ const canvasLabel = computed(() => {
 </script>
 
 <template>
-  <div class="editor">
+  <div ref="editorEl" class="editor">
     <div ref="stage" class="stage">
       <canvas
         ref="canvas"
@@ -390,24 +425,9 @@ const canvasLabel = computed(() => {
         @pointerup="onUp"
         @pointercancel="onUp"
       />
-      <div class="stage-row">
-        <button type="button" class="btn dark" :disabled="randomizing || !!loadError" @click="randomize">
-          <Icon name="dice" /> {{ randomizing ? '挑選中…' : '隨機' }}
-        </button>
-        <p class="stage-hint small" aria-hidden="true"><Icon name="move" :size="16" /> 按住文字拖曳</p>
-        <button
-          type="button"
-          class="btn primary"
-          :disabled="saving || !!loadError"
-          :aria-describedby="missing ? 'save-hint' : undefined"
-          @click="save"
-        >
-          <Icon name="check" /> {{ saving ? '儲存中…' : '儲存' }}
-        </button>
-        <span v-if="missing" id="save-hint" class="visually-hidden">{{ missing }}</span>
-      </div>
     </div>
 
+    <div class="right">
     <div class="tools">
       <Segmented v-model="tool" :options="tools" label="編輯工具" mode="tabs" id-prefix="tool" />
     </div>
@@ -429,38 +449,16 @@ const canvasLabel = computed(() => {
         <span class="grow cur-name">
           <span class="small muted">目前</span>
           <strong>{{ currentBg.name }}</strong>
-          <span v-if="currentAttraction" class="small muted">{{ currentAttraction.district }}</span>
+          <span v-if="currentInfo" class="small muted">{{ currentInfo.district }}</span>
         </span>
-        <button v-if="currentAttraction" type="button" class="btn text" @click="openLink(currentAttraction.url)">
-          <Icon name="link" :size="20" /> 景點介紹
-        </button>
       </div>
-      <label class="search">
-        <span class="visually-hidden">搜尋景點或行政區</span>
-        <input v-model="bgQuery" type="search" inputmode="search" placeholder="搜尋景點或行政區，例如：北投" enterkeyhint="search" />
-      </label>
-      <div class="chips" role="radiogroup" aria-label="背景分類">
-        <button
-          v-for="f in bgFilters"
-          :key="f"
-          type="button"
-          class="chip"
-          role="radio"
-          :aria-checked="bgFilter === f"
-          @click="bgFilter = f"
-        >
-          <Icon v-if="f === SEASONAL_LABEL" name="lock" :size="16" />
-          {{ f }}
-        </button>
-      </div>
-      <p v-if="bgFilter === SEASONAL_LABEL" class="notice small">累積儲存 3 張作品，就能解鎖季節限定的美景</p>
+      <p v-if="bgTainted" class="notice small">這張照片無法輸出，請換一張背景</p>
       <div v-if="loading.bg" class="bg-grid">
         <div v-for="i in 6" :key="i" class="bg-item skeleton" />
       </div>
-      <p v-else-if="!filteredBackgrounds.length" class="empty">找不到符合的景點，換個關鍵字試試</p>
-      <div v-else class="bg-grid" role="radiogroup" :aria-label="`選擇背景，共 ${filteredBackgrounds.length} 個景點`">
+      <div v-else class="bg-grid" role="radiogroup" aria-label="選擇背景">
         <button
-          v-for="b in visibleBackgrounds"
+          v-for="b in backgrounds"
           :key="b.id"
           type="button"
           role="radio"
@@ -471,7 +469,7 @@ const canvasLabel = computed(() => {
           :aria-label="b.unlocked ? b.name : `${b.name}（儲存 ${b.unlockThreshold} 張作品後解鎖）`"
           @click="pickBackground(b)"
         >
-          <img :src="b.imageUrl" alt="" loading="lazy" decoding="async" @error="($event.target as HTMLImageElement).classList.add('broken')" />
+          <img :src="b.imageUrl" alt="" loading="lazy" decoding="async" />
           <span class="bg-name">{{ b.name }}</span>
           <span v-if="!b.unlocked" class="lock">
             <Icon name="lock" :size="22" />
@@ -480,16 +478,8 @@ const canvasLabel = computed(() => {
           <span v-if="draft.backgroundId === b.id" class="tick"><Icon name="check" :size="18" /></span>
         </button>
       </div>
-      <button
-        v-if="visibleBackgrounds.length < filteredBackgrounds.length"
-        type="button"
-        class="btn block"
-        @click="bgLimit += PAGE"
-      >
-        看更多景點（還有 {{ filteredBackgrounds.length - visibleBackgrounds.length }} 個）
-      </button>
-      <p class="credit small muted">
-        景點照片：<a href="https://www.travel.taipei/" target="_blank" rel="noopener" @click.prevent="openLink('https://www.travel.taipei/')">臺北旅遊網</a>
+      <p v-if="currentInfo" class="credit small muted">
+        照片：<a :href="currentInfo.photoUrl" target="_blank" rel="noopener" @click.prevent="openLink(currentInfo.photoUrl)">{{ currentInfo.author }}／Unsplash</a>
       </p>
     </section>
 
@@ -645,27 +635,8 @@ const canvasLabel = computed(() => {
         </button>
       </div>
 
-      <h2 class="panel-title" id="size-label">字的大小</h2>
-      <div class="stepper">
-        <button type="button" class="round" aria-label="字變小" @click="setSize(layer.size - 12)">
-          <Icon name="minus" />
-        </button>
-        <input
-          type="range"
-          min="40"
-          max="320"
-          step="4"
-          :value="layer.size"
-          aria-labelledby="size-label"
-          :aria-valuetext="`${layer.size} 像素`"
-          @input="setSize(Number(($event.target as HTMLInputElement).value))"
-        />
-        <button type="button" class="round" aria-label="字變大" @click="setSize(layer.size + 12)">
-          <Icon name="plus" />
-        </button>
-      </div>
-
-      <h2 class="panel-title">位置</h2>
+      <h2 class="panel-title">大小與位置</h2>
+      <p class="small muted">在圖上按住文字可以移動，拖右下角的圓形把手可以放大縮小</p>
       <div class="pos-wrap">
         <div class="pos-grid" role="group" aria-label="快速放到九宮格位置">
           <button
@@ -679,10 +650,10 @@ const canvasLabel = computed(() => {
             <span aria-hidden="true" class="dot" />
           </button>
         </div>
-        <div class="nudge" role="group" aria-label="微調位置">
-          <span />
+        <div class="nudge" role="group" aria-label="微調大小與位置">
+          <button type="button" class="round" aria-label="字變小" @click="setSize(layer.size - 16)"><Icon name="minus" /></button>
           <button type="button" class="round" aria-label="往上移" @click="nudge(0, -0.03)"><Icon name="chevron-left" style="transform: rotate(90deg)" /></button>
-          <span />
+          <button type="button" class="round" aria-label="字變大" @click="setSize(layer.size + 16)"><Icon name="plus" /></button>
           <button type="button" class="round" aria-label="往左移" @click="nudge(-0.03, 0)"><Icon name="chevron-left" /></button>
           <span />
           <button type="button" class="round" aria-label="往右移" @click="nudge(0.03, 0)"><Icon name="chevron-right" /></button>
@@ -706,6 +677,28 @@ const canvasLabel = computed(() => {
     </section>
 
 
+    <!-- Figma Section_one line text_button/m：固定在畫面底部，按鈕不會被捲走 -->
+    <div class="section-bar actionbar">
+      <p class="one-line" :id="missing ? 'save-hint' : undefined" aria-live="polite">
+        {{ missing ?? '按住圖上的文字可以拖曳位置' }}
+      </p>
+      <div class="btns">
+        <button type="button" class="btn" :disabled="randomizing || !!loadError" @click="randomize">
+          <Icon name="dice" :size="20" /> {{ randomizing ? '挑選中…' : '隨機一張' }}
+        </button>
+        <button
+          type="button"
+          class="btn primary"
+          :disabled="saving || !!loadError"
+          :aria-describedby="missing ? 'save-hint' : undefined"
+          @click="save"
+        >
+          <Icon name="check" :size="20" /> {{ saving ? '儲存中…' : '儲存作品' }}
+        </button>
+      </div>
+    </div>
+    </div>
+
     <BottomSheet :open="!!saved" title="儲存成功" @close="saved = null">
       <div v-if="saved" class="saved">
         <img class="saved-img" :src="saved.artwork.imageUrl" alt="剛儲存的長輩圖" />
@@ -724,8 +717,11 @@ const canvasLabel = computed(() => {
           <button type="button" class="btn" @click="useUnlocked(b)">馬上用</button>
         </div>
         <div class="saved-actions">
-          <button type="button" class="btn primary block large" @click="makeAnother">再做一張</button>
-          <button type="button" class="btn block large" @click="router.push('/me')">看我的作品</button>
+          <button type="button" class="btn primary block large" @click="saveToPhone">
+            <Icon name="download" :size="20" /> 存到手機相簿
+          </button>
+          <button type="button" class="btn block large" @click="makeAnother">再做一張</button>
+          <button type="button" class="btn text block" @click="router.push('/me')">看我的作品</button>
         </div>
       </div>
     </BottomSheet>
@@ -733,84 +729,118 @@ const canvasLabel = computed(() => {
 </template>
 
 <style scoped>
+/*
+ * 自適應版面（以 Pixel Pro 412 × ~780 WebView 為基準）：
+ * 預覽、工具分頁、工具內容、底部按鈕列依序排成一欄，彼此不重疊；
+ * 只有工具內容區會捲動，按鈕列永遠完整顯示在底部。
+ * 橫式或寬螢幕：左邊預覽，右邊工具＋按鈕列。
+ */
 .editor {
-  display: flex;
-  flex-direction: column;
+  --canvas: min(100%, 34vh);
   height: 100%;
-  /* 極小螢幕或字級放大時，整頁可捲動，不會切掉工具 */
-  overflow-y: auto;
   max-width: 600px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+@supports (height: 1svh) {
+  .editor {
+    --canvas: min(100%, 34svh);
+  }
 }
 .stage {
   flex: none;
-  padding: 10px 16px 6px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: var(--tp-grey-900);
+  background: var(--c-bg);
+}
+.right {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .canvas {
   display: block;
-  width: min(100%, 37vh);
+  width: var(--canvas);
+  max-width: 100%;
   aspect-ratio: 1;
   height: auto;
-  border-radius: 6px;
+  border-radius: 8px;
+  box-shadow: var(--shadow-1);
   touch-action: pinch-zoom;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
-@supports (height: 1dvh) {
-  .canvas {
-    width: min(100%, 37dvh);
-  }
-}
-.stage-row {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 0 4px;
-}
-.stage-row .btn {
+.actionbar {
   flex: none;
-  white-space: nowrap;
-  padding: 10px 16px;
-}
-.stage-hint {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--tp-grey-200);
-  text-align: center;
-}
-@media (max-width: 380px) {
-  .stage-hint {
-    display: none;
-  }
-}
-.btn.dark {
-  background: transparent;
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.6);
 }
 .tools {
   flex: none;
-  padding: 10px 12px 6px;
+  padding: 0 8px;
   background: var(--c-surface);
   border-bottom: 1px solid var(--c-line);
 }
 .panel {
   flex: 1 1 auto;
-  min-height: 150px;
+  min-height: 0;
   overflow-y: auto;
-  padding: 12px 16px 16px;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px 20px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+}
+
+/* 橫式手機、平板、桌機：兩欄，各自完整顯示 */
+@media (orientation: landscape) and (min-width: 640px), (min-width: 900px) {
+  .editor {
+    max-width: 1120px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(320px, 1fr);
+    --canvas: min(100%, calc(100vh - 160px));
+  }
+  @supports (height: 1svh) {
+    .editor {
+      --canvas: min(100%, calc(100svh - 160px));
+    }
+  }
+  .stage {
+    justify-content: center;
+    padding: 16px;
+    min-height: 0;
+  }
+  .right {
+    height: 100%;
+    border-left: 1px solid var(--c-line);
+    background: var(--c-bg);
+  }
+  .canvas {
+    min-width: 160px;
+  }
+}
+
+/* 很矮的畫面（橫式手機、字級放大、鍵盤彈出）：改成整頁捲動，工具區不會被壓扁 */
+@media (max-height: 560px) {
+  .editor {
+    height: auto;
+  }
+  .right {
+    height: auto;
+    display: block;
+  }
+  .panel {
+    overflow: visible;
+  }
+}
+
+/* 工具區的每個區塊維持原本高度，內容多就往下排、由工具區捲動，不會被壓扁截掉 */
+.panel > * {
+  flex-shrink: 0;
 }
 .panel-title {
   font-size: var(--tp-font-h3);
@@ -841,7 +871,7 @@ const canvasLabel = computed(() => {
   width: 100%;
   min-height: 48px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1.5px solid var(--tp-grey-200);
   background: var(--c-surface);
 }
@@ -1017,16 +1047,6 @@ const canvasLabel = computed(() => {
 .swatch[aria-checked='true'] {
   border-color: var(--c-brand);
   background: var(--c-brand-soft);
-}
-.stepper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.stepper input {
-  flex: 1;
-  min-height: 48px;
-  accent-color: var(--c-brand);
 }
 .round {
   flex: none;

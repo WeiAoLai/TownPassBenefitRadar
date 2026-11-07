@@ -1,0 +1,18 @@
+{
+ "source": "Unsplash（https://unsplash.com），依 Unsplash License 免費使用、可修改，不強制標示作者；本服務仍標示攝影師以示尊重",
+ "license": "Unsplash License",
+ "licenseUrl": "https://unsplash.com/license",
+ "fetchedAt": "2026-11-07",
+ "backgrounds": [
+  { "id": 1, "name": "台北101夕照", "district": "信義區", "file": "taipei101-sunset.jpg", "unlockThreshold": 0, "author": "Thomas Tucker", "photoUrl": "https://unsplash.com/photos/taipei-101-skyscraper-in-taipei-au3CYbd7vCU" },
+  { "id": 2, "name": "台北101天際線", "district": "信義區", "file": "taipei101-skyline.jpg", "unlockThreshold": 0, "author": "Hans Brunk", "photoUrl": "https://unsplash.com/photos/a-very-tall-building-towering-over-a-city-DgCPoSfgQsE" },
+  { "id": 3, "name": "艋舺龍山寺", "district": "萬華區", "file": "longshan-temple.jpg", "unlockThreshold": 0, "author": "Poh Soo Donald Soh", "photoUrl": "https://unsplash.com/photos/lungshan-temple-of-manka-with-a-red-roof-72syO8Jusg8" },
+  { "id": 4, "name": "中正紀念堂", "district": "中正區", "file": "cks-memorial-hall.jpg", "unlockThreshold": 0, "author": "Christie Chau", "photoUrl": "https://unsplash.com/photos/a-tall-white-building-with-a-sky-background-sa8Zn4f2HsU" },
+  { "id": 5, "name": "大稻埕碼頭", "district": "大同區", "file": "dadaocheng-wharf.jpg", "unlockThreshold": 0, "author": "enot nil", "photoUrl": "https://unsplash.com/photos/a-view-of-a-body-of-water-with-a-city-in-the-background-e2rN397aqks" },
+  { "id": 6, "name": "饒河街觀光夜市", "district": "松山區", "file": "raohe-night-market.jpg", "unlockThreshold": 0, "author": "Clement Souchet", "photoUrl": "https://unsplash.com/photos/people-walking-on-street-during-night-time-gTvz-t7D1Aw" },
+  { "id": 7, "name": "西門町", "district": "萬華區", "file": "ximending.jpg", "unlockThreshold": 0, "author": "Supasit Chantranon", "photoUrl": "https://unsplash.com/photos/people-walking-on-pedestrian-lane-during-daytime-pj9p_cpQT3I" },
+  { "id": 8, "name": "陽明山草原", "district": "陽明山", "file": "yangmingshan.jpg", "unlockThreshold": 0, "author": "Treddy Chen", "photoUrl": "https://unsplash.com/photos/green-grass-field-tfJJ3JVVkiY" },
+  { "id": 9, "name": "圓山大飯店", "district": "中山區", "file": "grand-hotel.jpg", "unlockThreshold": 3, "author": "Winston Chen", "photoUrl": "https://unsplash.com/photos/a-red-building-with-a-red-roof-EhcsD6adzwM" },
+  { "id": 10, "name": "國立故宮博物院", "district": "士林區", "file": "palace-museum.jpg", "unlockThreshold": 3, "author": "Maxim Klimashin", "photoUrl": "https://unsplash.com/photos/national-palace-museum-with-lush-green-hill-background-Kp-8068au88" }
+ ]
+}

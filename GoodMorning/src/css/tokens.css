@@ -30,8 +30,11 @@
   --tp-grey-700: #475259;
   --tp-grey-800: #30383d;
   --tp-grey-900: #171b1d;
+  --tp-grey-950: #0b0d0e;
+  --tp-grey-400: #91a0a8;
 
   --tp-red-300: #e29494;
+  --tp-orange-300: #f4b992;
   --tp-red-500: #d45251;
   --tp-orange-500: #fd853a;
   --tp-green-500: #76a732;
@@ -48,11 +51,14 @@
   --tp-lh-body: 1.25rem;
 
   /* 語意別名 */
+  /* Figma Semantic colors（3:390）：Background light=white、dark=Grey/50；Disable=Grey/100；Text=Grey/950、700、400 */
   --c-bg: var(--tp-grey-50);
   --c-surface: #ffffff;
-  --c-text: var(--tp-grey-800);
-  --c-text-2: var(--tp-grey-600);
+  --c-text: var(--tp-grey-950);
+  --c-text-2: var(--tp-grey-700);
+  --c-text-3: var(--tp-grey-500);
   --c-line: var(--tp-grey-100);
+  --c-disable: var(--tp-grey-100);
   --c-brand: var(--tp-primary-500);
   --c-brand-strong: var(--tp-primary-700);
   --c-brand-soft: var(--tp-primary-50);
@@ -62,11 +68,13 @@
   --c-like: var(--tp-red-500);
   --c-danger: var(--tp-red-500);
 
+  /* Figma 元件：Button 圓角 8、Section 陰影 0 0 6px rgba(0,0,0,.1)、Top navigation 56 */
   --radius-s: 8px;
-  --radius-m: 12px;
-  --radius-l: 20px;
-  --shadow-1: 0 1px 2px rgba(23, 27, 29, 0.06), 0 2px 8px rgba(23, 27, 29, 0.05);
-  --shadow-sheet: 0 -4px 24px rgba(23, 27, 29, 0.16);
-  --tabbar-h: 64px;
+  --radius-m: 8px;
+  --radius-l: 16px;
+  --shadow-1: 0 0 6px rgba(0, 0, 0, 0.1);
+  --shadow-sheet: 0 0 6px rgba(0, 0, 0, 0.1);
+  --topnav-h: 56px;
+  --tabbar-h: 60px;
   color-scheme: light;
 }

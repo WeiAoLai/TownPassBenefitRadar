@@ -14,6 +14,8 @@ import { toast } from '../composables/toast'
 
 const s = downloadState
 const open = computed(() => !!s.value.artwork)
+const own = computed(() => !!s.value.artwork?.ownedByMe)
+const title = computed(() => (own.value ? '存到手機相簿' : '下載長輩圖'))
 
 const canShare = computed(() => {
   const b = s.value.blob
@@ -52,7 +54,7 @@ function retry() {
 </script>
 
 <template>
-  <BottomSheet :open="open" title="下載長輩圖" @close="closeDownload">
+  <BottomSheet :open="open" :title="title" @close="closeDownload">
     <div v-if="s.loading" class="state" aria-busy="true">
       <div class="preview skeleton" />
       <p class="muted">正在加上政策 QR Code…</p>
@@ -65,13 +67,17 @@ function retry() {
     </div>
     <div v-else-if="s.url" class="state">
       <img class="preview" :src="s.url" alt="附政策 QR Code 的長輩圖，可長按儲存" />
-      <p class="hint">
+      <p v-if="canShare" class="hint">
+        <Icon name="share" :size="20" />
+        <span>按下方按鈕，在選單中選<strong>「儲存影像」</strong>就會存進相簿</span>
+      </p>
+      <p v-else class="hint">
         <Icon name="image" :size="20" />
         <span><strong>長按圖片</strong>，選「儲存到照片」或「下載圖片」</span>
       </p>
       <div class="actions">
         <button v-if="canShare" class="btn primary block large" type="button" @click="share">
-          <Icon name="share" /> 分享給親友
+          <Icon name="share" /> {{ own ? '存到相簿或分享' : '分享給親友' }}
         </button>
         <button class="btn block large" :class="{ primary: !canShare }" type="button" @click="saveFile">
           <Icon name="download" /> 下載檔案

@@ -8,7 +8,7 @@ import { createCanvas, exportPng, loadImage, renderScene } from '../../editor/re
 import { composeWithQr } from '../../editor/qr'
 import { ApiError } from '../errors'
 import type { Api, Artwork, ArtworkPage, Background, Badge, CurrentUser, Policy } from '../types'
-import { displayName, imageUrl as photoUrl, loadAttractions, unlockThresholdOf } from '../../data/attractions'
+import { backgroundUrl, loadBackgroundCatalog } from '../../data/backgrounds'
 import { MOCK_POLICIES, MOCK_SEED_ARTWORKS, MOCK_USERS } from './fixtures'
 import { kvClear, kvGet, kvSet } from './store'
 
@@ -31,21 +31,21 @@ interface State {
   likes: string[]
 }
 
-const STATE_VERSION = 3
+const STATE_VERSION = 6
 const MAX_BYTES = 10 * 1024 * 1024
 /** 作品圖遺失時的佔位圖 */
 const PLACEHOLDER =
   'data:image/svg+xml;charset=utf-8,' +
   encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#cad1d5"/></svg>')
 
-/** 背景 = 臺北旅遊網景點（id 沿用景點 id，圖片取第一張） */
+/** 背景 = public/data/backgrounds.json（Unsplash 照片，放在 public/backgrounds/） */
 async function backgroundRows() {
-  const { attractions } = await loadAttractions()
-  return attractions.map((a) => ({
-    id: a.id,
-    name: displayName(a.name),
-    imageUrl: photoUrl(a.images[0].id),
-    unlockThreshold: unlockThresholdOf(a.id),
+  const { backgrounds } = await loadBackgroundCatalog()
+  return backgrounds.map((b) => ({
+    id: b.id,
+    name: b.name,
+    imageUrl: backgroundUrl(b.file),
+    unlockThreshold: b.unlockThreshold,
   }))
 }
 
@@ -84,10 +84,8 @@ async function seed(): Promise<State> {
     try {
       // 照片載入失敗（離線、代理未設定）時改用預設天空背景，示範作品仍可產生
       const img = bg ? await loadImage(bg.imageUrl).catch(() => null) : null
-      const blob = await exportPng({
-        background: img,
-        layers: defaultLayers(seedArt.greeting, policy.slogan, seedArt.greetingStyle, seedArt.sloganStyle),
-      })
+      const layers = defaultLayers(seedArt.greeting, policy.slogan, seedArt.greetingStyle, seedArt.sloganStyle)
+      const blob = await exportPng({ background: img, layers }).catch(() => exportPng({ background: null, layers }))
       await kvSet(`img:${id}`, blob)
     } catch {
       /* 圖產生失敗時仍保留資料列，畫面會顯示預設圖 */

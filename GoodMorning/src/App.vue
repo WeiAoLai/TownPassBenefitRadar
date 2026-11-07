@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { apiMode } from './api'
 import TopBar from './components/TopBar.vue'
 import TabBar from './components/TabBar.vue'
 import ToastHost from './components/ToastHost.vue'
@@ -19,7 +18,6 @@ watch(
 
 <template>
   <TopBar :title="title" />
-  <p v-if="apiMode === 'mock'" class="mock-banner small">示範資料：內容僅供測試</p>
   <main ref="main">
     <RouterView />
   </main>
@@ -28,13 +26,3 @@ watch(
   <ToastHost />
 </template>
 
-<style>
-.mock-banner {
-  flex: none;
-  margin: 0;
-  padding: 4px 16px;
-  text-align: center;
-  background: var(--c-accent-soft);
-  color: var(--tp-secondary-800);
-}
-</style>
