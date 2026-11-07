@@ -68,6 +68,8 @@ K6_WRITE_WARMUP_VUS=1 K6_WRITE_NORMAL_VUS=1 K6_WRITE_PEAK_VUS=1 \
 
 本機與 AWS summary 分別輸出至 `performance/results/local-summary.json`、`performance/results/aws-summary.json`。write scenario 會真的建立作品並寫入 MariaDB 與 S3，也會執行按讚、下載與取消讚；由於目前沒有刪除作品 API，壓測資料不會自動清除。
 
+2026-11-08 的完整地端基準結果請見 [`docs/reports/2026-11-08-local-load-test-report.md`](docs/reports/2026-11-08-local-load-test-report.md)。
+
 ## Prometheus 與 Grafana
 
 本機 `docker compose up --build -d` 會一併啟動 Prometheus 與 Grafana：
