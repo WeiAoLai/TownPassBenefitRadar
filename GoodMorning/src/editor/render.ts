@@ -13,6 +13,12 @@ export const fontString = (layer: Pick<TextLayer, 'font'>, size: number) => {
   return `${f.weight} ${size}px ${f.family}`
 }
 
+/** 等實際會畫進 canvas 的字型與字元載入完成，避免 Android 先用同一套 fallback 字型輸出。 */
+export async function loadLayerFonts(layers: Pick<TextLayer, 'font' | 'size' | 'text'>[]): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) return
+  await Promise.all(layers.map((layer) => document.fonts.load(fontString(layer, layer.size), layer.text || '早安')))
+}
+
 export function measurerFor(ctx: CanvasRenderingContext2D, layer: TextLayer) {
   return (text: string, size: number) => {
     ctx.font = fontString(layer, size)

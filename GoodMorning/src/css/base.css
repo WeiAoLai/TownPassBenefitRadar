@@ -63,8 +63,7 @@ button {
   border: 0;
   background: none;
   padding: 0;
-  /* 產品決定（2026-11-08）：所有按鈕外觀最小高度 38 */
-  min-height: 38px;
+  min-height: 48px;
 }
 
 img {
@@ -165,8 +164,7 @@ a {
 
 /*
  * ===== 按鈕：Figma Button/m（48）、Button/L（56），圓角 8 =====
- * 產品決定（2026-11-08）：所有按鈕外觀最小高度 38、框 1px、顏色用 Figma 主色 primary-500；字 18px 半粗。
- * 外觀 38 低於台北通 TS 觸控最小 48，所以用 ::after 把可點範圍上下撐到 48（不影響排版）。
+ * 所有按鈕最小高度 48、框 1px、顏色用 Figma 主色 primary-500；字 18px 半粗。
  */
 .btn {
   position: relative;
@@ -174,7 +172,7 @@ a {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 38px;
+  min-height: 48px;
   min-width: 48px;
   padding: 4px 16px;
   border-radius: 8px;
@@ -186,15 +184,6 @@ a {
   /* 所有按鈕框線 1px（產品決定，2026-11-08） */
   border: 1px solid var(--c-action);
   text-decoration: none;
-}
-.btn::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: max(100%, 48px);
-  transform: translateY(-50%);
 }
 .btn:active {
   background: var(--tp-primary-50);
@@ -301,14 +290,13 @@ button.list-row:active {
 .chips {
   display: flex;
   flex-wrap: wrap;
-  /* 列距 10：上下各撐出 5px 可點範圍時，兩列不會互相重疊 */
   gap: 10px 8px;
 }
-/* 與 .btn 一致：外觀最小高度 38，::after 把可點範圍上下撐到 48（台北通 TS） */
+/* 與 .btn 一致：最小高度 48（台北通 TS） */
 .chip {
   position: relative;
   flex: none;
-  min-height: 38px;
+  min-height: 48px;
   padding: 0 16px;
   border-radius: 8px;
   border: 1px solid var(--tp-grey-400);
@@ -318,15 +306,6 @@ button.list-row:active {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.chip::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: max(100%, 48px);
-  transform: translateY(-50%);
 }
 /* 選取中：主色框＋Semibold＋打勾，不只靠顏色分辨 */
 .chip[aria-pressed='true'],

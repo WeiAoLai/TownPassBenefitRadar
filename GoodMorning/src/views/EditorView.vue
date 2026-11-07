@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import '@fontsource-variable/noto-sans-tc/wght.css'
+import '@fontsource-variable/noto-serif-tc/wght.css'
+import '@fontsource/lxgw-wenkai-tc/700.css'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
 import { ApiError, friendlyMessage } from '../api/errors'
@@ -10,26 +13,30 @@ import BadgeCelebration from '../components/BadgeCelebration.vue'
 import Icon from '../components/Icon.vue'
 import Segmented from '../components/Segmented.vue'
 import { openLink } from '../composables/bridge'
-import { announce, toast } from '../composables/toast'
+import { announce } from '../composables/toast'
 import { startDownload } from '../composables/artworkActions'
 import { unlockAudio } from '../composables/sound'
 import { draft, resetDraft } from '../editor/draft'
 import { SIZE, alignOf, type Layout, type TextAlign } from '../editor/layout'
 import { qrZone } from '../editor/qr'
-import { HANDLE_R, exportPng, handlePoint, isTainted, loadImage, renderScene, styleSwatch } from '../editor/render'
+import { HANDLE_R, exportPng, handlePoint, isTainted, layoutsFor, loadImage, loadLayerFonts, renderScene, styleSwatch } from '../editor/render'
 import { GREETING, POSITIONS, SLOGAN } from '../editor/scene'
 import { FONTS, GREETINGS, TEXT_STYLES, type FontKey } from '../editor/styles'
 import { backgroundSrc, catalogBackgrounds, loadBackgroundCatalog, serverBackgroundId, type BackgroundItem } from '../data/backgrounds'
 import { customPhoto, loadCustomPhoto, photoErrorMessage } from '../editor/customPhoto'
 
 type Tool = 'bg' | 'policy' | 'text' | 'style'
+type CreateStep = 'start' | 'preview' | 'edit'
 const router = useRouter()
+const createStep = ref<CreateStep>('start')
+const starterReady = ref(false)
+const starterImage = new URL('backgrounds/taipei101-sunset.jpg', document.baseURI).href
 
 const tool = ref<Tool>(draft.policy ? 'text' : 'bg')
 const tools = [
   { value: 'bg' as const, label: '背景', icon: 'image' },
   { value: 'policy' as const, label: '政策', icon: 'flag' },
-  { value: 'text' as const, label: '文字', icon: 'text' },
+  { value: 'text' as const, label: '內容', icon: 'text' },
   { value: 'style' as const, label: '樣式', icon: 'palette' },
 ]
 const layerOptions = [
@@ -77,6 +84,16 @@ const policies = ref<Policy[]>([])
 const loading = ref({ bg: true, cat: true, pol: false })
 const loadError = ref<string | null>(null)
 const saving = ref(false)
+const pageMessage = ref<{ text: string; tone: 'info' | 'error' } | null>(null)
+
+function showMessage(text: string, tone: 'info' | 'error' = 'info') {
+  pageMessage.value = { text, tone }
+  announce(text)
+}
+
+function clearMessage() {
+  pageMessage.value = null
+}
 
 /* ---------------- 每日製作上限（台北時間，一天 DAILY_ARTWORK_LIMIT 張） ---------------- */
 /** 今天已存幾張；null = 還不知道（載入中或查詢失敗，不擋使用者，交給後端判斷） */
@@ -127,6 +144,12 @@ const celebrate = ref<{ level: number; name: string } | null>(null)
 
 const layer = computed(() => draft.layers[draft.selected])
 const swatches = TEXT_STYLES.map((s) => ({ ...s, img: '' }))
+
+async function selectFont(font: FontKey) {
+  layer.value.font = font
+  await loadLayerFonts([layer.value])
+  draw()
+}
 
 /* ---------------- 畫布 ---------------- */
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -200,8 +223,8 @@ function draw() {
       ctx,
       { background: activeBg(), layers: draft.layers },
       {
-        selected: draft.selected,
-        qrZone: showQrZone.value ? qrZone() : null,
+        selected: createStep.value === 'start' ? null : draft.selected,
+        qrZone: createStep.value === 'edit' && showQrZone.value ? qrZone() : null,
       },
     )
   })
@@ -238,7 +261,7 @@ watch(
         draw()
       }
     } catch {
-      toast('背景圖載入失敗，請換一張或稍後再試', 'error')
+      showMessage('背景圖載入失敗，請換一張或稍後再試', 'error')
     }
   },
 )
@@ -259,7 +282,17 @@ watch(
 /* ---------------- 拖曳文字：拖框移動、拖右下角把手縮放 ---------------- */
 type Drag =
   | { mode: 'move'; idx: number; dx: number; dy: number; id: number }
-  | { mode: 'resize'; idx: number; cx: number; cy: number; pad: number; minW: number; minH: number; id: number }
+  | {
+      mode: 'resize'
+      idx: number
+      cx: number
+      cy: number
+      startRadius: number
+      startSize: number
+      startW: number
+      startH: number
+      id: number
+    }
 let drag: Drag | null = null
 
 function toScene(e: PointerEvent) {
@@ -283,6 +316,8 @@ function hit(x: number, y: number): number {
 }
 
 function onDown(e: PointerEvent) {
+  if (createStep.value === 'start') return
+  e.preventDefault()
   const p = toScene(e)
   const sel = layouts[draft.selected]
   // 先看是不是抓到選取中文字的縮放把手
@@ -294,9 +329,19 @@ function onDown(e: PointerEvent) {
       const cy = sel.box.y + sel.box.h / 2
       l.x = cx / SIZE
       l.y = cy / SIZE
-      // 拖把手改變的是文字框大小，字級不變；最小要放得下一個字
+      // 拖右下角把手時，文字框與字體一起等比例縮放。
       const pad = sel.fontSize * 0.25
-      drag = { mode: 'resize', idx: draft.selected, cx, cy, pad, minW: sel.fontSize * 1.1, minH: sel.fontSize * 1.1, id: e.pointerId }
+      drag = {
+        mode: 'resize',
+        idx: draft.selected,
+        cx,
+        cy,
+        startRadius: Math.max(1, Math.hypot(sel.box.w / 2, sel.box.h / 2)),
+        startSize: l.size,
+        startW: Math.max(sel.fontSize * 1.1, sel.box.w - 2 * pad),
+        startH: Math.max(sel.fontSize * 1.1, sel.box.h - 2 * pad),
+        id: e.pointerId,
+      }
       canvas.value?.setPointerCapture(e.pointerId)
       return
     }
@@ -314,13 +359,19 @@ function onDown(e: PointerEvent) {
 }
 function onMove(e: PointerEvent) {
   if (!drag || e.pointerId !== drag.id) return
+  e.preventDefault()
   const p = toScene(e)
   const l = draft.layers[drag.idx]
   if (drag.mode === 'resize') {
-    // 以文字框中心為準對稱放大縮小：把手到中心的距離 ×2 就是新的框
+    // 以文字框中心為準等比例縮放，字體與文字框同步變大或變小。
     const maxBox = SIZE * 0.92
-    l.boxW = Math.round(Math.min(maxBox, Math.max(drag.minW, 2 * Math.abs(p.x - drag.cx) - 2 * drag.pad)))
-    l.boxH = Math.round(Math.min(maxBox, Math.max(drag.minH, 2 * Math.abs(p.y - drag.cy) - 2 * drag.pad)))
+    const radius = Math.hypot(p.x - drag.cx, p.y - drag.cy)
+    const requestedScale = radius / drag.startRadius
+    const nextSize = Math.min(320, Math.max(40, Math.round(drag.startSize * requestedScale)))
+    const scale = nextSize / drag.startSize
+    l.size = nextSize
+    l.boxW = Math.round(Math.min(maxBox, drag.startW * scale))
+    l.boxH = Math.round(Math.min(maxBox, drag.startH * scale))
     return
   }
   l.x = Math.min(1, Math.max(0, (p.x - drag.dx) / SIZE))
@@ -368,7 +419,7 @@ watch(category, async (c) => {
   try {
     policies.value = await api.listPolicies(c)
   } catch (e) {
-    toast(friendlyMessage(e), 'error')
+    showMessage(friendlyMessage(e), 'error')
   } finally {
     loading.value.pol = false
   }
@@ -378,7 +429,7 @@ watch(category, async (c) => {
 function pickBackground(b: Background) {
   if (!b.unlocked) {
     const need = b.unlockThreshold - (me.value?.artworkCount ?? 0)
-    toast(`再儲存 ${Math.max(1, need)} 張作品就能解鎖「${b.name}」`, 'info')
+    showMessage(`再儲存 ${Math.max(1, need)} 張作品就能解鎖「${b.name}」`)
     return
   }
   customPhoto.value = null
@@ -402,9 +453,9 @@ async function onPhotoPicked(e: Event) {
   try {
     customPhoto.value = await loadCustomPhoto(file)
     bgTainted.value = false
-    toast('已換成你的照片', 'success', 2500)
+    showMessage('已換成你的照片')
   } catch (err) {
-    toast(photoErrorMessage(err), 'error')
+    showMessage(photoErrorMessage(err), 'error')
   } finally {
     photoLoading.value = false
   }
@@ -414,7 +465,7 @@ function pickPolicy(p: Policy) {
   draft.policy = p
   draft.layers[SLOGAN].text = p.slogan
   draft.selected = SLOGAN
-  toast(`已套用「${p.title}」標語`, 'success')
+  showMessage(`已套用「${p.title}」標語`)
 }
 
 /**
@@ -429,24 +480,65 @@ watch(
   { immediate: true },
 )
 
-function nudge(dx: number, dy: number) {
-  const b = layouts[draft.selected]?.box
-  const l = layer.value
-  if (b && b.w) {
-    l.x = (b.x + b.w / 2) / SIZE
-    l.y = (b.y + b.h / 2) / SIZE
-  }
-  l.x = Math.min(1, Math.max(0, l.x + dx))
-  l.y = Math.min(1, Math.max(0, l.y + dy))
-}
-
-function setSize(v: number) {
-  layer.value.size = Math.min(320, Math.max(40, Math.round(v)))
-}
-
 const pick = <T,>(arr: readonly T[]) => arr[Math.floor(Math.random() * arr.length)]
 
-async function randomize() {
+function shuffled<T>(items: readonly T[]): T[] {
+  const out = [...items]
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[out[i], out[j]] = [out[j], out[i]]
+  }
+  return out
+}
+
+function boxesOverlap(a: Layout['box'], b: Layout['box'], gap = 24) {
+  return !(a.x + a.w + gap <= b.x || b.x + b.w + gap <= a.x || a.y + a.h + gap <= b.y || b.y + b.h + gap <= a.y)
+}
+
+/** 兩段文字各自隨機放進不同九宮格；用實際字體量測，確保文字框不重疊。 */
+function placeLayersOnGrid(greeting: typeof draft.layers[number], slogan: typeof draft.layers[number]) {
+  delete greeting.boxW
+  delete greeting.boxH
+  delete slogan.boxW
+  delete slogan.boxH
+
+  const measureCanvas = document.createElement('canvas')
+  measureCanvas.width = SIZE
+  measureCanvas.height = SIZE
+  const measureContext = measureCanvas.getContext('2d')
+  if (!measureContext) return
+
+  const pairs = shuffled(
+    POSITIONS.flatMap((first, firstIndex) =>
+      POSITIONS.filter((_, secondIndex) => firstIndex !== secondIndex).map((second) => [first, second] as const),
+    ),
+  )
+
+  const fits = (first: (typeof POSITIONS)[number], second: (typeof POSITIONS)[number]) => {
+    Object.assign(greeting, { x: first.x, y: first.y })
+    Object.assign(slogan, { x: second.x, y: second.y })
+    const [greetingLayout, sloganLayout] = layoutsFor(measureContext, [greeting, slogan])
+    const reservedQr = qrZone()
+    return (
+      !boxesOverlap(greetingLayout.box, sloganLayout.box) &&
+      !boxesOverlap(greetingLayout.box, reservedQr, 12) &&
+      !boxesOverlap(sloganLayout.box, reservedQr, 12)
+    )
+  }
+
+  if (pairs.some(([first, second]) => fits(first, second))) return
+
+  // 極長文字找不到空位時，固定放上、下兩格並逐步縮小，直到不重疊。
+  const top = POSITIONS[1]
+  const bottom = POSITIONS[7]
+  while (!fits(top, bottom) && (greeting.size > 40 || slogan.size > 40)) {
+    greeting.size = Math.max(40, greeting.size - 8)
+    slogan.size = Math.max(40, slogan.size - 8)
+  }
+}
+
+async function randomize(): Promise<boolean> {
+  clearMessage()
   randomizing.value = true
   try {
     const p = await api.getRandomPolicy()
@@ -455,7 +547,13 @@ async function randomize() {
     const unlocked = backgrounds.value.filter((b) => b.unlocked)
     if (unlocked.length) {
       customPhoto.value = null
-      draft.backgroundId = pick(unlocked).id
+      const nextBackground = pick(unlocked)
+      draft.backgroundId = nextBackground.id
+      const image = await getImage(nextBackground)
+      if (draft.backgroundId === nextBackground.id) {
+        bgImage = image
+        bgTainted.value = isTainted(image)
+      }
     }
     const [g, s] = draft.layers
     g.text = pick(GREETINGS)
@@ -463,13 +561,28 @@ async function randomize() {
     g.styleId = pick(TEXT_STYLES).id
     s.text = p.slogan
     s.styleId = pick(TEXT_STYLES.filter((t) => t.id !== g.styleId)).id
+    await loadLayerFonts([g, s])
+    placeLayersOnGrid(g, s)
     draft.selected = SLOGAN
-    toast('換好了！可以再調整文字和樣式', 'success')
+    return true
   } catch (e) {
-    toast(friendlyMessage(e), 'error')
+    showMessage(friendlyMessage(e), 'error')
+    return false
   } finally {
     randomizing.value = false
   }
+}
+
+async function makeSuggested() {
+  if (!(await randomize())) return
+  createStep.value = 'preview'
+  announce('長輩圖做好了，請確認預覽')
+}
+
+function openEditor() {
+  tool.value = 'bg'
+  createStep.value = 'edit'
+  announce('已開啟自行調整工具')
 }
 
 const missing = computed(() => {
@@ -484,19 +597,19 @@ const missing = computed(() => {
 const saveHint = computed(() => {
   if (limitReached.value) return limitMessage.value
   if (missing.value) return missing.value
-  if (remaining.value != null && remaining.value < DAILY_ARTWORK_LIMIT) return `今天還能存 ${remaining.value} 張`
   return null
 })
 
 async function save() {
   // 儲存後若拿到新徽章會播慶祝音效；瀏覽器要在「點擊當下」才允許解鎖聲音，所以放在最前面
   unlockAudio()
+  clearMessage()
   if (limitReached.value) {
-    toast(limitMessage.value, 'info', 5000)
+    showMessage(limitMessage.value)
     return
   }
   if (missing.value) {
-    toast(missing.value, 'info')
+    showMessage(missing.value)
     if (!draft.backgroundId) tool.value = 'bg'
     else if (!draft.policy) tool.value = 'policy'
     else tool.value = 'text'
@@ -506,28 +619,29 @@ async function save() {
   try {
     const bgDrawable = activeBg()
     if (!bgDrawable) {
-      toast('背景照片還沒載入完成，請稍等一下再按儲存', 'info')
+      showMessage('背景照片還沒載入完成，請稍等一下再按儲存')
       return
     }
     if (isTainted(bgDrawable)) {
-      toast('這張背景照片無法輸出，請換一張背景再儲存', 'error')
+      showMessage('這張背景照片無法輸出，請換一張背景再儲存', 'error')
       return
     }
     let blob: Blob
     try {
+      await loadLayerFonts(draft.layers)
       blob = await exportPng({ background: bgDrawable, layers: draft.layers })
     } catch {
-      toast('這張背景無法輸出圖片，請換一張背景再試', 'error')
+      showMessage('這張背景無法輸出圖片，請換一張背景再試', 'error')
       return
     }
     if (blob.size > 10 * 1024 * 1024) {
-      toast('圖片超過 10 MB，請換一張背景再試', 'error')
+      showMessage('圖片超過 10 MB，請換一張背景再試', 'error')
       return
     }
     const before = me.value
     const backendBgId = serverBackgroundId(currentBg.value?.name, serverBackgrounds.value)
     if (backendBgId == null) {
-      toast('目前沒有可用的背景資料，請稍後再試', 'error')
+      showMessage('目前沒有可用的背景資料，請稍後再試', 'error')
       return
     }
     const artwork = await api.createArtwork({
@@ -555,7 +669,7 @@ async function save() {
     // 後端說今天已滿（例如在別支手機做過）：同步前端狀態
     if (e instanceof ApiError && e.code === DAILY_LIMIT_CODE) todayCount.value = DAILY_ARTWORK_LIMIT
     // 草稿保留，使用者可以直接再按一次儲存
-    toast(friendlyMessage(e), 'error')
+    showMessage(friendlyMessage(e), 'error')
   } finally {
     saving.value = false
   }
@@ -572,18 +686,42 @@ function saveToPhone() {
 function makeAnother() {
   saved.value = null
   resetDraft(true)
-  tool.value = 'policy'
-}
-
-function useUnlocked(b: Background) {
-  saved.value = null
-  customPhoto.value = null
-  draft.backgroundId = b.id
+  createStep.value = 'start'
   tool.value = 'bg'
 }
 
+async function useUnlocked(b: Background) {
+  saved.value = null
+  customPhoto.value = null
+  draft.backgroundId = b.id
+  createStep.value = 'edit'
+  tool.value = 'bg'
+  await nextTick()
+  sizeCanvas()
+}
+
+watch(createStep, async (step) => {
+  if (step === 'start') return
+  await nextTick()
+  sizeCanvas()
+  ro?.disconnect()
+  if (typeof ResizeObserver !== 'undefined' && stage.value) {
+    ro = new ResizeObserver(() => sizeCanvas())
+    ro.observe(stage.value)
+  }
+  if (step === 'edit') {
+    updateLayoutMode()
+    if (typeof ResizeObserver !== 'undefined') {
+      layoutRo?.disconnect()
+      layoutRo = new ResizeObserver(updateLayoutMode)
+      for (const el of [document.querySelector('main'), toolsEl.value, actionEl.value]) if (el) layoutRo.observe(el)
+    }
+  }
+})
+
 onMounted(() => {
   swatches.forEach((s) => (s.img = styleSwatch(s.id)))
+  document.fonts?.addEventListener('loadingdone', draw)
   sizeCanvas()
   if (typeof ResizeObserver !== 'undefined' && stage.value) {
     ro = new ResizeObserver(() => sizeCanvas())
@@ -608,6 +746,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', sizeCanvas)
   window.removeEventListener('resize', updateLayoutMode)
   window.visualViewport?.removeEventListener('resize', updateLayoutMode)
+  document.fonts?.removeEventListener('loadingdone', draw)
 })
 
 const canvasLabel = computed(() => {
@@ -619,11 +758,58 @@ const canvasLabel = computed(() => {
 </script>
 
 <template>
-  <div ref="editorEl" class="editor" :class="{ flow, sticky: flow && stickyBars }">
+  <div ref="editorEl" class="create-page">
+    <section v-if="createStep === 'start'" class="quick-start" aria-labelledby="create-question">
+      <div class="quick-copy">
+        <h2 id="create-question">今天想傳張圖嗎？</h2>
+        <p>背景、問候語和政策都幫你配好</p>
+      </div>
+
+      <div class="starter-art" :class="{ ready: starterReady }" aria-hidden="true">
+        <span v-if="!starterReady" class="starter-placeholder skeleton" />
+        <img :src="starterImage" alt="" width="1080" height="1080" @load="starterReady = true" />
+        <span class="starter-words">平安喜樂<br />天天好心情</span>
+      </div>
+
+      <div v-if="loadError" class="quick-error" role="alert">
+        <p>{{ loadError }}</p>
+        <button class="btn block" type="button" @click="loadAll"><Icon name="refresh" /> 重新載入</button>
+      </div>
+      <button
+        v-else
+        type="button"
+        class="btn primary block large quick-primary"
+        :class="{ 'limit-full': limitReached }"
+        :disabled="randomizing || loading.bg || loading.cat || limitReached"
+        @click="makeSuggested"
+      >
+        <Icon name="sparkle" :size="24" />
+        {{ randomizing ? '正在幫你做…' : limitReached ? '今天已做滿' : '幫我做一張' }}
+      </button>
+      <p
+        v-if="pageMessage"
+        class="inline-feedback small"
+        :class="{ error: pageMessage.tone === 'error' }"
+        :role="pageMessage.tone === 'error' ? 'alert' : 'status'"
+      >
+        {{ pageMessage.text }}
+      </p>
+      <p v-if="limitReached" class="small muted" role="status">{{ limitMessage }}</p>
+    </section>
+
+    <div
+      v-else
+      :class="createStep === 'edit' ? ['editor', { flow, sticky: flow && stickyBars }] : 'quick-preview'"
+    >
+      <div v-if="createStep === 'preview'" class="quick-heading">
+        <h2>這張可以嗎？</h2>
+        <p class="small muted">可以直接儲存，或再換一張</p>
+      </div>
+
     <div ref="stage" class="stage">
       <canvas
         ref="canvas"
-        class="canvas"
+        class="canvas editable"
         role="img"
         :aria-label="canvasLabel"
         @pointerdown="onDown"
@@ -631,12 +817,51 @@ const canvasLabel = computed(() => {
         @pointerup="onUp"
         @pointercancel="onUp"
       />
+      <p class="drag-hint small muted">拖曳文字調整位置，拖右下角圓點縮放</p>
     </div>
 
-    <div class="right">
+    <div v-if="createStep === 'preview'" class="preview-panel">
+      <p
+        v-if="pageMessage"
+        class="inline-feedback small"
+        :class="{ error: pageMessage.tone === 'error' }"
+        :role="pageMessage.tone === 'error' ? 'alert' : 'status'"
+      >
+        {{ pageMessage.text }}
+      </p>
+      <p class="one-line" :id="saveHint ? 'preview-save-hint' : undefined" aria-live="polite">{{ saveHint ?? '' }}</p>
+      <div class="preview-main-actions">
+        <button type="button" class="btn" :disabled="randomizing || !!loadError" @click="randomize">
+          <Icon name="refresh" :size="20" /> {{ randomizing ? '挑選中…' : '換一張' }}
+        </button>
+        <button
+          type="button"
+          class="btn primary"
+          :class="{ 'limit-full': limitReached }"
+          :disabled="saving || !!loadError || limitReached"
+          :aria-describedby="saveHint ? 'preview-save-hint' : undefined"
+          @click="save"
+        >
+          <Icon name="save" :size="20" /> {{ saving ? '儲存中…' : '儲存' }}
+        </button>
+      </div>
+      <button type="button" class="btn block preview-edit" @click="openEditor">
+        <Icon name="brush" :size="20" /> 自行調整
+      </button>
+    </div>
+
+    <div v-else class="right">
     <div ref="toolsEl" class="tools">
       <Segmented v-model="tool" :options="tools" label="編輯工具" mode="tabs" id-prefix="tool" />
     </div>
+    <p
+      v-if="pageMessage"
+      class="inline-feedback editor-feedback small"
+      :class="{ error: pageMessage.tone === 'error' }"
+      :role="pageMessage.tone === 'error' ? 'alert' : 'status'"
+    >
+      {{ pageMessage.text }}
+    </p>
 
     <div v-if="loadError" class="panel" role="alert">
       <p>{{ loadError }}</p>
@@ -807,11 +1032,11 @@ const canvasLabel = computed(() => {
           type="button"
           role="radio"
           class="swatch"
+          :aria-label="s.name"
           :aria-checked="layer.styleId === s.id"
           @click="layer.styleId = s.id"
         >
           <img :src="s.img" alt="" width="60" height="60" />
-          <span class="small">{{ s.name }}</span>
         </button>
       </div>
 
@@ -831,37 +1056,10 @@ const canvasLabel = computed(() => {
           role="radio"
           :aria-checked="layer.font === f.key"
           :style="{ fontFamily: f.family }"
-          @click="layer.font = f.key as FontKey"
+          @click="selectFont(f.key)"
         >
           {{ f.name }}
         </button>
-      </div>
-
-      <h2 class="panel-title">大小與位置</h2>
-      <div class="pos-wrap">
-        <div class="pos-grid" role="group" aria-label="快速放到九宮格位置">
-          <button
-            v-for="p in POSITIONS"
-            :key="p.label"
-            type="button"
-            class="pos"
-            :aria-label="`放到${p.label}`"
-            @click="Object.assign(layer, { x: p.x, y: p.y })"
-          >
-            <span aria-hidden="true" class="dot" />
-          </button>
-        </div>
-        <div class="nudge" role="group" aria-label="微調大小與位置">
-          <button type="button" class="round" aria-label="字變小" @click="setSize(layer.size - 16)"><Icon name="minus" /></button>
-          <button type="button" class="round" aria-label="往上移" @click="nudge(0, -0.03)"><Icon name="chevron-left" style="transform: rotate(90deg)" /></button>
-          <button type="button" class="round" aria-label="字變大" @click="setSize(layer.size + 16)"><Icon name="plus" /></button>
-          <button type="button" class="round" aria-label="往左移" @click="nudge(-0.03, 0)"><Icon name="chevron-left" /></button>
-          <span />
-          <button type="button" class="round" aria-label="往右移" @click="nudge(0.03, 0)"><Icon name="chevron-right" /></button>
-          <span />
-          <button type="button" class="round" aria-label="往下移" @click="nudge(0, 0.03)"><Icon name="chevron-right" style="transform: rotate(90deg)" /></button>
-          <span />
-        </div>
       </div>
 
       <label class="switch-row list-row">
@@ -888,6 +1086,7 @@ const canvasLabel = computed(() => {
         <button
           type="button"
           class="btn primary"
+          :class="{ 'limit-full': limitReached }"
           :disabled="saving || !!loadError || limitReached"
           :aria-describedby="saveHint ? 'save-hint' : undefined"
           @click="save"
@@ -897,15 +1096,14 @@ const canvasLabel = computed(() => {
       </div>
     </div>
     </div>
+    </div>
 
     <BadgeCelebration :badge="celebrate" @close="celebrate = null" />
 
-    <BottomSheet :open="!!saved && !celebrate" title="儲存成功" @close="saved = null">
+    <BottomSheet :open="!!saved && !celebrate" title="完成" @close="saved = null">
       <div v-if="saved" class="saved">
         <img class="saved-img" :src="saved.preview" width="1080" height="1080" alt="剛儲存的長輩圖" />
-        <p class="saved-count">
-          這是你的第 <strong>{{ saved.after?.artworkCount ?? '—' }}</strong> 張作品
-        </p>
+        <p class="saved-count"><strong>作品已儲存</strong></p>
         <p v-if="remaining != null" class="saved-left small muted">
           {{ remaining > 0 ? `今天還能再做 ${remaining} 張` : `今天的 ${DAILY_ARTWORK_LIMIT} 張做完了，明天再來！` }}
         </p>
@@ -915,7 +1113,7 @@ const canvasLabel = computed(() => {
         </div>
         <div class="saved-actions">
           <button type="button" class="btn primary block large" @click="saveToPhone">
-            <Icon name="download" :size="20" /> 存到手機相簿
+            <Icon name="share" :size="20" /> 分享給親友
           </button>
           <button v-if="!limitReached" type="button" class="btn block large" @click="makeAnother">再做一張</button>
           <button type="button" class="btn text block" @click="router.push('/me')">看我的作品</button>
@@ -926,6 +1124,162 @@ const canvasLabel = computed(() => {
 </template>
 
 <style scoped>
+.create-page {
+  height: 100%;
+  min-height: 0;
+}
+.quick-start,
+.quick-preview {
+  width: min(100%, 560px);
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 20px 20px max(20px, env(safe-area-inset-bottom));
+}
+.quick-start {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.quick-copy,
+.quick-heading {
+  width: 100%;
+}
+.quick-copy h2,
+.quick-heading h2 {
+  font-size: var(--tp-font-h2);
+  line-height: var(--tp-lh-h2);
+  font-weight: 600;
+}
+.quick-copy p {
+  margin-top: 6px;
+  color: var(--c-text-2);
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+}
+.starter-art {
+  position: relative;
+  width: min(100%, 40vh, 420px);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--radius-l);
+  background: var(--tp-grey-100);
+  box-shadow: var(--shadow-1);
+}
+@supports (height: 1svh) {
+  .starter-art {
+    width: min(100%, 40svh, 420px);
+  }
+}
+.starter-placeholder {
+  position: absolute;
+  inset: 0;
+}
+.starter-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+.starter-art.ready img {
+  opacity: 1;
+}
+.starter-words {
+  position: absolute;
+  left: 6%;
+  bottom: 7%;
+  color: var(--c-like);
+  font-size: clamp(1.5rem, 8vw, 2.5rem);
+  line-height: 1.2;
+  font-weight: 600;
+  text-shadow:
+    -2px -2px 0 #fff,
+    2px -2px 0 #fff,
+    -2px 2px 0 #fff,
+    2px 2px 0 #fff;
+}
+.quick-primary,
+.quick-error {
+  width: min(100%, 420px);
+}
+.quick-primary {
+  min-height: 56px;
+  margin-top: auto;
+}
+.quick-error {
+  display: grid;
+  gap: 10px;
+  text-align: center;
+}
+.quick-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.quick-heading p {
+  margin-top: 4px;
+}
+.quick-preview .stage {
+  padding: 0;
+  background: transparent;
+}
+.quick-preview .canvas {
+  width: min(100%, 34vh, 440px);
+  border-radius: var(--radius-l);
+}
+@supports (height: 1svh) {
+  .quick-preview .canvas {
+    width: min(100%, 34svh, 440px);
+  }
+}
+.preview-panel {
+  width: min(100%, 440px);
+  margin: auto auto 0;
+  display: grid;
+  gap: 12px;
+}
+.preview-main-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.preview-edit {
+  background: var(--c-surface);
+  color: var(--c-text);
+  border-color: var(--tp-grey-400);
+}
+.inline-feedback {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  background: var(--tp-primary-50);
+  color: var(--tp-primary-800);
+  text-align: center;
+}
+.inline-feedback.error {
+  background: var(--tp-red-300);
+  color: var(--tp-grey-950);
+}
+.editor-feedback {
+  flex: none;
+  border-radius: 0;
+}
+.canvas:not(.editable) {
+  touch-action: pan-x pan-y pinch-zoom;
+}
+.canvas.editable {
+  touch-action: none;
+  cursor: grab;
+}
+.canvas.editable:active {
+  cursor: grabbing;
+}
+.drag-hint {
+  margin-top: 6px;
+  text-align: center;
+}
+
 /*
  * 自適應版面（以 Pixel Pro 412 × ~780 WebView 為基準）：
  * 預覽、工具分頁、工具內容、底部按鈕列依序排成一欄，彼此不重疊；
@@ -1345,52 +1699,6 @@ textarea.text-box {
   border-color: var(--c-action);
   background: var(--c-brand-soft);
 }
-.round {
-  flex: none;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--c-surface);
-  border: 1px solid var(--tp-grey-200);
-  color: var(--tp-grey-700);
-}
-.round:active {
-  background: var(--tp-grey-50);
-}
-.pos-wrap {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  justify-content: space-around;
-  flex-wrap: wrap;
-}
-.pos-grid,
-.nudge {
-  display: grid;
-  grid-template-columns: repeat(3, 48px);
-  gap: 4px;
-}
-.pos {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-s);
-  background: var(--tp-grey-100);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.pos .dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--tp-grey-500);
-}
-.pos:active {
-  background: var(--tp-primary-100);
-}
 .switch-row {
   border-radius: var(--radius-m);
   box-shadow: var(--shadow-1);
@@ -1416,6 +1724,8 @@ span.block {
 }
 .saved-count {
   text-align: center;
+  font-size: var(--tp-font-h2);
+  line-height: var(--tp-lh-h2);
 }
 .saved-left {
   text-align: center;
@@ -1438,6 +1748,18 @@ span.block {
 .saved-actions {
   display: grid;
   gap: 10px;
+}
+
+/* 今日額度用完後維持單一停用色，不回應 hover 或按下狀態。 */
+.btn.limit-full,
+.btn.limit-full:hover,
+.btn.limit-full:active {
+  background: var(--c-disable);
+  border-color: var(--c-disable);
+  color: var(--tp-grey-600);
+  box-shadow: none;
+  transform: none;
+  transition: none;
 }
 
 @media (min-width: 900px) and (orientation: landscape) {

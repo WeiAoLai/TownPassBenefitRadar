@@ -65,7 +65,7 @@ onMounted(() => load('ranking'))
 </script>
 
 <template>
-  <div class="page wide">
+  <div class="page wide feed-page">
     <Segmented
       class="view-tabs"
       :model-value="mode"
@@ -136,6 +136,9 @@ onMounted(() => load('ranking'))
 </template>
 
 <style scoped>
+.feed-page {
+  padding-top: 8px;
+}
 .view-tabs {
   margin-bottom: 12px;
 }

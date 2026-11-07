@@ -225,7 +225,7 @@ onBeforeUnmount(release)
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 38px;
+  min-height: 48px;
   padding: 0 16px;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.85);
@@ -322,9 +322,8 @@ onBeforeUnmount(release)
 .share,
 .ok {
   width: 100%;
-  /* 與 .btn 一致：外觀最小高度 38、圓角 8；::after 把可點範圍撐到 48 */
-  position: relative;
-  min-height: 38px;
+  /* 與 .btn 一致：最小高度 48、圓角 8 */
+  min-height: 48px;
   border-radius: var(--radius-s);
   display: inline-flex;
   align-items: center;
@@ -333,16 +332,6 @@ onBeforeUnmount(release)
   font-size: var(--tp-font-h3);
   line-height: var(--tp-lh-h3);
   font-weight: 600;
-}
-.share::after,
-.ok::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: max(100%, 48px);
-  transform: translateY(-50%);
 }
 /* 分享：白框透明底，白字對深色底約 12:1 */
 .share {
@@ -382,7 +371,7 @@ onBeforeUnmount(release)
 }
 .link {
   width: 100%;
-  min-height: 38px;
+  min-height: 48px;
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid #fff;

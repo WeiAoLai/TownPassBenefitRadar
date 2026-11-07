@@ -27,11 +27,16 @@ async function fakeTownPass(page: import('@playwright/test').Page) {
 }
 
 test.describe('我的', () => {
-  test('一般瀏覽器：提醒開關停用並說明原因', async ({ page }) => {
+  test('一般瀏覽器示範模式：提醒開關可以操作並記住狀態', async ({ page }) => {
     await page.goto('./#/me')
+    await expect(page.getByRole('heading', { name: '待解鎖背景' })).toHaveCount(0)
     const sw = page.getByRole('switch', { name: '每天早上提醒我' })
-    await expect(sw).toBeDisabled()
-    await expect(page.getByText('在台北通 App 裡打開才能設定提醒')).toBeVisible()
+    await expect(sw).toBeEnabled()
+    await sw.click()
+    await expect(sw).toBeChecked()
+    await expect(page.getByLabel('提醒時間')).toBeVisible()
+    await page.reload()
+    await expect(page.getByRole('switch', { name: '每天早上提醒我' })).toBeChecked()
   })
 
   test('台北通裡：顯示暱稱、不顯示真實姓名；打開每日提醒送出 daily_reminder', async ({ page }) => {
