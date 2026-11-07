@@ -8,6 +8,7 @@ services:
     working_dir: /workspace
     command: ["mvn", "spring-boot:run"]
     environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-demo}
       SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/${DB_NAME:-good_morning}?sessionVariables=time_zone='+00:00'
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-good_morning}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-good_morning}

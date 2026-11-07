@@ -7,6 +7,8 @@ import tw.gov.taipei.goodmorning.entity.Artwork;
 
 public interface ArtworkRepository extends JpaRepository<Artwork, Long> {
 
+    long countByOwnerId(Long ownerId);
+
     Page<Artwork> findAllByOrderByCreatedAtDescIdDesc(Pageable pageable);
 
     Page<Artwork> findByOwnerIdOrderByCreatedAtDescIdDesc(Long ownerId, Pageable pageable);
