@@ -103,10 +103,10 @@ async function loadMore() {
 
 const count = computed(() => me.value?.artworkCount ?? 0)
 const next = computed(() => nextBadge(count.value))
+/** 進度條比例與旁邊的「x/y 張」一致：累積作品數 ÷ 下一個徽章門檻 */
 const progress = computed(() => {
   if (!next.value) return 100
-  const prev = BADGES.filter((b) => b.threshold <= count.value).pop()?.threshold ?? 0
-  return Math.round(((count.value - prev) / (next.value.threshold - prev)) * 100)
+  return Math.min(100, Math.round((count.value / next.value.threshold) * 100))
 })
 const locked = computed(() => backgrounds.value.filter((b) => !b.unlocked))
 
@@ -257,9 +257,10 @@ onMounted(() => {
           <div
             class="progress"
             role="progressbar"
-            :aria-valuenow="progress"
+            :aria-valuenow="me.artworkCount"
             aria-valuemin="0"
-            aria-valuemax="100"
+            :aria-valuemax="next.threshold"
+            :aria-valuetext="`${me.artworkCount}/${next.threshold} 張`"
             :aria-label="`距離下一個徽章還差 ${next.threshold - me.artworkCount} 張`"
           >
             <span :style="{ width: progress + '%' }" />
