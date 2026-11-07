@@ -346,4 +346,3 @@ rg -n 'AKIA[0-9A-Z]{16}|AWS_SECRET_ACCESS_KEY\s*=\s*[^#[:space:]]+' .
 Expected: no credential matches.
 
 7. Commit with `chore: complete containerized backend MVP`.
-

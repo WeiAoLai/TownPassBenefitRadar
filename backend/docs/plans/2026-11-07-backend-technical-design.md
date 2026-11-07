@@ -422,4 +422,3 @@ Repository 應提供 `.env.example`，只包含 placeholder，不得包含可用
 - Nginx 一般 API 與下載 API 的實際 rate-limit 數值。
 - EC2 instance type、EBS 容量與 S3 bucket policy。
 - Demo 結束時間及資料刪除負責人。
-
