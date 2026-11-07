@@ -18,6 +18,7 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
       S3_ENDPOINT: http://localstack:4566
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-http://localhost:4566}
       TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
     volumes:
       - .:/workspace

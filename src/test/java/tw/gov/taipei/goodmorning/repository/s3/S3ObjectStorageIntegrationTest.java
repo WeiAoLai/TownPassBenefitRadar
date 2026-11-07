@@ -58,7 +58,12 @@ class S3ObjectStorageIntegrationTest {
         storage = new S3ObjectStorage(
                 client,
                 presigner,
-                new S3Properties(BUCKET, REGION.id(), ENDPOINT.toString(), Duration.ofMinutes(15)));
+                new S3Properties(
+                        BUCKET,
+                        REGION.id(),
+                        ENDPOINT.toString(),
+                        ENDPOINT.toString(),
+                        Duration.ofMinutes(15)));
     }
 
     @AfterAll

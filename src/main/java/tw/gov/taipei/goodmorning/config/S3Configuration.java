@@ -31,15 +31,18 @@ public class S3Configuration {
 
     @Bean(destroyMethod = "close")
     S3Presigner s3Presigner(S3Properties properties) {
-        var localEndpoint = StringUtils.hasText(properties.endpoint());
+        var endpoint = StringUtils.hasText(properties.publicEndpoint())
+                ? properties.publicEndpoint()
+                : properties.endpoint();
+        var customEndpoint = StringUtils.hasText(endpoint);
         var builder = S3Presigner.builder()
                 .region(Region.of(properties.region()))
                 .credentialsProvider(DefaultCredentialsProvider.create())
                 .serviceConfiguration(software.amazon.awssdk.services.s3.S3Configuration.builder()
-                        .pathStyleAccessEnabled(localEndpoint)
+                        .pathStyleAccessEnabled(customEndpoint)
                         .build());
-        if (localEndpoint) {
-            builder.endpointOverride(URI.create(properties.endpoint()));
+        if (customEndpoint) {
+            builder.endpointOverride(URI.create(endpoint));
         }
         return builder.build();
     }
