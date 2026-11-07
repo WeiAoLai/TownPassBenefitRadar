@@ -2,7 +2,8 @@
 
 set -euo pipefail
 
-base_url="${BASE_URL:-http://localhost:${NGINX_PORT:-8088}}"
+base_url="${BASE_URL:-http://localhost:${API_PORT:-8080}}"
+management_url="${MANAGEMENT_URL:-http://localhost:${MANAGEMENT_PORT:-8081}}"
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT
 
@@ -13,9 +14,10 @@ for command_name in curl ruby; do
   fi
 done
 
-echo "waiting for ${base_url}/health"
+echo "waiting for ${management_url}/actuator/health"
 for attempt in {1..60}; do
-  if curl --fail --silent --show-error "${base_url}/health" >"${temporary_directory}/health.json"; then
+  if curl --fail --silent --show-error \
+    "${management_url}/actuator/health" >"${temporary_directory}/health.json"; then
     break
   fi
   if [[ "$attempt" -eq 60 ]]; then

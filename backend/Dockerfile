@@ -13,5 +13,5 @@ WORKDIR /app
 RUN useradd --system --uid 10001 spring
 COPY --from=build /workspace/target/good-morning-*.jar app.jar
 USER spring
-EXPOSE 8080
+EXPOSE 8080 8081
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

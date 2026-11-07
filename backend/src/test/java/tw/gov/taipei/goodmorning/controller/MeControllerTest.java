@@ -1,7 +1,6 @@
 package tw.gov.taipei.goodmorning.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -64,13 +63,6 @@ class MeControllerTest {
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.code").value("AUTH_REQUIRED"))
                 .andExpect(jsonPath("$.traceId").isNotEmpty());
-    }
-
-    @Test
-    void prometheusMetricsAreAvailableWithoutDemoAuthentication() throws Exception {
-        mockMvc.perform(get("/api/actuator/prometheus").contextPath("/api"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("application=\"good-morning\"")));
     }
 
     @Test

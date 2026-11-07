@@ -110,7 +110,7 @@ paths:
           schema:
             type: string
             minLength: 1
-            maxLength: 100
+            maxLength: 50
       responses:
         "200":
           description: 政策清單
@@ -133,8 +133,9 @@ paths:
       operationId: getRandomPolicy
       summary: 隨機取得一筆目前可選的政策
       description: |
-        只會選擇 isActive 為 true，且台北當地日期位於 startDate 與 endDate
-        之間的政策。連續呼叫可能回傳相同政策；此 API 不隨機選擇背景。
+        只會選擇管理者已啟用，且符合申辦起訖日條件的政策。startDate 為 null
+        表示無起日限制，endDate 為 null 表示持續辦理、無截止日限制。
+        連續呼叫可能回傳相同政策；此 API 不隨機選擇背景。
       responses:
         "200":
           description: 隨機政策
@@ -522,25 +523,25 @@ components:
           minimum: 1
         category:
           type: string
-          maxLength: 100
+          maxLength: 50
         title:
           type: string
-          maxLength: 200
+          maxLength: 255
         slogan:
           type: string
-          maxLength: 500
+          maxLength: 255
         sourceUrl:
           type: string
           format: uri
           pattern: "^https://"
         startDate:
-          type: string
+          type: [string, "null"]
           format: date
-          description: 政策開始日期，包含當日
+          description: 政策開始日期，包含當日；null 表示無起日限制
         endDate:
-          type: string
+          type: [string, "null"]
           format: date
-          description: 政策結束日期，包含當日且不得早於 startDate
+          description: 政策結束日期，包含當日；null 表示無截止日限制
 
     AuthorSummary:
       type: object

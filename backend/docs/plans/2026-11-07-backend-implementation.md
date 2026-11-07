@@ -305,11 +305,10 @@ git commit -m "test: verify Flyway schema on MariaDB"
 
 ---
 
-### Task 12: OpenAPI, Nginx, and end-to-end verification
+### Task 12: OpenAPI, ALB routing contract, and end-to-end verification
 
 **Files:**
 - Modify: `openapi.yaml`
-- Create: `nginx/nginx.conf`
 - Modify: `compose.yaml`
 - Create: `scripts/smoke-test.sh`
 - Modify: `README.md`
@@ -317,7 +316,7 @@ git commit -m "test: verify Flyway schema on MariaDB"
 **Steps:**
 
 1. Add a contract test that generated endpoints/schemas match the checked-in OpenAPI paths and core fields.
-2. Configure Nginx `/api`, upload size, health check, and stricter download rate limit.
+2. Separate public API port `8080` from management port `8081`; document ALB routing, health check, and WAF rate limiting.
 3. Start the full stack:
 
 ```bash

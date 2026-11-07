@@ -31,6 +31,7 @@ import tw.gov.taipei.goodmorning.entity.Background;
 import tw.gov.taipei.goodmorning.entity.Policy;
 import tw.gov.taipei.goodmorning.entity.User;
 import tw.gov.taipei.goodmorning.exception.ApiException;
+import tw.gov.taipei.goodmorning.observability.BusinessMetrics;
 import tw.gov.taipei.goodmorning.repository.ArtworkRepository;
 import tw.gov.taipei.goodmorning.repository.BackgroundRepository;
 import tw.gov.taipei.goodmorning.repository.PolicyRepository;
@@ -53,6 +54,7 @@ class CreateArtworkServiceTest {
     private ObjectStorage storage;
     private PngArtworkValidator validator;
     private BadgeService badges;
+    private BusinessMetrics metrics;
     private CreateArtworkService service;
     private User owner;
 
@@ -65,8 +67,9 @@ class CreateArtworkServiceTest {
         storage = mock(ObjectStorage.class);
         validator = mock(PngArtworkValidator.class);
         badges = mock(BadgeService.class);
+        metrics = mock(BusinessMetrics.class);
         service = new CreateArtworkService(
-                users, backgrounds, policies, artworks, storage, validator, badges, CLOCK);
+                users, backgrounds, policies, artworks, storage, validator, badges, metrics, CLOCK);
         owner = new User("demo-user-a", "user-a", "小明");
         when(users.findById(PRINCIPAL.id())).thenReturn(Optional.of(owner));
     }
@@ -128,6 +131,19 @@ class CreateArtworkServiceTest {
     }
 
     @Test
+    void acceptsAnActiveOngoingPolicyWithoutDateBounds() {
+        allowBackground();
+        when(policies.findById(5L)).thenReturn(Optional.of(policy(null, null, true)));
+        when(artworks.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(storage.readUrl(anyString())).thenReturn(URI.create("https://assets.example/artwork.png"));
+
+        var response = service.create(PRINCIPAL, IMAGE, 1L, 5L, "早安台北");
+
+        assertThat(response.policyId()).isEqualTo(5L);
+        verify(storage).put(anyString(), any(), anyString());
+    }
+
+    @Test
     void mapsAnS3UploadFailureToServiceUnavailable() {
         allowCreationData();
         doThrow(s3Failure()).when(storage).put(anyString(), any(), anyString());
@@ -138,6 +154,25 @@ class CreateArtworkServiceTest {
                 "STORAGE_UNAVAILABLE");
 
         verify(artworks, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void removesTheUploadedObjectWhenReadingItsUrlFails() {
+        allowCreationData();
+        when(artworks.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(s3Failure()).when(storage).readUrl(anyString());
+
+        assertApiError(
+                () -> service.create(PRINCIPAL, IMAGE, 1L, 1L, "早安台北"),
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "STORAGE_UNAVAILABLE");
+
+        var order = inOrder(storage, artworks);
+        order.verify(storage).put(anyString(), any(), anyString());
+        order.verify(artworks).saveAndFlush(any());
+        order.verify(storage).readUrl(anyString());
+        order.verify(storage).delete(anyString());
+        verify(metrics, never()).artworkCreated();
     }
 
     @Test
@@ -180,6 +215,7 @@ class CreateArtworkServiceTest {
         assertThat(response.sloganText()).isEqualTo("自訂標語");
         assertThat(response.imageUrl()).isEqualTo("https://assets.example/artwork.png");
         assertThat(response.ownedByMe()).isTrue();
+        verify(metrics).artworkCreated();
     }
 
     @Test

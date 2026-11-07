@@ -4,7 +4,7 @@ global:
 
 scrape_configs:
   - job_name: good-morning
-    metrics_path: /api/actuator/prometheus
+    metrics_path: /actuator/prometheus
     static_configs:
       - targets:
-          - api:8080
+          - api:8081

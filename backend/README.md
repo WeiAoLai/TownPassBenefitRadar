@@ -1,6 +1,6 @@
 # Good Morning Backend
 
-台北政策長輩圖 Demo 後端，使用 Spring Boot 4、MariaDB、S3 與 Nginx。開發與測試全程在 container 內執行，本機不需要安裝 Java 或 Maven。
+台北政策長輩圖 Demo 後端，使用 Spring Boot 4、MariaDB、S3、Prometheus、Grafana、Loki 與 Grafana Alloy。開發與測試全程在 container 內執行，本機不需要安裝 Java 或 Maven。
 
 ## 本機啟動
 
@@ -14,20 +14,22 @@ bash scripts/monitoring-smoke-test.sh
 
 預設入口：
 
-- API v1 base URL：`http://localhost:8088/api/v1`
-- Health：`http://localhost:8088/health`
-- Swagger UI：`http://localhost:8088/api/swagger-ui.html`
+- API v1 base URL：`http://localhost:8080/api/v1`
+- Management health：`http://localhost:8081/actuator/health`
+- Swagger UI：`http://localhost:8080/api/swagger-ui.html`
 - Checked-in contract：`openapi.yaml`
 
-Demo API 必須帶 `X-Demo-User: user-a`、`user-b` 或 `user-c`。Nginx 接受最多 11 MB request，Spring Boot 只接受 10 MB 圖片；下載端點另設每個來源 IP 每分鐘 30 次、burst 5 的 rate limit。
+Demo API 必須帶 `X-Demo-User: user-a`、`user-b` 或 `user-c`。Spring Boot 只接受 10 MB 圖片。AWS 正式入口的下載 rate limit 由 WAF rate-based rule 負責，本機 Compose 不模擬 WAF。
 
 ## 驗證
 
 ```bash
-docker compose run --rm api mvn verify
+docker compose exec -T api env -u SPRING_FLYWAY_URL -u SPRING_FLYWAY_USER -u SPRING_FLYWAY_PASSWORD mvn verify
 ruby scripts/check-openapi.rb
 bash scripts/check-db-schema.sh
+ruby scripts/check-grafana-dashboards.rb
 bash scripts/smoke-test.sh
+bash scripts/monitoring-smoke-test.sh
 ```
 
 完整測試包含 Flyway、MariaDB repository、併發按讚、S3、OpenAPI 契約、QR Code 解碼與 controller/service 測試。
@@ -38,25 +40,47 @@ bash scripts/smoke-test.sh
 
 - Prometheus：`http://localhost:9090`
 - Grafana：`http://localhost:3000`
-- 預載 dashboard：`Good Morning / Good Morning Backend`
+- Demo 總覽：`http://localhost:3000/d/good-morning-demo/demo`
+- 維運排查：`http://localhost:3000/d/good-morning-backend/operations`
 - Grafana 本機預設帳號：`admin` / `change-me`，請在 `.env` 覆寫 `GRAFANA_ADMIN_PASSWORD`。
 
-Prometheus 每 15 秒透過 Compose 內網抓取 `api:8080/api/actuator/prometheus`。公開 Nginx 入口會封鎖 `/api/actuator/*`，只保留 `/health`，避免 JVM 與 DB pool metrics 外洩。正式環境可改由既有的 Prometheus 或 Amazon Managed Service for Prometheus 抓取，但 scrape endpoint 必須保持在 private network。
+Prometheus 每 15 秒透過 Compose 內網抓取 `api:8081/actuator/prometheus`。Actuator 使用獨立 management port `8081`，業務 API port `8080` 不提供 `/api/actuator/*`，避免 JVM 與 DB pool metrics 進入公開 API。正式環境可改由既有的 Prometheus 或 Amazon Managed Service for Prometheus 抓取，但 scrape endpoint 必須保持在 private network。
 
-已 provision 的 dashboard 包含 request rate、5xx ratio、HTTP p50/p95 latency、JVM heap、HikariCP connections 與 process CPU。Prometheus 與 Grafana 資料分別保存在 `prometheus-data`、`grafana-data` volumes。
+`Good Morning｜Demo 總覽` 預設顯示最近 15 分鐘，包含服務狀態、request rate、非 5xx 成功率、p95 latency、作品建立、有效下載、按讚／取消讚、CPU、Heap 與即時業務 log。`Good Morning｜維運排查` 預設顯示最近 1 小時，包含 endpoint request rate／5xx／p95 排行、p50／p95／p99、JVM、GC、Thread、HikariCP 與 dependency failure log。每個 panel 的 description 會說明用途、正常範圍與排查方向。
+
+初始紅色門檻為 5xx 大於 1%、p95 大於 1 秒、Heap 或 CPU 大於 80%、DB pending 大於 0；後續應依 k6 基準測試調整。業務 counter 只在 transaction commit 後增加，不使用 user ID 或 artwork ID label：
+
+- `good_morning_artworks_creation_total`：成功建立作品。
+- `good_morning_artworks_downloaded_total`：非作者成功下載。
+- `good_morning_artwork_likes_total{action="like|unlike"}`：真正發生的按讚狀態變更。
+
+Prometheus 與 Grafana 資料分別保存在 `prometheus-data`、`grafana-data` volumes。修改 Dashboard JSON 後可執行 `ruby scripts/check-grafana-dashboards.rb` 檢查 UID、datasource、必要圖表與中文說明。
+
+## Loki 與 Grafana Alloy
+
+Grafana Alloy 透過唯讀 Docker socket 收集 `good-morning` Compose project 的 container stdout/stderr，並送到僅開放於 Compose 內網的 Loki。Loki 預設保留 168 小時，資料存在 `loki-data` volume；Alloy 的讀取位置存在 `alloy-data` volume。一般 `docker compose down` 不會刪除資料，只有明確執行 `docker compose down -v` 才會刪除這些 volumes。
+
+在 Grafana 左側選擇 **Explore**，datasource 選擇 **Loki**。常用 LogQL：
+
+```logql
+{compose_project="good-morning", compose_service="api"}
+{compose_project="good-morning", compose_service="api"} |= "level=ERROR"
+{compose_project="good-morning", compose_service="api"} |= "traceId=<X-Request-ID>"
+```
+
+Alloy、Loki 與 API 彼此解耦；logging pipeline 暫時故障不會中斷業務 API。Loki `3100` 與 Alloy `12345` 不映射到 host，也不應加入 ALB target group。
 
 ## Logging 與問題追蹤
 
 - 每個 API response 都會回傳 `X-Request-ID`；若入口未提供，後端會產生 UUID。
 - Spring Boot access log 包含 method、path、status、duration、user ID 與相同的 MDC `traceId`。
-- Nginx 以 JSON 輸出 access log，並把自己的 request ID 傳給 Spring Boot，因此可跨服務查詢。
 - 未預期例外與 S3 dependency failure 會記錄 stack trace；作品建立、按讚與下載會記錄不含個資的業務事件。
 - 不記錄 request body、密碼、身分資料、圖片內容或 presigned URL。
 
 查詢單次 request：
 
 ```bash
-docker compose logs api nginx | grep '<X-Request-ID>'
+docker compose logs api | grep '<X-Request-ID>'
 ```
 
 ## 環境變數
@@ -74,6 +98,18 @@ SPRING_FLYWAY_ENABLED=true
 SPRING_FLYWAY_URL=jdbc:mariadb://<host>:3306/good_morning?sessionVariables=time_zone='+00:00'
 SPRING_FLYWAY_USER=<migration secret reference>
 SPRING_FLYWAY_PASSWORD=<migration secret reference>
+API_BIND_ADDRESS=0.0.0.0
+API_PORT=8080
+MANAGEMENT_BIND_ADDRESS=0.0.0.0
+MANAGEMENT_PORT=8081
+LOKI_RETENTION=168h
+GRAFANA_BIND_ADDRESS=0.0.0.0
+GRAFANA_PORT=3000
+GRAFANA_DOMAIN=grafana.example.com
+GRAFANA_ROOT_URL=https://grafana.example.com
+GRAFANA_COOKIE_SECURE=true
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=<secret reference>
 AWS_REGION=ap-southeast-2
 AWS_S3_BUCKET=<asset bucket>
 PRESIGNED_URL_TTL=PT15M
@@ -84,6 +120,19 @@ Flyway 會在應用程式啟動時執行 `classpath:db/migration`，成功後才
 Flyway 預設啟用 migration validation，且禁止 `clean`。若 migration 失敗，應用程式會直接啟動失敗，不會在不完整 schema 上提供服務；可從 log 搜尋 `Flyway` 或 `flyway_schema_history` 排查。
 
 部署到真實 AWS 時不要設定 `S3_ENDPOINT` 或 `S3_PUBLIC_ENDPOINT`；這兩個值只供 LocalStack 使用。Bucket 需預先包含背景與徽章 object key，作品則由 API 寫入 `artworks/{userId}/{uuid}.png`。
+
+## EC2 與 ALB
+
+正式環境由 ALB 直接連到同一台 EC2，不再經過 Nginx：
+
+- API target group：HTTP `8080`。
+- API health check：port `8081`、path `/actuator/health`。
+- Grafana target group：HTTP `3000`、health check `/api/health`，使用獨立 host rule，例如 `grafana.example.com`。
+- EC2 security group 的 `8080`、`8081`、`3000` 只接受 ALB security group；Prometheus `9090`、Loki `3100` 與 Alloy `12345` 不開放。
+- ALB 負責 HTTPS termination；container 內部維持 HTTP。
+- 下載 API 的 rate limit 由 AWS WAF rate-based rule 實作，超限 custom response 使用 HTTP 429。
+
+本機預設把 API、management、Prometheus 與 Grafana 綁在 `127.0.0.1`。AWS `.env` 必須將 API、management 與 Grafana bind address 改為 `0.0.0.0`，ALB 才能連入；MariaDB 與 Prometheus 不應建立 public listener。
 
 ## 資料與圖片流程
 

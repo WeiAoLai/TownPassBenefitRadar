@@ -19,6 +19,7 @@ import tw.gov.taipei.goodmorning.entity.Artwork;
 import tw.gov.taipei.goodmorning.entity.Background;
 import tw.gov.taipei.goodmorning.entity.Policy;
 import tw.gov.taipei.goodmorning.exception.ApiException;
+import tw.gov.taipei.goodmorning.observability.BusinessMetrics;
 import tw.gov.taipei.goodmorning.repository.ArtworkRepository;
 import tw.gov.taipei.goodmorning.repository.BackgroundRepository;
 import tw.gov.taipei.goodmorning.repository.PolicyRepository;
@@ -38,6 +39,7 @@ public class CreateArtworkService {
     private final ObjectStorage storage;
     private final PngArtworkValidator imageValidator;
     private final BadgeService badges;
+    private final BusinessMetrics metrics;
     private final Clock clock;
 
     public CreateArtworkService(
@@ -48,6 +50,7 @@ public class CreateArtworkService {
             ObjectStorage storage,
             PngArtworkValidator imageValidator,
             BadgeService badges,
+            BusinessMetrics metrics,
             Clock clock) {
         this.users = users;
         this.backgrounds = backgrounds;
@@ -56,6 +59,7 @@ public class CreateArtworkService {
         this.storage = storage;
         this.imageValidator = imageValidator;
         this.badges = badges;
+        this.metrics = metrics;
         this.clock = clock;
     }
 
@@ -112,6 +116,7 @@ public class CreateArtworkService {
                     false,
                     true,
                     artwork.getCreatedAt());
+            metrics.artworkCreated();
             LOGGER.info(
                     "artwork_created artworkId={} ownerId={} backgroundId={} policyId={}",
                     artwork.getId(),
@@ -152,8 +157,8 @@ public class CreateArtworkService {
     private void validatePolicy(Policy policy) {
         var today = LocalDate.now(clock);
         if (!policy.isActive()
-                || today.isBefore(policy.getStartDate())
-                || today.isAfter(policy.getEndDate())) {
+                || (policy.getStartDate() != null && today.isBefore(policy.getStartDate()))
+                || (policy.getEndDate() != null && today.isAfter(policy.getEndDate()))) {
             throw new ApiException(
                     HttpStatus.FORBIDDEN,
                     "POLICY_UNAVAILABLE",

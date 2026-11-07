@@ -249,11 +249,11 @@ MVP 只使用 4 張資料表：`User`、`Background`、`Policy`、`Artwork`。�
 | `title` | 政策名稱 |
 | `slogan` | 載入編輯器的政策標語 |
 | `source_url` | QR code 指向的政策來源網址 |
-| `is_active` | 是否可供選擇與隨機產生 |
-| `start_date` | 政策開始日期 |
-| `end_date` | 政策結束日期 |
+| `is_active` | 管理者是否允許選用與隨機產生 |
+| `start_date` | 申辦期起日或明確的新版本適用起日；無法可靠界定可為 NULL |
+| `end_date` | 申辦截止日期；持續實施或無明確截止日為 NULL |
 
-政策起訖日皆為必填且包含當日，`end_date` 不得早於 `start_date`。政策只有在 `is_active = true`，且台北當地日期介於 `start_date` 與 `end_date` 之間時，才可供選擇與隨機產生。政策到期不影響既有作品的瀏覽與下載。
+`is_active` 是管理者上架開關，不表示政策仍在受理或使用者符合資格。本系統的可選政策查詢另行判斷臺北當地日期：`start_date = NULL` 視為無起日限制，`end_date = NULL` 視為持續辦理、無截止日限制；兩者皆有值時 `end_date` 不得早於 `start_date`。政策下架或到期不影響既有作品的瀏覽與下載。
 
 ### 5.4 Artwork
 
