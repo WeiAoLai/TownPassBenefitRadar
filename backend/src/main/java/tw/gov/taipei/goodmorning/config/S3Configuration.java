@@ -1,0 +1,49 @@
+package tw.gov.taipei.goodmorning.config;
+
+import java.net.URI;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.util.StringUtils;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+
+@Configuration
+@EnableConfigurationProperties(S3Properties.class)
+public class S3Configuration {
+
+    @Bean(destroyMethod = "close")
+    S3Client s3Client(S3Properties properties) {
+        var localEndpoint = StringUtils.hasText(properties.endpoint());
+        var builder = S3Client.builder()
+                .region(Region.of(properties.region()))
+                .credentialsProvider(DefaultCredentialsProvider.create())
+                .serviceConfiguration(software.amazon.awssdk.services.s3.S3Configuration.builder()
+                        .pathStyleAccessEnabled(localEndpoint)
+                        .build());
+        if (localEndpoint) {
+            builder.endpointOverride(URI.create(properties.endpoint()));
+        }
+        return builder.build();
+    }
+
+    @Bean(destroyMethod = "close")
+    S3Presigner s3Presigner(S3Properties properties) {
+        var endpoint = StringUtils.hasText(properties.publicEndpoint())
+                ? properties.publicEndpoint()
+                : properties.endpoint();
+        var customEndpoint = StringUtils.hasText(endpoint);
+        var builder = S3Presigner.builder()
+                .region(Region.of(properties.region()))
+                .credentialsProvider(DefaultCredentialsProvider.create())
+                .serviceConfiguration(software.amazon.awssdk.services.s3.S3Configuration.builder()
+                        .pathStyleAccessEnabled(customEndpoint)
+                        .build());
+        if (customEndpoint) {
+            builder.endpointOverride(URI.create(endpoint));
+        }
+        return builder.build();
+    }
+}

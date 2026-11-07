@@ -1,0 +1,15 @@
+app:
+  auth:
+    demo-users:
+      user-a:
+        sso-subject: ${DEMO_USER_A_SSO_SUBJECT:demo-user-a}
+        account: ${DEMO_USER_A_ACCOUNT:user-a}
+        display-name: ${DEMO_USER_A_DISPLAY_NAME:小明}
+      user-b:
+        sso-subject: ${DEMO_USER_B_SSO_SUBJECT:demo-user-b}
+        account: ${DEMO_USER_B_ACCOUNT:user-b}
+        display-name: ${DEMO_USER_B_DISPLAY_NAME:小華}
+      user-c:
+        sso-subject: ${DEMO_USER_C_SSO_SUBJECT:demo-user-c}
+        account: ${DEMO_USER_C_ACCOUNT:user-c}
+        display-name: ${DEMO_USER_C_DISPLAY_NAME:小美}
