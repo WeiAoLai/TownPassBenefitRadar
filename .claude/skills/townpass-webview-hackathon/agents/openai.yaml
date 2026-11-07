@@ -1,0 +1,4 @@
+interface:
+  display_name: "TownPass WebView 黑客松開發"
+  short_description: "依官方規範開發與檢查 TownPass WebView 微服務"
+  default_prompt: "Use $townpass-webview-hackathon to build and verify a TownPass WebView microservice."

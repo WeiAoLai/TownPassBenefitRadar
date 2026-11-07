@@ -29,7 +29,18 @@ interface State {
   artworks: ArtworkRow[]
   /** `${userId}:${artworkId}` */
   likes: string[]
+  /** 從台北通帳號建立的使用者（只存帳號與公開暱稱） */
+  users?: UserRow[]
 }
+
+interface UserRow {
+  id: number
+  account: string
+  displayName: string
+  createdAt: string
+}
+
+const allUsers = (s: State): UserRow[] => [...MOCK_USERS, ...(s.users ?? [])]
 
 const STATE_VERSION = 6
 const MAX_BYTES = 10 * 1024 * 1024
@@ -130,11 +141,22 @@ function badgeDto(count: number): Badge | null {
   return b ? { level: b.level, name: b.name, iconUrl: badgeIconDataUrl(b.level) } : null
 }
 
-export function createMockApi(getUser: () => string): Api {
+export function createMockApi(
+  getUser: () => string,
+  getProfile: () => { account: string; displayName: string } | null = () => null,
+): Api {
   async function me() {
     const s = await load()
     await delay()
-    const u = MOCK_USERS.find((x) => x.account === getUser())
+    const account = getUser()
+    let u = allUsers(s).find((x) => x.account === account)
+    // 台北通帳號第一次進來：建立使用者（只存帳號與公開暱稱）
+    const profile = getProfile()
+    if (!u && profile && profile.account === account) {
+      u = { id: 1000 + (s.users?.length ?? 0), account, displayName: profile.displayName, createdAt: new Date().toISOString() }
+      s.users = [...(s.users ?? []), u]
+      await persist()
+    }
     if (!u) throw fail(401, 'UNAUTHORIZED', '缺少或無效的 X-Demo-User')
     return { s, u }
   }
@@ -152,7 +174,7 @@ export function createMockApi(getUser: () => string): Api {
   }
 
   async function toDto(s: State, row: ArtworkRow, viewerId: number): Promise<Artwork> {
-    const owner = MOCK_USERS.find((u) => u.id === row.ownerId)!
+    const owner = allUsers(s).find((u) => u.id === row.ownerId)!
     return {
       id: row.id,
       owner: { id: owner.id, displayName: owner.displayName, badge: badgeDto(countOf(s, owner.id)) },

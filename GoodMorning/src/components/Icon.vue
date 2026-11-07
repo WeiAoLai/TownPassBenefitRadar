@@ -27,6 +27,8 @@ const PATHS: Record<string, string> = {
   vertical: 'M8 4v16M16 4v16M11 7h2M11 12h2M11 17h2',
   horizontal: 'M4 8h16M4 16h16M7 11v2M12 11v2M17 11v2',
   link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7L11.5 6.8M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.5-1.5',
+  bell: 'M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2H4.5zM10 20.5a2 2 0 0 0 4 0M12 3v2',
+  camera: 'M4 7.5h3.5L9 5h6l1.5 2.5H20v11.5H4zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z',
   medal: 'M8 3h3l1 4M16 3h-3M12 21a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 12.5v4',
   volume: 'M4 9.5v5h3.5l4.5 4V5.5l-4.5 4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11',
   'volume-off': 'M4 9.5v5h3.5l4.5 4V5.5l-4.5 4H4zM16 9.5l5 5M21 9.5l-5 5',

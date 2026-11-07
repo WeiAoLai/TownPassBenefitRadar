@@ -341,3 +341,47 @@ button.list-row:active {
     transition: none !important;
   }
 }
+
+/* iOS 風格開關：<input type="checkbox" role="switch" class="switch"> */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 52px;
+  height: 32px;
+  border-radius: 16px;
+  /* 關閉狀態的軌道 grey-500（對白底 3.66:1，原 grey-200 只有 1.5:1） */
+  background: var(--tp-grey-500);
+  position: relative;
+  transition: background-color 0.2s ease;
+  margin: 8px 0;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease;
+}
+.switch:checked {
+  background: var(--c-action);
+}
+.switch:checked::after {
+  transform: translateX(20px);
+}
+.switch:disabled {
+  opacity: 0.5;
+}
+/* 開關旁邊直接寫「開／關」，不只靠軌道顏色與滑塊位置 */
+.switch-state {
+  flex: none;
+  min-width: 1.5em;
+  font-weight: 800;
+  text-align: right;
+  color: var(--tp-grey-800);
+}

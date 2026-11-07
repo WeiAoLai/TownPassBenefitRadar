@@ -12,6 +12,9 @@ export interface BackgroundItem {
   unlockThreshold: number
   author: string
   photoUrl: string
+  /** 地標約略位置，只用於「離我最近」排序 */
+  lat: number
+  lng: number
 }
 
 export interface BackgroundCatalog {
