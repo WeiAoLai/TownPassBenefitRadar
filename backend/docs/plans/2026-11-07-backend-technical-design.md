@@ -291,19 +291,19 @@ S3 無法參與 MariaDB transaction，因此使用補償刪除。S3 上傳失敗
 
 | Method | Path | 用途 |
 |---|---|---|
-| GET | `/me` | 目前 Demo 使用者與徽章資訊 |
-| GET | `/backgrounds` | 背景圖庫與解鎖狀態 |
-| GET | `/policy-categories` | 政策類別 |
-| GET | `/policies?category=` | 分類政策清單 |
-| GET | `/policies/random` | 隨機啟用政策 |
-| POST | `/artworks` | 上傳並建立作品 |
-| GET | `/artworks` | 公開作品分頁 |
-| GET | `/artworks/{id}` | 作品詳情 |
-| GET | `/me/artworks` | 個人作品分頁 |
-| PUT | `/artworks/{id}/like` | 設為已按愛心 |
-| DELETE | `/artworks/{id}/like` | 取消愛心 |
-| GET | `/artworks/{id}/download` | 下載附 QR Code 的 PNG |
-| GET | `/leaderboard` | 全期間作品前 100 名 |
+| GET | `/v1/me` | 目前 Demo 使用者與徽章資訊 |
+| GET | `/v1/backgrounds` | 背景圖庫與解鎖狀態 |
+| GET | `/v1/policy-categories` | 政策類別 |
+| GET | `/v1/policies?category=` | 分類政策清單 |
+| GET | `/v1/policies/random` | 隨機啟用政策 |
+| POST | `/v1/artworks` | 上傳並建立作品 |
+| GET | `/v1/artworks` | 公開作品分頁 |
+| GET | `/v1/artworks/{id}` | 作品詳情 |
+| GET | `/v1/me/artworks` | 個人作品分頁 |
+| PUT | `/v1/artworks/{id}/like` | 設為已按愛心 |
+| DELETE | `/v1/artworks/{id}/like` | 取消愛心 |
+| GET | `/v1/artworks/{id}/download` | 下載附 QR Code 的 PNG |
+| GET | `/v1/leaderboard` | 全期間作品前 100 名 |
 
 確切 DTO 欄位以 OpenAPI 為準。成功 response 直接回傳資源 JSON；錯誤使用 Spring `ProblemDetail` 及正確 HTTP status。
 

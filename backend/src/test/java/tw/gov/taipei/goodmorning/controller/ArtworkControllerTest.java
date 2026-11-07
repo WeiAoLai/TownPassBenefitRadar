@@ -72,7 +72,7 @@ class ArtworkControllerTest {
         when(service.create(eq(PRINCIPAL), any(byte[].class), eq(1L), eq(2L), eq("早安台北")))
                 .thenReturn(response());
 
-        mockMvc.perform(multipart("/api/artworks")
+        mockMvc.perform(multipart("/api/v1/artworks")
                         .file(new MockMultipartFile(
                                 "image", "artwork.png", "image/png", IMAGE))
                         .param("backgroundId", "1")
@@ -80,7 +80,7 @@ class ArtworkControllerTest {
                         .param("sloganText", "早安台北")
                         .contextPath("/api"))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/api/artworks/123"))
+                .andExpect(header().string("Location", "/api/v1/artworks/123"))
                 .andExpect(jsonPath("$.id").value(123))
                 .andExpect(jsonPath("$.owner.displayName").value("小明"))
                 .andExpect(jsonPath("$.backgroundId").value(1))
@@ -94,7 +94,7 @@ class ArtworkControllerTest {
 
     @Test
     void missingImageReturnsBadRequestProblemDetails() throws Exception {
-        mockMvc.perform(multipart("/api/artworks")
+        mockMvc.perform(multipart("/api/v1/artworks")
                         .param("backgroundId", "1")
                         .param("policyId", "2")
                         .param("sloganText", "早安台北")
@@ -109,7 +109,7 @@ class ArtworkControllerTest {
     void listsPublicArtworksWithDefaultPaging() throws Exception {
         when(queries.listPublic(PRINCIPAL, 0, 20)).thenReturn(page());
 
-        mockMvc.perform(get("/api/artworks").contextPath("/api"))
+        mockMvc.perform(get("/api/v1/artworks").contextPath("/api"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id").value(123))
                 .andExpect(jsonPath("$.page").value(0))
@@ -122,7 +122,7 @@ class ArtworkControllerTest {
     void listsTheCurrentUsersArtworks() throws Exception {
         when(queries.listMine(PRINCIPAL, 2, 10)).thenReturn(page());
 
-        mockMvc.perform(get("/api/me/artworks")
+        mockMvc.perform(get("/api/v1/me/artworks")
                         .contextPath("/api")
                         .queryParam("page", "2")
                         .queryParam("size", "10"))
@@ -136,7 +136,7 @@ class ArtworkControllerTest {
     void getsArtworkDetails() throws Exception {
         when(queries.get(PRINCIPAL, 123L)).thenReturn(response());
 
-        mockMvc.perform(get("/api/artworks/123").contextPath("/api"))
+        mockMvc.perform(get("/api/v1/artworks/123").contextPath("/api"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(123));
 
@@ -148,11 +148,11 @@ class ArtworkControllerTest {
         when(likes.like(PRINCIPAL, 123L)).thenReturn(new LikeStateResponse(123L, true, 4));
         when(likes.unlike(PRINCIPAL, 123L)).thenReturn(new LikeStateResponse(123L, false, 3));
 
-        mockMvc.perform(put("/api/artworks/123/like").contextPath("/api"))
+        mockMvc.perform(put("/api/v1/artworks/123/like").contextPath("/api"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.liked").value(true))
                 .andExpect(jsonPath("$.likeCount").value(4));
-        mockMvc.perform(delete("/api/artworks/123/like").contextPath("/api"))
+        mockMvc.perform(delete("/api/v1/artworks/123/like").contextPath("/api"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.liked").value(false))
                 .andExpect(jsonPath("$.likeCount").value(3));
@@ -163,7 +163,7 @@ class ArtworkControllerTest {
         when(downloads.download(PRINCIPAL, 123L))
                 .thenReturn(new ArtworkDownload(new byte[] {1, 2, 3}, "artwork-123.png"));
 
-        mockMvc.perform(get("/api/artworks/123/download").contextPath("/api"))
+        mockMvc.perform(get("/api/v1/artworks/123/download").contextPath("/api"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "image/png"))
                 .andExpect(header().string(

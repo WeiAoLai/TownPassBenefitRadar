@@ -169,7 +169,7 @@ git commit -m "test: verify Flyway schema on MariaDB"
 1. Write failing MockMvc tests: missing header → 401; unknown alias → 401; valid alias → user auto-created; no client owner ID is accepted.
 2. Implement allowlist binding from `APP_AUTH_DEMO_USERS_*` settings.
 3. Resolve/create local user by `sso_subject` and attach a typed principal.
-4. Implement `GET /api/me`, including artwork count and nullable highest badge.
+4. Implement `GET /api/v1/me`, including artwork count and nullable highest badge.
 5. Run targeted tests, then all tests.
 6. Commit with `feat: add demo user authentication`.
 
@@ -245,7 +245,7 @@ git commit -m "test: verify Flyway schema on MariaDB"
 
 **Steps:**
 
-1. Write failing tests for public list, `/me/artworks`, detail, 404, stable sorting, and max page size.
+1. Write failing tests for public list, `/v1/me/artworks`, detail, 404, stable sorting, and max page size.
 2. Implement `created_at DESC, id DESC` paging.
 3. Add 15-minute presigned image URLs, `likedByMe`, `ownedByMe`, and owner badge.
 4. Run tests and commit with `feat: add artwork query APIs`.

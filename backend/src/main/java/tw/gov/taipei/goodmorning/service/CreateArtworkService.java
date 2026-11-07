@@ -99,7 +99,7 @@ public class CreateArtworkService {
                     policy.getSourceUrl(),
                     objectKey));
             var artworkCount = artworks.countByOwnerId(principal.id());
-            return new ArtworkResponse(
+            var response = new ArtworkResponse(
                     artwork.getId(),
                     new AuthorSummaryResponse(
                             principal.id(), principal.displayName(), badges.highestBadge(artworkCount)),
@@ -112,6 +112,13 @@ public class CreateArtworkService {
                     false,
                     true,
                     artwork.getCreatedAt());
+            LOGGER.info(
+                    "artwork_created artworkId={} ownerId={} backgroundId={} policyId={}",
+                    artwork.getId(),
+                    principal.id(),
+                    backgroundId,
+                    policyId);
+            return response;
         } catch (RuntimeException originalFailure) {
             deleteAfterFailure(objectKey, cleanupNeeded, originalFailure);
             throw originalFailure;

@@ -1,8 +1,10 @@
 package tw.gov.taipei.goodmorning.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,6 +21,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import tw.gov.taipei.goodmorning.observability.TraceContext;
 import tw.gov.taipei.goodmorning.repository.UserRepository;
 
 @SpringBootTest
@@ -54,8 +57,9 @@ class MeControllerTest {
 
     @Test
     void missingDemoUserHeaderReturnsProblemDetail() throws Exception {
-        mockMvc.perform(get("/api/me").contextPath("/api"))
+        mockMvc.perform(get("/api/v1/me").contextPath("/api"))
                 .andExpect(status().isUnauthorized())
+                .andExpect(header().exists(TraceContext.TRACE_ID_HEADER))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.status").value(401))
                 .andExpect(jsonPath("$.code").value("AUTH_REQUIRED"))
@@ -63,8 +67,23 @@ class MeControllerTest {
     }
 
     @Test
-    void unknownDemoAliasReturnsProblemDetail() throws Exception {
+    void prometheusMetricsAreAvailableWithoutDemoAuthentication() throws Exception {
+        mockMvc.perform(get("/api/actuator/prometheus").contextPath("/api"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("application=\"good-morning\"")));
+    }
+
+    @Test
+    void unversionedBusinessEndpointIsNotExposed() throws Exception {
         mockMvc.perform(get("/api/me")
+                        .contextPath("/api")
+                        .header("X-Demo-User", "user-a"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void unknownDemoAliasReturnsProblemDetail() throws Exception {
+        mockMvc.perform(get("/api/v1/me")
                         .contextPath("/api")
                         .header("X-Demo-User", "not-allowed"))
                 .andExpect(status().isUnauthorized())
@@ -74,7 +93,7 @@ class MeControllerTest {
 
     @Test
     void validAliasCreatesAndReturnsTheCurrentUser() throws Exception {
-        mockMvc.perform(get("/api/me")
+        mockMvc.perform(get("/api/v1/me")
                         .contextPath("/api")
                         .header("X-Demo-User", "user-a"))
                 .andExpect(status().isOk())
@@ -93,7 +112,7 @@ class MeControllerTest {
 
     @Test
     void clientOwnerIdCannotChangeTheAuthenticatedUser() throws Exception {
-        mockMvc.perform(get("/api/me")
+        mockMvc.perform(get("/api/v1/me")
                         .contextPath("/api")
                         .queryParam("ownerId", "999999")
                         .header("X-Demo-User", "user-b"))

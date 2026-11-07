@@ -15,6 +15,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 import tw.gov.taipei.goodmorning.config.DemoUserProperties;
 import tw.gov.taipei.goodmorning.exception.ProblemResponseWriter;
+import tw.gov.taipei.goodmorning.observability.TraceContext;
 import tw.gov.taipei.goodmorning.service.CurrentUserService;
 
 @Component
@@ -57,6 +58,7 @@ public class DemoUserFilter extends OncePerRequestFilter {
         }
 
         var principal = currentUserService.resolveDemoUser(demoUser);
+        request.setAttribute(TraceContext.USER_ID_ATTRIBUTE, principal.id());
         var authentication = UsernamePasswordAuthenticationToken.authenticated(
                 principal, alias, List.of());
         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -65,7 +67,7 @@ public class DemoUserFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        var path = request.getServletPath();
+        var path = request.getRequestURI().substring(request.getContextPath().length());
         return path.startsWith("/actuator/")
                 || path.startsWith("/openapi")
                 || path.startsWith("/swagger-ui");

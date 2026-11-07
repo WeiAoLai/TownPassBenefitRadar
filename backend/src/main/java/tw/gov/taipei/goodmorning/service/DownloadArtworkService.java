@@ -1,5 +1,7 @@
 package tw.gov.taipei.goodmorning.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +13,8 @@ import tw.gov.taipei.goodmorning.security.CurrentUser;
 
 @Service
 public class DownloadArtworkService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(DownloadArtworkService.class);
 
     private final ArtworkRepository artworks;
     private final ObjectStorage storage;
@@ -35,9 +39,15 @@ public class DownloadArtworkService {
 
         var source = getSource(artwork.getImageObjectKey());
         var composed = composer.compose(source, artwork.getPolicySourceUrl());
-        if (!artwork.getOwner().getId().equals(currentUser.id())) {
+        var counted = !artwork.getOwner().getId().equals(currentUser.id());
+        if (counted) {
             artworks.incrementDownloadCount(artworkId);
         }
+        LOGGER.info(
+                "artwork_downloaded artworkId={} userId={} counted={}",
+                artworkId,
+                currentUser.id(),
+                counted);
         return new ArtworkDownload(composed, "artwork-%d.png".formatted(artworkId));
     }
 

@@ -27,13 +27,13 @@ done
 
 curl --fail --silent --show-error \
   -H 'X-Demo-User: user-a' \
-  "${base_url}/api/me" >"${temporary_directory}/me.json"
+  "${base_url}/api/v1/me" >"${temporary_directory}/me.json"
 curl --fail --silent --show-error \
   -H 'X-Demo-User: user-a' \
-  "${base_url}/api/backgrounds" >"${temporary_directory}/backgrounds.json"
+  "${base_url}/api/v1/backgrounds" >"${temporary_directory}/backgrounds.json"
 curl --fail --silent --show-error \
   -H 'X-Demo-User: user-a' \
-  "${base_url}/api/policies/random" >"${temporary_directory}/policy.json"
+  "${base_url}/api/v1/policies/random" >"${temporary_directory}/policy.json"
 
 policy_id="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).fetch("id")' \
   "${temporary_directory}/policy.json")"
@@ -58,7 +58,7 @@ curl --fail --silent --show-error \
   -F 'backgroundId=1' \
   -F "policyId=${policy_id}" \
   -F 'sloganText=早安台北，平安順心！' \
-  "${base_url}/api/artworks" >"${temporary_directory}/artwork.json"
+  "${base_url}/api/v1/artworks" >"${temporary_directory}/artwork.json"
 
 artwork_id="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).fetch("id")' \
   "${temporary_directory}/artwork.json")"
@@ -69,20 +69,20 @@ curl --fail --silent --show-error "$image_url" >"${temporary_directory}/source.p
 curl --fail --silent --show-error \
   -X PUT \
   -H 'X-Demo-User: user-b' \
-  "${base_url}/api/artworks/${artwork_id}/like" >"${temporary_directory}/like.json"
+  "${base_url}/api/v1/artworks/${artwork_id}/like" >"${temporary_directory}/like.json"
 curl --fail --silent --show-error \
   -H 'X-Demo-User: user-b' \
-  "${base_url}/api/leaderboard" >"${temporary_directory}/leaderboard.json"
+  "${base_url}/api/v1/leaderboard" >"${temporary_directory}/leaderboard.json"
 curl --fail --silent --show-error \
   -H 'X-Demo-User: user-b' \
-  "${base_url}/api/artworks/${artwork_id}/download" >"${temporary_directory}/download.png"
+  "${base_url}/api/v1/artworks/${artwork_id}/download" >"${temporary_directory}/download.png"
 curl --fail --silent --show-error \
   -H 'X-Demo-User: user-b' \
-  "${base_url}/api/artworks/${artwork_id}" >"${temporary_directory}/artwork-after-download.json"
+  "${base_url}/api/v1/artworks/${artwork_id}" >"${temporary_directory}/artwork-after-download.json"
 curl --fail --silent --show-error \
   -X DELETE \
   -H 'X-Demo-User: user-b' \
-  "${base_url}/api/artworks/${artwork_id}/like" >"${temporary_directory}/unlike.json"
+  "${base_url}/api/v1/artworks/${artwork_id}/like" >"${temporary_directory}/unlike.json"
 
 ruby -rjson -e '
   artwork_id = Integer(ARGV.fetch(0))

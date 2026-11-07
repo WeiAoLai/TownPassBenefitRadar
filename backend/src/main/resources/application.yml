@@ -10,7 +10,10 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:good_morning}
     password: ${SPRING_DATASOURCE_PASSWORD:good_morning}
   flyway:
-    enabled: true
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-disabled: true
   jpa:
     hibernate:
       ddl-auto: validate
@@ -35,11 +38,21 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} level=%-5level service=good-morning traceId=%X{traceId:-} logger=%logger{36} message=%msg%n%ex"
 
 app:
   s3:
