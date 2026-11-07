@@ -36,7 +36,7 @@ const tool = ref<Tool>(draft.policy ? 'text' : 'bg')
 const tools = [
   { value: 'bg' as const, label: '背景', icon: 'image' },
   { value: 'policy' as const, label: '政策', icon: 'flag' },
-  { value: 'text' as const, label: '文字', icon: 'text' },
+  { value: 'text' as const, label: '內容', icon: 'text' },
   { value: 'style' as const, label: '樣式', icon: 'palette' },
 ]
 const layerOptions = [
@@ -1032,11 +1032,11 @@ const canvasLabel = computed(() => {
           type="button"
           role="radio"
           class="swatch"
+          :aria-label="s.name"
           :aria-checked="layer.styleId === s.id"
           @click="layer.styleId = s.id"
         >
           <img :src="s.img" alt="" width="60" height="60" />
-          <span class="small">{{ s.name }}</span>
         </button>
       </div>
 

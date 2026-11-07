@@ -104,7 +104,7 @@ test.describe('製作長輩圖', () => {
   test('政策標語不能修改，問候語可以', async ({ page }) => {
     await openEditor(page)
     await randomize(page)
-    await page.getByRole('tab', { name: '文字' }).click()
+    await page.getByRole('tab', { name: '內容' }).click()
 
     await page.getByRole('radio', { name: '政策標語' }).click()
     const panel = page.locator('#tool-panel-text')
@@ -220,7 +220,7 @@ test.describe('背景', () => {
 
   test('觸控目標至少 48 × 48', async ({ page }) => {
     await openEditor(page)
-    for (const tab of ['背景', '政策', '文字', '樣式']) {
+    for (const tab of ['背景', '政策', '內容', '樣式']) {
       await page.getByRole('tab', { name: tab }).click()
       const small = await page.locator('.panel button, .panel a, .panel input:not([type=file]), .actionbar button').evaluateAll((els) =>
         els
@@ -239,5 +239,7 @@ test.describe('背景', () => {
     await expect(page.getByRole('heading', { name: '大小與位置' })).toHaveCount(0)
     await expect(page.getByRole('group', { name: '快速放到九宮格位置' })).toHaveCount(0)
     await expect(page.getByRole('group', { name: '微調大小與位置' })).toHaveCount(0)
+    await expect(page.getByText('紅橘白邊')).toHaveCount(0)
+    await expect(page.getByRole('radio', { name: '紅橘白邊' })).toBeVisible()
   })
 })
