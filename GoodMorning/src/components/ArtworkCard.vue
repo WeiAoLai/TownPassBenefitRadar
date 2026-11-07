@@ -44,7 +44,6 @@ const emit = defineEmits<{ imageError: [] }>()
       </div>
     </div>
     <p v-if="score != null" class="score">
-      <span><strong>{{ score }}</strong> 分</span>
       <span>愛心 {{ artwork.likeCount }}</span>
       <span>下載 {{ artwork.downloadCount }}</span>
     </p>
@@ -152,11 +151,6 @@ const emit = defineEmits<{ imageError: [] }>()
   padding: 0 14px 14px;
   color: var(--tp-grey-800);
   font-weight: 600;
-}
-.score strong {
-  font-size: 1.75rem;
-  line-height: 2rem;
-  color: var(--tp-primary-700);
 }
 
 /* 排行榜大卡片：名字 20px、名次標籤更大 */

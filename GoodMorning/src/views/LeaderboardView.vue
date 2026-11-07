@@ -36,10 +36,6 @@ function onImageError() {
 
 <template>
   <div class="page wide">
-    <p class="rule small">
-      <Icon name="trophy" :size="20" />
-      <span>分數＝愛心數和下載數取比較高的那一個；同分同名次。</span>
-    </p>
     <button class="btn text refresh" type="button" :disabled="loading" @click="load">
       <Icon name="refresh" :size="20" /> {{ loading ? '更新中…' : '更新排行' }}
     </button>
@@ -62,15 +58,6 @@ function onImageError() {
 </template>
 
 <style scoped>
-.rule {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: var(--radius-m);
-  background: var(--c-accent-soft);
-  color: var(--tp-secondary-800);
-}
 .refresh {
   margin: 6px 0 4px auto;
   display: flex;
