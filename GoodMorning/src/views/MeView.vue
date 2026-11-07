@@ -8,8 +8,9 @@ import BadgeDetail from '../components/BadgeDetail.vue'
 import BottomSheet from '../components/BottomSheet.vue'
 import Icon from '../components/Icon.vue'
 import { BADGES, badgeArtUrl, nextBadge } from '../config/badges'
-import { unlockAudio } from '../composables/sound'
-import { toast } from '../composables/toast'
+import { playCelebration, setSound, soundOn, unlockAudio } from '../composables/sound'
+import { motionOn, setMotion } from '../composables/motion'
+import { announce, toast } from '../composables/toast'
 import { cancelDailyReminder, getDailyReminder, inTownPass, setDailyReminder } from '../composables/bridge'
 
 const me = ref<CurrentUser | null>(null)
@@ -47,8 +48,23 @@ function replayCelebration(level: number) {
   if (def) celebrate.value = { level: def.level, name: def.name }
 }
 
+/** 慶祝音效：預設開啟；重新打開時立刻播一次讓人知道是什麼聲音（這次點擊同時解鎖瀏覽器的聲音限制） */
+function onSoundToggle(e: Event) {
+  const on = (e.target as HTMLInputElement).checked
+  setSound(on)
+  if (on) {
+    unlockAudio()
+    playCelebration()
+  }
+}
+
+function onMotionToggle(e: Event) {
+  setMotion((e.target as HTMLInputElement).checked)
+}
+
 async function load() {
   loading.value = true
+  announce('載入中')
   error.value = null
   try {
     const [u, bgs, arts] = await Promise.all([api.getCurrentUser(), api.listBackgrounds(), api.listMyArtworks(0, 12)])
@@ -319,9 +335,30 @@ onMounted(() => {
           @change="onTimeChange"
         />
       </label>
+      <label class="list-row">
+        <Icon name="volume" />
+        <span class="grow">
+          慶祝音效
+          <span class="small muted block">拿到新徽章時播放歡樂音效和一句稱讚；不想聽可以關掉</span>
+        </span>
+        <span class="switch-state" aria-hidden="true">{{ soundOn ? '開' : '關' }}</span>
+        <input type="checkbox" role="switch" class="switch" :checked="soundOn" aria-label="慶祝音效" @change="onSoundToggle" />
+      </label>
+      <label class="list-row">
+        <Icon name="sparkle" />
+        <span class="grow">
+          動畫效果
+          <span class="small muted block">關閉後，慶祝畫面等動畫不再播放</span>
+        </span>
+        <span class="switch-state" aria-hidden="true">{{ motionOn ? '開' : '關' }}</span>
+        <input type="checkbox" role="switch" class="switch" :checked="motionOn" aria-label="動畫效果" @change="onMotionToggle" />
+      </label>
       <div v-if="townPassAccount && apiMode === 'mock'" class="list-row">
         <Icon name="user" />
-        <span class="grow">台北通帳號</span>
+        <span class="grow">
+          台北通帳號
+          <span class="small muted block">作品會公開顯示你的台北通暱稱，不會顯示真實姓名</span>
+        </span>
         <span class="muted">已連結</span>
       </div>
       <button v-else type="button" class="list-row" @click="pickUser = true">

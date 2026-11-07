@@ -5,6 +5,7 @@ import { friendlyMessage } from '../api/errors'
 import type { Artwork } from '../api/types'
 import ArtworkCard from '../components/ArtworkCard.vue'
 import Icon from '../components/Icon.vue'
+import { announce } from '../composables/toast'
 
 const items = ref<Artwork[]>([])
 const page = ref(0)
@@ -16,6 +17,7 @@ let refreshedForExpiry = false
 async function load(reset = false) {
   if (loading.value) return
   loading.value = true
+  announce(reset || !items.value.length ? '載入中' : '載入更多作品中')
   error.value = null
   try {
     const p = reset ? 0 : page.value

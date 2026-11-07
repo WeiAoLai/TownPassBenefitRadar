@@ -5,6 +5,7 @@ import { friendlyMessage } from '../api/errors'
 import type { LeaderboardEntry } from '../api/types'
 import ArtworkCard from '../components/ArtworkCard.vue'
 import Icon from '../components/Icon.vue'
+import { announce } from '../composables/toast'
 
 const rows = ref<LeaderboardEntry[]>([])
 const loading = ref(true)
@@ -13,6 +14,7 @@ let refreshedForExpiry = false
 
 async function load() {
   loading.value = true
+  announce('載入中')
   error.value = null
   try {
     rows.value = await api.getLeaderboard()

@@ -10,7 +10,7 @@ import BadgeCelebration from '../components/BadgeCelebration.vue'
 import Icon from '../components/Icon.vue'
 import Segmented from '../components/Segmented.vue'
 import { distanceKm, getLocation, openLink, type LatLng } from '../composables/bridge'
-import { toast } from '../composables/toast'
+import { announce, toast } from '../composables/toast'
 import { startDownload } from '../composables/artworkActions'
 import { unlockAudio } from '../composables/sound'
 import { draft, resetDraft } from '../editor/draft'
@@ -119,6 +119,39 @@ const swatches = TEXT_STYLES.map((s) => ({ ...s, img: '' }))
 const canvas = ref<HTMLCanvasElement | null>(null)
 const stage = ref<HTMLElement | null>(null)
 const editorEl = ref<HTMLElement | null>(null)
+
+/* ---------------- 版面模式：釘住（預設）或整頁捲動 ---------------- */
+const toolsEl = ref<HTMLElement | null>(null)
+const actionEl = ref<HTMLElement | null>(null)
+/**
+ * flow = 整頁捲動。預覽、工具分頁、底部按鈕列都釘在畫面上時，工具區剩下的高度太小
+ * （矮螢幕、字級放大、鍵盤彈出）就改成整頁捲動：分頁列與底部按鈕列仍然黏住，預覽圖跟著內容捲動。
+ * 判斷只看「釘住時工具區會剩多高」，不看目前是哪個模式，所以不會來回跳動。
+ */
+const flow = ref(false)
+/** 整頁捲動時，分頁列與底部按鈕列是否黏住：兩條加起來佔畫面一半以上（小螢幕＋大字）就不黏，整頁都拿來捲動 */
+const stickyBars = ref(true)
+/** 釘住時工具區至少要有這麼高（rem，隨字級放大）才維持釘住版面 */
+const MIN_PANEL_REM = 11.5
+const wideLayout =
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia('(orientation: landscape) and (min-width: 640px), (min-width: 900px)')
+    : null
+let layoutRo: ResizeObserver | null = null
+
+function updateLayoutMode() {
+  const main = document.querySelector('main')
+  const tools = toolsEl.value
+  const action = actionEl.value
+  const stageEl = stage.value
+  if (!main || !tools || !action || !stageEl) return
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  // 釘住時預覽佔的高度：直式 = 34% 螢幕高（寬度不夠就以寬度為準）＋上下留白；橫式兩欄時預覽在左欄，不佔右欄高度
+  const stageH = wideLayout?.matches ? 0 : Math.min(0.34 * window.innerHeight, stageEl.clientWidth - 32) + 16
+  const panelH = main.clientHeight - stageH - tools.offsetHeight - action.offsetHeight
+  flow.value = panelH < MIN_PANEL_REM * rem
+  stickyBars.value = tools.offsetHeight + action.offsetHeight <= 0.45 * main.clientHeight
+}
 let ctx: CanvasRenderingContext2D | null = null
 let layouts: Layout[] = []
 let bgImage: HTMLImageElement | null = null
@@ -270,6 +303,7 @@ function onUp(e: PointerEvent) {
 async function loadAll() {
   loadError.value = null
   loading.value = { bg: true, cat: true, pol: false }
+  announce('載入中')
   try {
     loadBackgroundCatalog()
       .then((c) => (catalog.value = c.backgrounds))
@@ -508,12 +542,23 @@ onMounted(() => {
   } else {
     window.addEventListener('resize', sizeCanvas)
   }
+  // 版面模式：螢幕尺寸、鍵盤、字級（分頁列與按鈕列的高度會跟著變）改變時重新判斷
+  updateLayoutMode()
+  if (typeof ResizeObserver !== 'undefined') {
+    layoutRo = new ResizeObserver(updateLayoutMode)
+    for (const el of [document.querySelector('main'), toolsEl.value, actionEl.value]) if (el) layoutRo.observe(el)
+  }
+  window.addEventListener('resize', updateLayoutMode)
+  window.visualViewport?.addEventListener('resize', updateLayoutMode)
   loadAll()
 })
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf)
   ro?.disconnect()
+  layoutRo?.disconnect()
   window.removeEventListener('resize', sizeCanvas)
+  window.removeEventListener('resize', updateLayoutMode)
+  window.visualViewport?.removeEventListener('resize', updateLayoutMode)
 })
 
 const canvasLabel = computed(() => {
@@ -525,7 +570,7 @@ const canvasLabel = computed(() => {
 </script>
 
 <template>
-  <div ref="editorEl" class="editor">
+  <div ref="editorEl" class="editor" :class="{ flow, sticky: flow && stickyBars }">
     <div ref="stage" class="stage">
       <canvas
         ref="canvas"
@@ -540,7 +585,7 @@ const canvasLabel = computed(() => {
     </div>
 
     <div class="right">
-    <div class="tools">
+    <div ref="toolsEl" class="tools">
       <Segmented v-model="tool" :options="tools" label="編輯工具" mode="tabs" id-prefix="tool" />
     </div>
 
@@ -562,7 +607,7 @@ const canvasLabel = computed(() => {
         <span v-else class="my-thumb empty" aria-hidden="true"><Icon name="camera" :size="28" /></span>
         <span class="grow">
           <strong class="my-title">{{ customPhoto ? '正在用你的照片' : '用自己的照片' }}</strong>
-          <span class="small muted block">{{ customPhoto ? '照片會成為作品的一部分，儲存後大家都看得到' : '拍一張或從相簿挑，會裁成正方形' }}</span>
+          <span class="small muted block">{{ customPhoto ? '照片會成為作品的一部分，儲存後大家都看得到' : '拍一張或從相簿挑，會裁成正方形；做成作品儲存後，大家都看得到' }}</span>
         </span>
         <span class="my-acts">
           <button type="button" class="btn" :class="customPhoto ? '' : 'primary'" :disabled="photoLoading" @click="choosePhoto">
@@ -582,7 +627,7 @@ const canvasLabel = computed(() => {
       </div>
       <p v-if="bgTainted" class="notice small">這張照片無法輸出，請換一張背景</p>
       <button type="button" class="btn block" :aria-pressed="!!myPos" :disabled="locating" @click="sortByNearby">
-        <Icon name="flag" :size="20" />
+        <Icon name="pin" :size="20" />
         {{ locating ? '定位中…' : myPos ? '恢復原本順序' : '離我最近的地標排前面' }}
       </button>
       <p v-if="!myPos" class="small muted">按下後會詢問定位權限；位置只用來排序，不會儲存或上傳。</p>
@@ -612,7 +657,7 @@ const canvasLabel = computed(() => {
         </button>
       </div>
       <p v-if="currentInfo && !customPhoto" class="credit small muted">
-        照片：<a :href="currentInfo.photoUrl" target="_blank" rel="noopener" @click.prevent="openLink(currentInfo.photoUrl)">{{ currentInfo.author }}／Unsplash</a>
+        照片：<a :href="currentInfo.photoUrl" target="_blank" rel="noopener" @click.prevent="openLink(currentInfo.photoUrl)">{{ currentInfo.author }}／<span lang="en">Unsplash</span></a>
       </p>
     </section>
 
@@ -662,14 +707,17 @@ const canvasLabel = computed(() => {
           </span>
         </button>
       </div>
-      <button
+      <!-- 會開啟外部網頁，用連結（不是按鈕）讓讀報軟體唸成「連結」 -->
+      <a
         v-if="draft.policy"
-        type="button"
+        :href="draft.policy.sourceUrl"
+        target="_blank"
+        rel="noopener"
         class="btn text block source"
-        @click="openLink(draft.policy.sourceUrl)"
+        @click.prevent="openLink(draft.policy.sourceUrl)"
       >
         <Icon name="link" :size="20" /> 看「{{ draft.policy.title }}」政策說明
-      </button>
+      </a>
     </section>
 
     <!-- 文字 -->
@@ -718,7 +766,7 @@ const canvasLabel = computed(() => {
           class="btn block"
           @click="restoreSlogan"
         >
-          <Icon name="refresh" :size="20" /> 還原成原本的政策標語
+          <Icon name="undo" :size="20" /> 還原成原本的政策標語
         </button>
       </template>
     </section>
@@ -798,21 +846,23 @@ const canvasLabel = computed(() => {
 
       <label class="switch-row list-row">
         <span class="grow">
-          顯示 QR Code 位置
-          <span class="small muted block">下載時右下角會加上政策 QR Code</span>
+          標出 <span lang="en">QR Code</span> 的位置
+          <span class="small muted block"
+            >只是編輯時的提示框，關掉也不影響成品；存到手機相簿時，右下角一定會自動加上政策 <span lang="en">QR Code</span></span
+          >
         </span>
         <span class="switch-state" aria-hidden="true">{{ showQrZone ? '開' : '關' }}</span>
         <input v-model="showQrZone" type="checkbox" role="switch" class="switch" />
       </label>
 
       <button type="button" class="btn text block" @click="resetDraft(true)">
-        <Icon name="refresh" :size="20" /> 文字全部重來
+        <Icon name="undo" :size="20" /> 文字全部重來
       </button>
     </section>
 
 
     <!-- Figma Section_one line text_button/m：固定在畫面底部，按鈕不會被捲走 -->
-    <div class="section-bar actionbar">
+    <div ref="actionEl" class="section-bar actionbar">
       <p class="one-line" :id="saveHint ? 'save-hint' : undefined" aria-live="polite">
         {{ saveHint ?? '按住圖上的文字可以拖曳位置' }}
       </p>
@@ -827,7 +877,7 @@ const canvasLabel = computed(() => {
           :aria-describedby="saveHint ? 'save-hint' : undefined"
           @click="save"
         >
-          <Icon name="check" :size="20" /> {{ saving ? '儲存中…' : limitReached ? '今天已做滿' : '儲存作品' }}
+          <Icon name="save" :size="20" /> {{ saving ? '儲存中…' : limitReached ? '今天已做滿' : '儲存作品' }}
         </button>
       </div>
     </div>
@@ -843,6 +893,10 @@ const canvasLabel = computed(() => {
         </p>
         <p v-if="remaining != null" class="saved-left small muted">
           {{ remaining > 0 ? `今天還能再做 ${remaining} 張` : `今天的 ${DAILY_ARTWORK_LIMIT} 張做完了，明天再來！` }}
+        </p>
+        <!-- 這裡的圖是剛存好的原圖；政策 QR Code 是按「存到手機相簿」時才加上去的，先說清楚，免得以為不見了 -->
+        <p class="saved-left small muted">
+          右下角的政策 <span lang="en">QR Code</span>，會在你按「存到手機相簿」時自動加上
         </p>
         <div v-for="b in saved.unlocked" :key="b.id" class="reward">
           <span class="reward-title">解鎖新背景「{{ b.name }}」</span>
@@ -929,6 +983,41 @@ const canvasLabel = computed(() => {
   min-width: 0;
 }
 
+/*
+ * 整頁捲動（flow）：矮螢幕、字級放大、鍵盤彈出時，工具區不被壓扁（見 script 的 updateLayoutMode）。
+ * 預覽跟著內容捲動、縮小一點，兩側留白才好讓手指從旁邊滑動頁面；
+ * 工具分頁黏在上方、底部按鈕列黏在下方，儲存永遠按得到。
+ */
+.editor.flow {
+  height: auto;
+  min-height: 100%;
+  --canvas: min(100%, 32vh);
+}
+@supports (height: 1svh) {
+  .editor.flow {
+    --canvas: min(100%, 32svh);
+  }
+}
+.editor.flow .right {
+  flex: 1 0 auto;
+}
+.editor.flow .panel {
+  flex: 1 0 auto;
+  overflow: visible;
+}
+/* 分頁列與按鈕列黏住（兩條加起來沒佔掉畫面一半時才黏，見 script 的 stickyBars） */
+.editor.flow.sticky .tools {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+.editor.flow.sticky .actionbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 6;
+}
+
 /* 橫式手機、平板、桌機：兩欄，各自完整顯示 */
 @media (orientation: landscape) and (min-width: 640px), (min-width: 900px) {
   .editor {
@@ -955,21 +1044,25 @@ const canvasLabel = computed(() => {
   .canvas {
     min-width: 160px;
   }
+  /* 兩欄 + 整頁捲動：左邊預覽黏在上方，右邊內容一路往下 */
+  .editor.flow {
+    align-items: start;
+    --canvas: min(100%, calc(100vh - 160px));
+  }
+  @supports (height: 1svh) {
+    .editor.flow {
+      --canvas: min(100%, calc(100svh - 160px));
+    }
+  }
+  .editor.flow .stage {
+    position: sticky;
+    top: 0;
+  }
+  .editor.flow .right {
+    height: auto;
+  }
 }
 
-/* 很矮的畫面（橫式手機、字級放大、鍵盤彈出）：改成整頁捲動，工具區不會被壓扁 */
-@media (max-height: 560px) {
-  .editor {
-    height: auto;
-  }
-  .right {
-    height: auto;
-    display: block;
-  }
-  .panel {
-    overflow: visible;
-  }
-}
 
 /* 工具區的每個區塊維持原本高度，內容多就往下排、由工具區捲動，不會被壓扁截掉 */
 .panel > * {
@@ -1030,15 +1123,15 @@ const canvasLabel = computed(() => {
   background: var(--c-surface);
   box-shadow: var(--shadow-1);
 }
+/* 目前背景名稱：窄螢幕、大字時換行顯示完整，不用「…」截掉 */
 .cur-name {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  gap: 0 6px;
   min-width: 0;
   flex: 1;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  padding: 8px 0;
 }
 .search input {
   width: 100%;
@@ -1072,8 +1165,8 @@ const canvasLabel = computed(() => {
 .km {
   display: block;
   font-weight: 400;
-  font-size: 0.75rem;
-  opacity: 0.9;
+  /* 原本 0.75rem（12px），低於內文下限 16px */
+  font-size: var(--tp-font-body);
 }
 .bg-grid {
   display: grid;
@@ -1143,12 +1236,9 @@ const canvasLabel = computed(() => {
   font-weight: 600;
 }
 /* 政策標語預覽：最多顯示兩行（原本單行截斷，長輩看不到內容就很難選） */
+/* 政策標語預覽：完整顯示、自動換行，不截斷（字級放大時也不會少看到字） */
 .row-sub {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
+  display: block;
   margin-top: 2px;
 }
 .radio {

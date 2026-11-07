@@ -57,7 +57,7 @@ function retry() {
   <BottomSheet :open="open" :title="title" @close="closeDownload">
     <div v-if="s.loading" class="state" aria-busy="true">
       <div class="preview skeleton" />
-      <p class="muted">正在加上政策 QR Code…</p>
+      <p class="muted" role="status">正在加上政策 <span lang="en">QR Code</span>…</p>
     </div>
     <div v-else-if="s.error" class="state" role="alert">
       <p>{{ s.error }}</p>
