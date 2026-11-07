@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.io.IOException;
 import java.net.URI;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,6 +29,7 @@ import tw.gov.taipei.goodmorning.security.CurrentUser;
 import tw.gov.taipei.goodmorning.service.ArtworkLikeService;
 import tw.gov.taipei.goodmorning.service.ArtworkQueryService;
 import tw.gov.taipei.goodmorning.service.CreateArtworkService;
+import tw.gov.taipei.goodmorning.service.DownloadArtworkService;
 
 @Validated
 @RestController
@@ -36,14 +38,17 @@ public class ArtworkController {
     private final CreateArtworkService createArtworkService;
     private final ArtworkQueryService artworkQueryService;
     private final ArtworkLikeService artworkLikeService;
+    private final DownloadArtworkService downloadArtworkService;
 
     public ArtworkController(
             CreateArtworkService createArtworkService,
             ArtworkQueryService artworkQueryService,
-            ArtworkLikeService artworkLikeService) {
+            ArtworkLikeService artworkLikeService,
+            DownloadArtworkService downloadArtworkService) {
         this.createArtworkService = createArtworkService;
         this.artworkQueryService = artworkQueryService;
         this.artworkLikeService = artworkLikeService;
+        this.downloadArtworkService = downloadArtworkService;
     }
 
     @GetMapping("/artworks")
@@ -81,6 +86,19 @@ public class ArtworkController {
             @AuthenticationPrincipal CurrentUser currentUser,
             @PathVariable @Positive long artworkId) {
         return artworkLikeService.unlike(currentUser, artworkId);
+    }
+
+    @GetMapping(value = "/artworks/{artworkId}/download", produces = MediaType.IMAGE_PNG_VALUE)
+    ResponseEntity<byte[]> downloadArtwork(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @PathVariable @Positive long artworkId) {
+        var download = downloadArtworkService.download(currentUser, artworkId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"%s\"".formatted(download.filename()))
+                .body(download.content());
     }
 
     @PostMapping(value = "/artworks", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

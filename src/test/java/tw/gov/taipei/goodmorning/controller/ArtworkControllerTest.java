@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
+import tw.gov.taipei.goodmorning.dto.ArtworkDownload;
 import tw.gov.taipei.goodmorning.dto.ArtworkPageResponse;
 import tw.gov.taipei.goodmorning.dto.ArtworkResponse;
 import tw.gov.taipei.goodmorning.dto.AuthorSummaryResponse;
@@ -38,6 +40,7 @@ import tw.gov.taipei.goodmorning.security.CurrentUser;
 import tw.gov.taipei.goodmorning.service.ArtworkLikeService;
 import tw.gov.taipei.goodmorning.service.ArtworkQueryService;
 import tw.gov.taipei.goodmorning.service.CreateArtworkService;
+import tw.gov.taipei.goodmorning.service.DownloadArtworkService;
 
 class ArtworkControllerTest {
 
@@ -48,6 +51,7 @@ class ArtworkControllerTest {
     private CreateArtworkService service;
     private ArtworkQueryService queries;
     private ArtworkLikeService likes;
+    private DownloadArtworkService downloads;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -55,7 +59,9 @@ class ArtworkControllerTest {
         service = mock(CreateArtworkService.class);
         queries = mock(ArtworkQueryService.class);
         likes = mock(ArtworkLikeService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new ArtworkController(service, queries, likes))
+        downloads = mock(DownloadArtworkService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(
+                        new ArtworkController(service, queries, likes, downloads))
                 .setControllerAdvice(new GlobalExceptionHandler(new ProblemDetails()))
                 .setCustomArgumentResolvers(new CurrentUserArgumentResolver())
                 .build();
@@ -150,6 +156,19 @@ class ArtworkControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.liked").value(false))
                 .andExpect(jsonPath("$.likeCount").value(3));
+    }
+
+    @Test
+    void downloadsArtworkAsAnAttachment() throws Exception {
+        when(downloads.download(PRINCIPAL, 123L))
+                .thenReturn(new ArtworkDownload(new byte[] {1, 2, 3}, "artwork-123.png"));
+
+        mockMvc.perform(get("/api/artworks/123/download").contextPath("/api"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andExpect(header().string(
+                        "Content-Disposition", "attachment; filename=\"artwork-123.png\""))
+                .andExpect(content().bytes(new byte[] {1, 2, 3}));
     }
 
     private ArtworkResponse response() {

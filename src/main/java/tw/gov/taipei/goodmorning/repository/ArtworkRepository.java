@@ -48,4 +48,12 @@ public interface ArtworkRepository extends JpaRepository<Artwork, Long> {
                AND artwork.likeCount > 0
             """)
     int decrementLikeCount(@Param("id") Long id);
+
+    @Modifying
+    @Query("""
+            UPDATE Artwork artwork
+               SET artwork.downloadCount = artwork.downloadCount + 1
+             WHERE artwork.id = :id
+            """)
+    int incrementDownloadCount(@Param("id") Long id);
 }
