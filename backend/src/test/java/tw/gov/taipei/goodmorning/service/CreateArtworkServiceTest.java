@@ -128,6 +128,19 @@ class CreateArtworkServiceTest {
     }
 
     @Test
+    void acceptsAnActiveOngoingPolicyWithoutDateBounds() {
+        allowBackground();
+        when(policies.findById(5L)).thenReturn(Optional.of(policy(null, null, true)));
+        when(artworks.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(storage.readUrl(anyString())).thenReturn(URI.create("https://assets.example/artwork.png"));
+
+        var response = service.create(PRINCIPAL, IMAGE, 1L, 5L, "早安台北");
+
+        assertThat(response.policyId()).isEqualTo(5L);
+        verify(storage).put(anyString(), any(), anyString());
+    }
+
+    @Test
     void mapsAnS3UploadFailureToServiceUnavailable() {
         allowCreationData();
         doThrow(s3Failure()).when(storage).put(anyString(), any(), anyString());

@@ -152,8 +152,8 @@ public class CreateArtworkService {
     private void validatePolicy(Policy policy) {
         var today = LocalDate.now(clock);
         if (!policy.isActive()
-                || today.isBefore(policy.getStartDate())
-                || today.isAfter(policy.getEndDate())) {
+                || (policy.getStartDate() != null && today.isBefore(policy.getStartDate()))
+                || (policy.getEndDate() != null && today.isAfter(policy.getEndDate()))) {
             throw new ApiException(
                     HttpStatus.FORBIDDEN,
                     "POLICY_UNAVAILABLE",

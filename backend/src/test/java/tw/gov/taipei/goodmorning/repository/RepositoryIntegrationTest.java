@@ -81,6 +81,9 @@ class RepositoryIntegrationTest {
         var available = policies.save(new Policy(
                 "福利", "敬老卡", "日日好行", "https://example.gov.tw/available",
                 today.minusDays(1), today.plusDays(1), true));
+        var ongoing = policies.save(new Policy(
+                "福利", "持續辦理", "持續服務", "https://example.gov.tw/ongoing",
+                null, null, true));
         var future = policies.save(new Policy(
                 "福利", "尚未開始", "敬請期待", "https://example.gov.tw/future",
                 today.plusDays(1), today.plusDays(2), true));
@@ -94,7 +97,7 @@ class RepositoryIntegrationTest {
 
         assertThat(policies.findAvailableOn(today))
                 .extracting(Policy::getId)
-                .contains(available.getId())
+                .contains(available.getId(), ongoing.getId())
                 .doesNotContain(future.getId(), expired.getId(), inactive.getId());
     }
 

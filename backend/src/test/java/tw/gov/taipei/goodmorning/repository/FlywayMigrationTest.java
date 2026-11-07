@@ -58,7 +58,48 @@ class FlywayMigrationTest {
                  ORDER BY ordinal_position
                 """);
 
-        assertThat(columns).containsExactly("start_date:date:NO", "end_date:date:NO");
+        assertThat(columns).containsExactly("start_date:date:YES", "end_date:date:YES");
+    }
+
+    @Test
+    void createsTheDeliveredPolicyColumnShapes() throws SQLException {
+        var columns = queryStrings("""
+                SELECT CONCAT(
+                    column_name, ':', column_type, ':', is_nullable,
+                    ':', COALESCE(column_default, 'NULL'))
+                  FROM information_schema.columns
+                 WHERE table_schema = DATABASE()
+                   AND table_name = 'policies'
+                   AND column_name IN (
+                       'id', 'category', 'title', 'slogan', 'source_url',
+                       'is_active', 'start_date', 'end_date')
+                 ORDER BY ordinal_position
+                """);
+
+        assertThat(columns).containsExactly(
+                "id:int(10) unsigned:NO:NULL",
+                "category:varchar(50):NO:NULL",
+                "title:varchar(255):NO:NULL",
+                "slogan:varchar(255):NO:NULL",
+                "source_url:varchar(768):NO:NULL",
+                "start_date:date:YES:NULL",
+                "end_date:date:YES:NULL",
+                "is_active:tinyint(1):NO:1");
+    }
+
+    @Test
+    void makesPolicySourceUrlsUnique() throws SQLException {
+        var uniqueIndexColumns = queryStrings("""
+                SELECT column_name
+                  FROM information_schema.statistics
+                 WHERE table_schema = DATABASE()
+                   AND table_name = 'policies'
+                   AND index_name = 'uk_policies_source_url'
+                   AND non_unique = 0
+                 ORDER BY seq_in_index
+                """);
+
+        assertThat(uniqueIndexColumns).containsExactly("source_url");
     }
 
     @Test
@@ -98,18 +139,52 @@ class FlywayMigrationTest {
     }
 
     @Test
-    void normalizesPoliciesWithoutAnEndDateAsOpenEnded() throws SQLException {
+    void seedsTheDeliveredPolicyCategoriesAndEditorSlogans() throws SQLException {
+        var categoryCounts = queryStrings("""
+                SELECT CONCAT(category, ':', COUNT(*))
+                  FROM policies
+                 GROUP BY category
+                 ORDER BY category
+                """);
+        var slogans = queryStrings("""
+                SELECT slogan
+                  FROM policies
+                 ORDER BY id
+                """);
+        var slogansOverTwentyCharacters = queryStrings("""
+                SELECT COUNT(*)
+                  FROM policies
+                 WHERE CHAR_LENGTH(slogan) > 20
+                """);
+
+        assertThat(categoryCounts).containsExactly("民生費用:4", "生育:3", "老人:3");
+        assertThat(slogans).containsExactly(
+                "地價稅11/30前繳，安心不忘記！",
+                "租屋補貼12/31截止，記得申請！",
+                "生活扶助有依靠，符合資格來申請！",
+                "健保費有補助，符合資格別錯過！",
+                "迎接新生命，生育獎勵依胎次申請！",
+                "未滿3歲托育有補助，育兒更安心！",
+                "試管療程有補助，好孕路上有支持！",
+                "敬老卡每月600點，出門更便利！",
+                "長者生活有津貼，符合資格來申請！",
+                "合格照顧者月補5,000元，暖心相伴！");
+        assertThat(slogansOverTwentyCharacters).containsExactly("0");
+    }
+
+    @Test
+    void keepsPoliciesWithoutAnEndDateAsNull() throws SQLException {
         var openEndedCount = queryStrings("""
                 SELECT COUNT(*)
                   FROM policies
-                 WHERE end_date = '9999-12-31'
+                 WHERE end_date IS NULL
                 """);
         var availableOnBaselineDate = queryStrings("""
                 SELECT COUNT(*)
                   FROM policies
                  WHERE is_active = TRUE
-                   AND start_date <= '2026-11-07'
-                   AND end_date >= '2026-11-07'
+                   AND (start_date IS NULL OR start_date <= '2026-11-07')
+                   AND (end_date IS NULL OR end_date >= '2026-11-07')
                 """);
 
         assertThat(openEndedCount).containsExactly("8");

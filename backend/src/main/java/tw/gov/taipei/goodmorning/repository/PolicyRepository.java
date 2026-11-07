@@ -13,8 +13,8 @@ public interface PolicyRepository extends JpaRepository<Policy, Long> {
             SELECT policy
               FROM Policy policy
              WHERE policy.active = true
-               AND policy.startDate <= :date
-               AND policy.endDate >= :date
+               AND (policy.startDate IS NULL OR policy.startDate <= :date)
+               AND (policy.endDate IS NULL OR policy.endDate >= :date)
              ORDER BY policy.id
             """)
     List<Policy> findAvailableOn(@Param("date") LocalDate date);
