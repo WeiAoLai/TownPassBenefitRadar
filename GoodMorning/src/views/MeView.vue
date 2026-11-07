@@ -132,15 +132,27 @@ function onImgError() {
 
 /* ---------- 每天早上提醒（台北通 App 的 daily_reminder handler） ---------- */
 type ReminderState = 'unavailable' | 'unsupported' | 'loading' | 'ready'
-const reminderState = ref<ReminderState>(inTownPass() ? 'loading' : 'unavailable')
+const reminderState = ref<ReminderState>(inTownPass() ? 'loading' : apiMode === 'mock' ? 'ready' : 'unavailable')
 const reminderOn = ref(false)
 const reminderBusy = ref(false)
 const reminderTime = ref('07:00')
+const demoReminderKey = 'gm.demoDailyReminder'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
 async function loadReminder() {
-  if (!inTownPass()) return
+  if (!inTownPass()) {
+    if (apiMode !== 'mock') return
+    try {
+      const saved = JSON.parse(localStorage.getItem(demoReminderKey) ?? 'null') as { enabled?: boolean; time?: string } | null
+      reminderOn.value = saved?.enabled === true
+      if (/^\d{2}:\d{2}$/.test(saved?.time ?? '')) reminderTime.value = saved!.time!
+    } catch {
+      /* 儲存內容無效或無痕模式不可用時，維持預設值 */
+    }
+    reminderState.value = 'ready'
+    return
+  }
   const st = await getDailyReminder()
   if (!st) {
     reminderState.value = 'unsupported'
@@ -155,6 +167,16 @@ async function applyReminder(on: boolean) {
   if (reminderState.value !== 'ready' || reminderBusy.value) return
   reminderBusy.value = true
   try {
+    if (!inTownPass() && apiMode === 'mock') {
+      reminderOn.value = on
+      try {
+        localStorage.setItem(demoReminderKey, JSON.stringify({ enabled: on, time: reminderTime.value }))
+      } catch {
+        /* 無痕模式不可用時仍保留這次畫面的狀態 */
+      }
+      toast(on ? `好，每天 ${reminderTime.value} 提醒你` : '已關閉每日提醒', 'success')
+      return
+    }
     if (on) {
       const [h, m] = reminderTime.value.split(':').map(Number)
       const st = await setDailyReminder({

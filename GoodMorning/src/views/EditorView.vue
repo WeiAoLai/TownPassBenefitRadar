@@ -27,7 +27,7 @@ type CreateStep = 'start' | 'preview' | 'edit'
 const router = useRouter()
 const createStep = ref<CreateStep>('start')
 const starterReady = ref(false)
-const starterImage = new URL('backgrounds/cks-memorial-hall.jpg', document.baseURI).href
+const starterImage = new URL('backgrounds/taipei101-sunset.jpg', document.baseURI).href
 
 const tool = ref<Tool>(draft.policy ? 'text' : 'bg')
 const tools = [
