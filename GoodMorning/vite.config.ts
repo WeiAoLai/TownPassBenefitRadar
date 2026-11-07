@@ -43,9 +43,9 @@ function backgroundImport(): Plugin {
 }
 
 /**
- * 開發時的 /api 代理。API_PROXY_TARGET 可以帶路徑，例如後端在 ALB 的 /api/v1：
- *   API_PROXY_TARGET=http://xxx.elb.amazonaws.com/api/v1  →  /api/me 轉成 /api/v1/me
- * 不帶路徑（http://localhost:8080）就原樣轉發 /api/...。
+ * 開發時的 /api 代理。前端呼叫 /api/v1/...（VITE_API_BASE_URL），API_PROXY_TARGET 填後端網址：
+ *   API_PROXY_TARGET=http://xxx.elb.amazonaws.com  →  /api/v1/me 原樣轉到 http://xxx.elb.amazonaws.com/api/v1/me
+ * 若後端掛在別的路徑，可帶路徑（開頭的 /api 會換成該路徑）。
  */
 function apiProxy(target: string | undefined) {
   if (!target) return undefined

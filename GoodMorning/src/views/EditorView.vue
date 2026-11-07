@@ -15,11 +15,11 @@ import { startDownload } from '../composables/artworkActions'
 import { unlockAudio } from '../composables/sound'
 import { draft, resetDraft } from '../editor/draft'
 import { SIZE, type Layout } from '../editor/layout'
-import { QR_LAYOUT } from '../editor/qr'
+import { qrZone } from '../editor/qr'
 import { HANDLE_R, exportPng, handlePoint, isTainted, loadImage, renderScene, styleSwatch } from '../editor/render'
 import { GREETING, POSITIONS, SLOGAN } from '../editor/scene'
 import { FONTS, GREETINGS, TEXT_STYLES, type FontKey } from '../editor/styles'
-import { loadBackgroundCatalog, type BackgroundItem } from '../data/backgrounds'
+import { backgroundSrc, catalogBackgrounds, loadBackgroundCatalog, serverBackgroundId, type BackgroundItem } from '../data/backgrounds'
 import { customPhoto, loadCustomPhoto, photoErrorMessage } from '../editor/customPhoto'
 
 type Tool = 'bg' | 'policy' | 'text' | 'style'
@@ -43,6 +43,11 @@ const orientOptions = [
 
 const me = ref<CurrentUser | null>(null)
 const backgrounds = ref<Background[]>([])
+/** 後端的背景清單：只用來決定儲存時送哪個 backgroundId（畫面上的背景由前端圖庫決定） */
+const serverBackgrounds = ref<Background[]>([])
+/** 前端圖庫有資料就用圖庫（依使用者作品數解鎖）；圖庫載入失敗才退回後端清單 */
+const buildBackgrounds = (server: Background[], artworkCount: number) =>
+  catalog.value.length ? catalogBackgrounds(catalog.value, artworkCount) : server
 /**
  * 背景圖庫（行政區、攝影師、出處、經緯度），與 /backgrounds 以「名稱」對應：
  * 後端的背景 id 由資料庫決定，不一定和前端圖庫相同；名稱對不到的背景就不顯示攝影師、也不參與距離排序。
@@ -129,7 +134,7 @@ let layouts: Layout[] = []
 let bgImage: HTMLImageElement | null = null
 let raf = 0
 let ro: ResizeObserver | null = null
-const imgCache = new Map<number, Promise<HTMLImageElement>>()
+const imgCache = new Map<string, Promise<HTMLImageElement>>()
 /** 正在畫的背景：自己的照片優先，否則用圖庫背景 */
 const activeBg = () => customPhoto.value?.canvas ?? bgImage
 
@@ -155,30 +160,33 @@ function draw() {
     if (!ctx || !canvas.value) return
     const k = canvas.value.width / SIZE
     ctx.setTransform(k, 0, 0, k, 0, 0)
-    const { margin, cardW, cardH } = QR_LAYOUT
     layouts = renderScene(
       ctx,
       { background: activeBg(), layers: draft.layers },
       {
         selected: draft.selected,
-        qrZone: showQrZone.value ? { x: SIZE - margin - cardW, y: SIZE - margin - cardH, w: cardW, h: cardH } : null,
+        qrZone: showQrZone.value ? qrZone() : null,
       },
     )
   })
 }
 
+/** 背景圖片網址：前端圖庫有同名照片就用本地照片，否則用後端的 imageUrl */
+const bgSrc = (bg: Background) => backgroundSrc(bg, catalog.value)
+
 function getImage(bg: Background) {
-  let p = imgCache.get(bg.id)
+  const src = bgSrc(bg)
+  let p = imgCache.get(src)
   if (!p) {
-    p = loadImage(bg.imageUrl)
-    p.catch(() => imgCache.delete(bg.id))
-    imgCache.set(bg.id, p)
+    p = loadImage(src)
+    p.catch(() => imgCache.delete(src))
+    imgCache.set(src, p)
   }
   return p
 }
 
 watch(
-  () => [draft.backgroundId, backgrounds.value] as const,
+  () => [draft.backgroundId, backgrounds.value, catalog.value] as const,
   async ([id]) => {
     const bg = backgrounds.value.find((b) => b.id === id)
     if (!bg) {
@@ -199,11 +207,23 @@ watch(
   },
 )
 watch(() => [draft.layers, draft.selected, showQrZone.value, customPhoto.value], draw, { deep: true })
+/** 直書／橫書切換時，文字框的寬高意義互換，清掉讓它重新依文字自動決定 */
+watch(
+  () => draft.layers.map((l) => l.vertical),
+  (now, before) => {
+    now.forEach((v, i) => {
+      if (before && before[i] !== v) {
+        delete draft.layers[i].boxW
+        delete draft.layers[i].boxH
+      }
+    })
+  },
+)
 
 /* ---------------- 拖曳文字：拖框移動、拖右下角把手縮放 ---------------- */
 type Drag =
   | { mode: 'move'; idx: number; dx: number; dy: number; id: number }
-  | { mode: 'resize'; idx: number; cx: number; cy: number; startDist: number; startSize: number; id: number }
+  | { mode: 'resize'; idx: number; cx: number; cy: number; pad: number; minW: number; minH: number; id: number }
 let drag: Drag | null = null
 
 function toScene(e: PointerEvent) {
@@ -238,8 +258,9 @@ function onDown(e: PointerEvent) {
       const cy = sel.box.y + sel.box.h / 2
       l.x = cx / SIZE
       l.y = cy / SIZE
-      l.size = sel.fontSize
-      drag = { mode: 'resize', idx: draft.selected, cx, cy, startDist: Math.max(40, Math.hypot(p.x - cx, p.y - cy)), startSize: sel.fontSize, id: e.pointerId }
+      // 拖把手改變的是文字框大小，字級不變；最小要放得下一個字
+      const pad = sel.fontSize * 0.25
+      drag = { mode: 'resize', idx: draft.selected, cx, cy, pad, minW: sel.fontSize * 1.1, minH: sel.fontSize * 1.1, id: e.pointerId }
       canvas.value?.setPointerCapture(e.pointerId)
       return
     }
@@ -260,8 +281,10 @@ function onMove(e: PointerEvent) {
   const p = toScene(e)
   const l = draft.layers[drag.idx]
   if (drag.mode === 'resize') {
-    const d = Math.hypot(p.x - drag.cx, p.y - drag.cy)
-    setSize((drag.startSize * d) / drag.startDist)
+    // 以文字框中心為準對稱放大縮小：把手到中心的距離 ×2 就是新的框
+    const maxBox = SIZE * 0.92
+    l.boxW = Math.round(Math.min(maxBox, Math.max(drag.minW, 2 * Math.abs(p.x - drag.cx) - 2 * drag.pad)))
+    l.boxH = Math.round(Math.min(maxBox, Math.max(drag.minH, 2 * Math.abs(p.y - drag.cy) - 2 * drag.pad)))
     return
   }
   l.x = Math.min(1, Math.max(0, (p.x - drag.dx) / SIZE))
@@ -276,13 +299,17 @@ async function loadAll() {
   loadError.value = null
   loading.value = { bg: true, cat: true, pol: false }
   try {
-    loadBackgroundCatalog()
-      .then((c) => (catalog.value = c.backgrounds))
-      .catch(() => {
-        /* 攝影師標示是輔助資訊，載入失敗不影響挑背景 */
-      })
-    const [u, bgs, cats] = await Promise.all([api.getCurrentUser(), api.listBackgrounds(), api.listPolicyCategories()])
+    const [u, server, cats, cat] = await Promise.all([
+      api.getCurrentUser(),
+      api.listBackgrounds(),
+      api.listPolicyCategories(),
+      // 圖庫載入失敗就退回後端的背景清單
+      loadBackgroundCatalog().catch(() => null),
+    ])
+    if (cat) catalog.value = cat.backgrounds
     me.value = u
+    serverBackgrounds.value = server
+    const bgs = buildBackgrounds(server, u.artworkCount)
     backgrounds.value = bgs
     categories.value = cats
     if (draft.backgroundId == null || !bgs.some((b) => b.id === draft.backgroundId && b.unlocked)) {
@@ -357,9 +384,17 @@ function pickPolicy(p: Policy) {
   toast(`已套用「${p.title}」標語`, 'success')
 }
 
-function restoreSlogan() {
-  if (draft.policy) draft.layers[SLOGAN].text = draft.policy.slogan
-}
+/**
+ * 政策標語不能修改：畫面上的標語永遠等於所選政策的 slogan。
+ * 舊版草稿（曾經可以改標語）或任何地方改到標語文字時，都還原成政策原文。
+ */
+watch(
+  () => [draft.policy?.slogan, draft.layers[SLOGAN].text] as const,
+  ([slogan, text]) => {
+    if (slogan != null && text !== slogan) draft.layers[SLOGAN].text = slogan
+  },
+  { immediate: true },
+)
 
 function nudge(dx: number, dy: number) {
   const b = layouts[draft.selected]?.box
@@ -457,17 +492,25 @@ async function save() {
       return
     }
     const before = me.value
+    const backendBgId = serverBackgroundId(currentBg.value?.name, serverBackgrounds.value)
+    if (backendBgId == null) {
+      toast('目前沒有可用的背景資料，請稍後再試', 'error')
+      return
+    }
     const artwork = await api.createArtwork({
       image: blob,
-      backgroundId: draft.backgroundId!,
+      backgroundId: backendBgId,
       policyId: draft.policy!.id,
-      sloganText: draft.layers[SLOGAN].text,
+      sloganText: draft.policy!.slogan,
     })
-    const [after, bgs] = await Promise.all([api.getCurrentUser(), api.listBackgrounds()]).catch(
-      () => [null, backgrounds.value] as const,
+    const [after, server] = await Promise.all([api.getCurrentUser(), api.listBackgrounds()]).catch(
+      () => [null, serverBackgrounds.value] as const,
     )
+    // 依這位使用者存檔後的作品數重算解鎖，找出這次新解鎖的背景
+    const bgs = buildBackgrounds(server, after?.artworkCount ?? (me.value?.artworkCount ?? 0) + 1)
     const unlocked = bgs.filter((b) => b.unlocked && backgrounds.value.some((o) => o.id === b.id && !o.unlocked))
     me.value = after ?? me.value
+    serverBackgrounds.value = server
     backgrounds.value = bgs
     if (todayCount.value != null) todayCount.value += 1
     saved.value = { artwork, before, after, unlocked }
@@ -607,7 +650,7 @@ const canvasLabel = computed(() => {
           :aria-label="b.unlocked ? b.name : `${b.name}（儲存 ${b.unlockThreshold} 張作品後解鎖）`"
           @click="pickBackground(b)"
         >
-          <img :src="b.imageUrl" alt="" loading="lazy" decoding="async" />
+          <img :src="bgSrc(b)" alt="" loading="lazy" decoding="async" @error="($event.target as HTMLImageElement).classList.add('broken')" />
           <span class="bg-name">{{ b.name }}<span v-if="b.km != null" class="km">{{ fmtKm(b.km) }}</span></span>
           <span v-if="!b.unlocked" class="lock">
             <Icon name="lock" :size="22" />
@@ -709,22 +752,16 @@ const canvasLabel = computed(() => {
           先到「政策」選一個政策，標語會自動帶進來
           <button type="button" class="btn text" @click="tool = 'policy'">去選政策</button>
         </p>
-        <label class="field">
-          <span class="field-label">
-            政策標語
-            <span class="counter small muted">{{ layer.text.length }}/500</span>
+        <div v-else class="field">
+          <h2 class="field-label">政策標語</h2>
+          <p class="slogan-readonly" aria-describedby="slogan-help">{{ draft.policy.slogan }}</p>
+          <span id="slogan-help" class="small muted">
+            標語由市府提供，不能修改；可以到「樣式」換顏色、大小和位置，字太多會自動縮小。
           </span>
-          <textarea v-model="layer.text" rows="4" maxlength="500" aria-describedby="slogan-help" />
-          <span id="slogan-help" class="small muted">可以照自己的話修改；按 Enter 換行，字太多會自動縮小</span>
-        </label>
-        <button
-          v-if="draft.policy && layer.text !== draft.policy.slogan"
-          type="button"
-          class="btn block"
-          @click="restoreSlogan"
-        >
-          <Icon name="refresh" :size="20" /> 還原成原本的政策標語
-        </button>
+          <button type="button" class="btn block" @click="tool = 'policy'">
+            <Icon name="flag" :size="20" /> 換一個政策
+          </button>
+        </div>
       </template>
     </section>
 
@@ -774,7 +811,7 @@ const canvasLabel = computed(() => {
       </div>
 
       <h2 class="panel-title">大小與位置</h2>
-      <p class="small muted">在圖上按住文字可以移動，拖右下角的圓形把手可以放大縮小</p>
+      <p class="small muted">在圖上按住文字可以移動；拖右下角的圓形把手可以調整文字框大小（字會在框內自動換行），字的大小用下面的 −／＋ 調整</p>
       <div class="pos-wrap">
         <div class="pos-grid" role="group" aria-label="快速放到九宮格位置">
           <button
@@ -1189,6 +1226,21 @@ const canvasLabel = computed(() => {
   display: flex;
   justify-content: space-between;
   font-weight: 600;
+}
+h2.field-label {
+  margin: 0;
+  font-size: inherit;
+}
+.slogan-readonly {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-m);
+  background: var(--tp-grey-50);
+  border: 1px solid var(--tp-grey-200);
+  font-size: 1.25rem;
+  line-height: 1.6;
+  white-space: pre-line;
+  color: var(--c-text);
 }
 .field textarea {
   width: 100%;

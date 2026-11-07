@@ -16,7 +16,7 @@
 
 ### 核心功能
 
-1. **三步驟做出長輩圖**：選背景 → 選政策（標語自動帶入）→ 調整文字，或按「隨機一張」一鍵完成。編輯器提供 8 種經典長輩圖字樣、直書／橫書、拖曳與按鈕兩種調整方式。
+1. **三步驟做出長輩圖**：選背景 → 選政策（標語自動帶入，不能修改）→ 改問候語、調整樣式與位置，或按「隨機一張」一鍵完成。編輯器提供 8 種經典長輩圖字樣、直書／橫書、拖曳與按鈕兩種調整方式。
 2. **台北地標或自己的照片當背景**：10 張台北地標照片，可依目前位置把最近的地標排在前面；也可以拍照或從相簿挑照片。
 3. **存到手機相簿，附政策 QR Code**：輸出 1080 × 1080 圖片，右下角是台北通外框的 QR Code，掃描後開啟政策說明頁。
 4. **每天早上提醒**：在台北通 App 裡開啟後，每天固定時間跳通知，點通知直接進製作頁。
@@ -35,7 +35,7 @@ TownPass Flutter App（TownPass/）
 └─ InAppWebView
    ├─ Vue 3 + vue-router（hash 模式）
    ├─ flutterObject message bridge：open_link、userinfo、location、daily_reminder（自訂）
-   └─ /api（openapi.yaml v0.1.0）
+   └─ /api/v1（openapi.yaml v0.1.0 的端點，前面加上 /api/v1）
        ├─ http 模式：後端（Spring Boot、S3、資料庫；在 backend/）
        └─ mock 模式：瀏覽器內模擬後端（IndexedDB）
 ```
@@ -68,19 +68,19 @@ npm ci
 npm run dev            # http://localhost:5173 ，預設 mock 模式，不需後端
 ```
 
-串接部署在 AWS 的後端（API base 為 ALB 的 `/api/v1`，設定寫在 `package.json` 的 `dev:alb`）：
+串接部署在 AWS 的後端（設定寫在 `package.json` 的 `dev:alb`）：
 
 ```sh
-npm run dev:alb        # 前端呼叫 /api/...，由 vite 轉到 http://<ALB>/api/v1/...
+npm run dev:alb        # 前端呼叫 /api/v1/...，由 vite 原樣轉到 http://<ALB>/api/v1/...
 ```
 
-串接本機後端（`backend/` 的 docker compose，base 為 `/api`）：
+串接本機後端（`backend/` 的 docker compose；若本機後端的 base 是 `/api`，用 `VITE_API_BASE_URL=/api`）：
 
 ```sh
-VITE_API_MODE=http API_PROXY_TARGET=http://localhost:8088/api npm run dev
+VITE_API_MODE=http VITE_API_BASE_URL=/api API_PROXY_TARGET=http://localhost:8088 npm run dev
 ```
 
-前端一律呼叫同網域的 `/api`，由 vite（開發）或 nginx（部署）轉發，所以後端不需要為前端開 CORS，也不會遇到 https 頁面呼叫 http API 的混合內容問題。每個請求都帶 `X-Demo-User`（「我的 › 示範帳號」選的 `user-a`／`user-b`／`user-c`）。
+所有 API 都打 `/api/v1` + openapi 路徑（例如 `GET /api/v1/me`、`POST /api/v1/artworks`、`GET /api/v1/artworks/{id}/download`），一律呼叫同網域，由 vite（開發）或 nginx（部署）原樣轉發，所以後端不需要為前端開 CORS，也不會遇到 https 頁面呼叫 http API 的混合內容問題。每個請求都帶 `X-Demo-User`（「我的 › 示範帳號」選的 `user-a`／`user-b`／`user-c`）。
 
 TownPass App（每日提醒需要）：
 
@@ -96,10 +96,10 @@ fvm flutter run
 | 名稱 | 必要 | 說明 | 範例 |
 |---|---|---|---|
 | `VITE_API_MODE` | 否 | `mock`＝瀏覽器內示範資料；`http`＝呼叫後端。預設 `mock` | `http` |
-| `VITE_API_BASE_URL` | 否 | openapi `servers.url`，預設 `/api` | `/api` |
+| `VITE_API_BASE_URL` | 否 | API base path，預設 `/api/v1`（ALB 上的後端） | `/api/v1` |
 | `VITE_DEMO_USERS` | 否 | `X-Demo-User` allowlist，逗號分隔，需與後端一致 | `user-a,user-b,user-c` |
 | `VITE_SHARE_URL` | 否 | 慶祝畫面「分享給親友」的連結；空值時用目前網站首頁 | `https://example.invalid/good-morning/` |
-| `API_PROXY_TARGET` | 否 | 只給 dev server 用的 `/api` 代理目標，可帶路徑（`/api` 會換成該路徑）；不進 bundle | `http://<ALB>/api/v1` |
+| `API_PROXY_TARGET` | 否 | 只給 dev server 用的 `/api` 代理目標（後端網址，不含路徑）；不進 bundle | `http://<ALB>` |
 
 任何 `VITE_*` 值都會進入前端 bundle，不能放 API secret、權杖或個人資料。範本見 `.env.example`。
 
@@ -107,11 +107,11 @@ fvm flutter run
 
 ```sh
 npm run typecheck   # vue-tsc
-npm test            # vitest：排行榜、徽章、排版、背景圖庫 JSON、對比、分享、每日上限，共 44 個
+npm test            # vitest：排行榜、徽章、排版、背景圖庫 JSON、對比、分享、每日上限、13 個 API 端點路徑，共 46 個
 npm run build       # vue-tsc + vite build
 ```
 
-2026-11-08 結果：typecheck、build 通過；測試 44 個全數通過（`tests/badges.test.ts` 會檢查 `public/badges/` 的圖檔，需在完整 checkout 執行）。
+2026-11-08 結果：typecheck、build 通過；測試 46 個全數通過（`tests/badges.test.ts` 會檢查 `public/badges/` 的圖檔，需在完整 checkout 執行）。
 
 ## 4. TownPass WebView 整合
 
@@ -170,16 +170,16 @@ npm run build       # vue-tsc + vite build
 
 | 編號 | 功能 | 實作摘要 | 資料來源與授權 |
 |---|---|---|---|
-| 5.1 | 選背景 | 10 張地標照片，鎖定的背景顯示「存 N 張解鎖」並標示攝影師 | Unsplash 照片，[Unsplash License](https://unsplash.com/license)；清單 `public/data/backgrounds.json` |
+| 5.1 | 選背景 | 10 張地標照片由前端圖庫提供；解鎖依目前使用者的累積作品數（`GET /api/v1/me` 的 `artworkCount`）判斷，鎖定的背景顯示「存 N 張解鎖」並標示攝影師 | Unsplash 照片，[Unsplash License](https://unsplash.com/license)；清單 `public/data/backgrounds.json` |
 | 5.2 | 離我最近的地標 | 取得位置 → haversine 計算直線距離 → 依距離排序，縮圖顯示公尺／公里 | 地標經緯度為團隊標註的約略位置，只用於排序 |
 | 5.3 | 自己的照片 | `<input type="file" accept="image/*">` 叫出拍照／相簿選單；手機端裁成 1080 正方形 | 使用者提供；只上傳合成後的作品，不上傳原圖與 EXIF |
-| 5.4 | 選政策、帶入標語 | 類別 → 政策清單（單選）→ 標語自動帶入，可再修改文字 | **示範資料**（`src/api/mock/fixtures.ts`），見下方說明 |
-| 5.5 | 隨機一張 | `GET /policies/random`，並隨機挑問候語、字樣與已解鎖背景 | 同 5.4 |
-| 5.6 | 編輯文字 | 兩個圖層（問候語、標語）、8 種字樣、直書／橫書、3 種內建字型；拖曳移動、拖把手縮放，另有九宮格定位、微調與 −／＋ 按鈕；字太多自動縮小 | — |
-| 5.7 | 儲存作品 | 前端輸出 1080 × 1080 PNG → `POST /artworks`；每人每天最多 3 張（台北時間 00:00 重置） | — |
-| 5.8 | 存到手機相簿 | `GET /artworks/{id}/download` 取得附 QR Code 的成品；系統分享（選「儲存影像」）、長按儲存、下載檔案三種方式 | QR 外框使用台北通官方 logo（GPL-3.0） |
+| 5.4 | 選政策、帶入標語 | 類別 → 政策清單（單選）→ 標語自動帶入；**標語不能修改**，確保圖上的文字與市府公告一致，送出的 `sloganText` 一律是政策原文 | http 模式為後端資料；mock 模式為**示範資料**（`src/api/mock/fixtures.ts`），見下方說明 |
+| 5.5 | 隨機一張 | `GET /api/v1/policies/random`，並隨機挑問候語、字樣與已解鎖背景 | 同 5.4 |
+| 5.6 | 編輯文字 | 兩個圖層：問候語（可自由輸入或選常用問候語）、政策標語（文字固定，只能調整樣式與位置）；8 種字樣、直書／橫書、3 種內建字型；拖曳移動；拖右下角把手調整文字框大小（橫書改寬度與換行、直書改每行字數），字級不變；字級用 −／＋ 按鈕調整；另有九宮格定位與微調按鈕；只有超出畫布時才自動縮小 | — |
+| 5.7 | 儲存作品 | 前端輸出 1080 × 1080 PNG → `POST /api/v1/artworks`；每人每天最多 3 張（台北時間 00:00 重置） | — |
+| 5.8 | 存到手機相簿 | `GET /api/v1/artworks/{id}/download` 取得附 QR Code 的成品；系統分享（選「儲存影像」）、長按儲存、下載檔案三種方式 | QR 外框使用台北通官方 logo（GPL-3.0） |
 | 5.9 | 徽章與解鎖 | 十級徽章（公比 2）、進度條；Lv.1–3 有大圖，獲得時全螢幕慶祝並可分享 | 徽章大圖為團隊提供的設計稿 |
-| 5.10 | 作品牆、愛心、排行榜 | `PUT/DELETE /artworks/{id}/like` 樂觀更新；`GET /leaderboard` 前 100 名 | — |
+| 5.10 | 作品牆、愛心、排行榜 | `PUT/DELETE /api/v1/artworks/{id}/like` 樂觀更新；`GET /api/v1/leaderboard` 前 100 名 | — |
 | 5.11 | 每天早上提醒 | 見第 4 節 `daily_reminder` | — |
 
 **模擬、快取、衍生或生成資料**：
@@ -198,12 +198,12 @@ npm run build       # vue-tsc + vite build
 | 觀賞者登入、愛心 | 依 openapi：需 `X-Demo-User`；可取消；作者不可按（409） | `composables/artworkActions.ts` |
 | 隨機是否選背景 | API 不選背景，前端在已解鎖背景中隨機挑一張 | `EditorView.vue` `randomize()` |
 | 草稿、編輯、刪除、公開 | 只有本機草稿；不提供編輯既有作品與刪除；所有作品公開 | `editor/draft.ts` |
-| 解鎖背景 | 圓山大飯店、國立故宮博物院，存滿 3 張解鎖 | `backgrounds.json` `unlockThreshold` |
+| 解鎖背景 | 前端判斷：每位使用者依自己的作品數解鎖；圓山大飯店、國立故宮博物院存滿 3 張解鎖 | `backgrounds.json` `unlockThreshold`、`data/backgrounds.ts` `catalogBackgrounds()` |
 | 徽章公比、顯示 | 公比 2；顯示最高等級，「我的」可看十級一覽 | `config/badges.ts` |
 | 排行榜 | 全期間前 100 名 | `LeaderboardView.vue` |
 | 下載格式 | 1080 × 1080 PNG | — |
 | 每日上限 | 每人每天 3 張，只限制儲存；編輯、隨機、下載、愛心不受限 | `config/limits.ts` |
-| 自己的照片 | openapi 的 `backgroundId` 必填，使用自己的照片時送最後選的圖庫背景 id（只作主題紀錄）；建議後端新增 `customBackground` 或允許 null | `EditorView.vue` `save()` |
+| 送給後端的 `backgroundId` | openapi 必填。後端有同名背景就送它的 id，沒有就送後端第一張已解鎖的背景（只作紀錄，作品圖已含前端照片）；使用自己的照片時同樣處理。建議後端改為選填或新增 `customBackground` | `data/backgrounds.ts` `serverBackgroundId()` |
 
 ## 6. 設計與無障礙 / Design & Accessibility
 
@@ -281,20 +281,18 @@ GoodMorning/
 docker build -t good-morning .
 docker run --rm -p 8080:80 good-morning          # http://localhost:8080
 
-# 串接 AWS ALB 上的後端（/api/... 轉到 /api/v1/...）
+# 串接 AWS ALB 上的後端（/api/v1/... 原樣轉發）
 docker build -t good-morning --build-arg VITE_API_MODE=http .
-docker run --rm -p 8080:80 \
-  -e BACKEND_URL=http://taipei-code-fest-alb-747927445.ap-southeast-2.elb.amazonaws.com/api/v1 \
-  good-morning
+docker run --rm -p 8080:80 -e BACKEND_URL=http://taipei-code-fest-alb-747927445.ap-southeast-2.elb.amazonaws.com good-morning
 
-# 串接同一台機器上的後端容器（根目錄 docker-compose.yml，/api 原樣轉發）
+# 串接同一台機器上的後端容器（根目錄 docker-compose.yml；後端 base 若是 /api，build 時加 --build-arg VITE_API_BASE_URL=/api）
 docker run --rm -p 8080:80 -e BACKEND_URL=http://backend:8080 good-morning
 ```
 
 | 執行期環境變數 | 預設 | 說明 |
 |---|---|---|
 | `PORT` | `80` | nginx 監聽埠 |
-| `BACKEND_URL` | 空 | 設定後才啟用 `/api/` 反向代理。不帶路徑時原樣轉發 `/api/...`；帶路徑（如 `/api/v1`）時 `/api/` 換成該路徑。空值時不代理，nginx 不會因找不到後端而無法啟動 |
+| `BACKEND_URL` | 空 | 設定後才啟用 `/api/` 反向代理。填後端網址（不含路徑），`/api/v1/...` 原樣轉發；若帶路徑，開頭的 `/api/` 會換成該路徑。空值時不代理，nginx 不會因找不到後端而無法啟動 |
 
 - 映像檔：`node:22-alpine` 建置、`nginx:1.27-alpine` 提供靜態檔；上傳上限 12 MB；健康檢查 `GET /healthz` 回 `200 ok`。
 - 倉庫根目錄 `docker-compose.yml` 以 `./GoodMorning` 建置前端服務。
@@ -304,9 +302,9 @@ docker run --rm -p 8080:80 -e BACKEND_URL=http://backend:8080 good-morning
 
 1. **S3 bucket 必須開 CORS**（`GET`，`AllowedOrigins` 為前端網域）。編輯器用 canvas 合成背景圖，presigned URL 沒有 `Access-Control-Allow-Origin` 時畫布無法輸出 PNG。
 2. **下載 API 需支援 fetch**：前端以 `fetch` 取得 PNG，會讀取 `Content-Disposition` 檔名。
-3. **背景資料表**：前端以**名稱**對應 `public/data/backgrounds.json`，取得攝影師標示與經緯度；名稱對不到的背景照常可用，只是不顯示攝影師、不參與「離我最近」排序（至少兩個背景有經緯度時才顯示該按鈕）。目前後端只種了 1 張（台北晨曦）；`docs/backend-landmark-backgrounds.sql` 是 10 張台北地標的建議 migration，照片需先上傳到 S3 的同名 object key。
-4. **QR Code 版面**（mock 已實作，見 `src/editor/qr.ts`）：右下角距邊 28px、白底圓角卡 260 × 340、6px #5AB4C5 外框、QR 220 × 220、quiet zone 2 模組、錯誤修正 M；下方第一列「掃我看政策」，第二列台北通 logo＋小字作品日期（台北時間 `YYYY.MM.DD`，20px Grey/600）。前端預覽虛線框使用同一組數字（`QR_LAYOUT`）。**後端合成下載圖時請一併加上日期列並把卡片高度改為 340。**
-5. **每日製作上限**：超過時 `POST /artworks` 回 `429`、Problem Details `code: "DAILY_LIMIT_REACHED"`（openapi v0.1.0 尚未定義）。前端用 `GET /me/artworks?size=3` 的 `createdAt` 估算今天的張數，只用於提示；真正的限制由後端負責。上限在 `src/config/limits.ts` 的 `DAILY_ARTWORK_LIMIT`，前後端需一致。
+3. **背景由前端決定**：畫面上的背景清單、照片、經緯度與解鎖門檻都來自前端圖庫 `public/data/backgrounds.json`，解鎖依 `GET /api/v1/me` 回傳的這位使用者 `artworkCount` 計算，所以「離我最近」排序與解鎖都不需要後端改資料。照片與前端同網域，不需要 S3 CORS。`GET /api/v1/backgrounds` 只用來決定儲存時送哪個 `backgroundId`（見第 5 節）；後端要保留至少一張 `unlock_threshold = 0` 的背景。`docs/backend-landmark-backgrounds.sql` 可讓後端紀錄實際使用的地標，非必要。
+4. **QR Code 版面**（mock 已實作，見 `src/editor/qr.ts`）：右下角距邊 28px、白底圓角卡 260 × 296、6px #5AB4C5 外框，卡片內是 QR 220 × 220（quiet zone 2 模組、錯誤修正 M）與「掃我看政策」；卡片外正下方一列放台北通 logo（白色圓底）＋作品日期（台北時間 `YYYY.MM.DD`，24px 白字黑邊），整個區塊高 340、離右下各 28px。前端預覽虛線框使用同一組數字（`QR_LAYOUT`、`qrZone()`）。**後端合成下載圖時請照此版面加上 logo 與日期。**
+5. **每日製作上限**：超過時 `POST /api/v1/artworks` 回 `429`、Problem Details `code: "DAILY_LIMIT_REACHED"`（openapi v0.1.0 尚未定義）。前端用 `GET /api/v1/me/artworks?size=3` 的 `createdAt` 估算今天的張數，只用於提示；真正的限制由後端負責。上限在 `src/config/limits.ts` 的 `DAILY_ARTWORK_LIMIT`，前後端需一致。
 6. **錯誤碼**：前端依 HTTP status 與 `code` 顯示白話訊息（`src/api/errors.ts`）。
 7. **presigned URL 15 分鐘到期**：圖片載入失敗時前端重抓一次清單。
 
@@ -359,7 +357,7 @@ docker run --rm -p 8080:80 -e BACKEND_URL=http://backend:8080 good-morning
 
 ### 執行階段
 
-產品執行階段不使用任何 AI 模型。政策標語由人撰寫與審核，系統不自動生成政策內容。
+產品執行階段不使用任何 AI 模型。政策標語由人撰寫與審核，使用者不能修改，系統也不自動生成政策內容。
 
 ## License
 

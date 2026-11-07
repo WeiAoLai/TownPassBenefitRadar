@@ -59,7 +59,7 @@ const getProfile = () => townPassAccount.value
 let mockPromise: Promise<Api> | null = null
 const loadMock = () => (mockPromise ??= import('./mock').then((m) => m.createMockApi(getUser, getProfile)))
 
-const http = apiMode === 'http' ? createHttpApi(import.meta.env.VITE_API_BASE_URL || '/api', getUser) : null
+const http = apiMode === 'http' ? createHttpApi(import.meta.env.VITE_API_BASE_URL || '/api/v1', getUser) : null
 
 /** mock 模式延遲載入，正式 bundle 不會帶入 mock 與 QR 合成程式 */
 export const api: Api = new Proxy({} as Api, {

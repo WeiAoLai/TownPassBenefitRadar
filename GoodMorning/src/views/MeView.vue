@@ -10,6 +10,7 @@ import Icon from '../components/Icon.vue'
 import { BADGES, badgeArtUrl, nextBadge } from '../config/badges'
 import { unlockAudio } from '../composables/sound'
 import { toast } from '../composables/toast'
+import { catalogBackgrounds, loadBackgroundCatalog } from '../data/backgrounds'
 import { cancelDailyReminder, getDailyReminder, inTownPass, setDailyReminder } from '../composables/bridge'
 
 const me = ref<CurrentUser | null>(null)
@@ -51,7 +52,13 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const [u, bgs, arts] = await Promise.all([api.getCurrentUser(), api.listBackgrounds(), api.listMyArtworks(0, 12)])
+    const [u, arts, cat] = await Promise.all([
+      api.getCurrentUser(),
+      api.listMyArtworks(0, 12),
+      loadBackgroundCatalog().catch(() => null),
+    ])
+    // 背景與解鎖由前端圖庫決定，依這位使用者的作品數計算；圖庫載入失敗才退回後端清單
+    const bgs = cat ? catalogBackgrounds(cat.backgrounds, u.artworkCount) : await api.listBackgrounds()
     me.value = u
     backgrounds.value = bgs
     items.value = arts.content

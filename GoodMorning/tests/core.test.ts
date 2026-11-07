@@ -89,6 +89,34 @@ describe('文字排版', () => {
     expect(l.box.y).toBeGreaterThanOrEqual(0)
   })
 
+  it('橫書：拖把手改變文字框寬度，字級不變、改變換行', () => {
+    const text = '十一月地價稅開徵記得準時繳納'
+    const wide = layoutLayer({ ...base, text, size: 80, boxW: 800 }, mono)
+    const narrow = layoutLayer({ ...base, text, size: 80, boxW: 400 }, mono)
+    expect(wide.fontSize).toBe(80)
+    expect(narrow.fontSize).toBe(80)
+    expect(narrow.glyphs.length).toBeGreaterThan(wide.glyphs.length)
+    // 框寬照設定（加上內距）
+    expect(narrow.box.w).toBeCloseTo(400 + 80 * 0.5)
+  })
+
+  it('直書：拖把手改變文字框高度，字級不變、改變每行字數', () => {
+    const text = '早安平安健康快樂'
+    const tall = layoutLayer({ ...base, text, size: 100, vertical: true, boxH: 900 }, mono)
+    const short = layoutLayer({ ...base, text, size: 100, vertical: true, boxH: 450 }, mono)
+    expect(tall.fontSize).toBe(100)
+    expect(short.fontSize).toBe(100)
+    const cols = (l: typeof tall) => new Set(l.glyphs.map((g) => Math.round(g.cx))).size
+    expect(cols(short)).toBeGreaterThan(cols(tall))
+  })
+
+  it('文字框比文字大時，框照設定、文字置中', () => {
+    const l = layoutLayer({ ...base, text: '早安', size: 100, boxW: 600, boxH: 400 }, mono)
+    expect(l.box.w).toBeCloseTo(600 + 50)
+    expect(l.box.h).toBeCloseTo(400 + 50)
+    expect(l.glyphs[0].cx).toBeCloseTo(SIZE / 2)
+  })
+
   it('空字串不產生字形', () => {
     expect(layoutLayer({ ...base, text: '   ' }, mono).glyphs).toHaveLength(0)
   })

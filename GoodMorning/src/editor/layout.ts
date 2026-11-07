@@ -12,8 +12,14 @@ export interface TextLayer {
   text: string
   x: number
   y: number
-  /** 期望字級（px @1080）；放不下時自動縮小 */
+  /** 期望字級（px @1080）；只有超出畫布時才自動縮小 */
   size: number
+  /**
+   * 使用者拖曳把手設定的文字框大小（px @1080，不含內距）。
+   * 橫書：寬度決定每行多長、自動換行；直書：高度決定每行幾個字。沒設定就依文字自動決定。
+   */
+  boxW?: number
+  boxH?: number
   vertical: boolean
   styleId: string
   font: FontKey
@@ -103,25 +109,33 @@ function tryLayout(layer: TextLayer, fontSize: number, measure: Measure): Layout
   let w: number
   let h: number
 
+  const frameW = layer.boxW ? Math.min(layer.boxW, maxW) : 0
+  const frameH = layer.boxH ? Math.min(layer.boxH, maxH) : 0
+
   if (!layer.vertical) {
     const lineH = fontSize * 1.22
-    const lines = wrapHorizontal(layer.text, fontSize, maxW, measure)
-    h = lines.length * lineH
-    if (h > maxH) return null
+    // 文字框寬度決定換行位置
+    const lines = wrapHorizontal(layer.text, fontSize, frameW || maxW, measure)
+    const contentH = lines.length * lineH
+    if (contentH > maxH) return null
     const widths = lines.map((l) => measure(l, fontSize))
-    w = Math.max(0, ...widths)
-    lines.forEach((l, i) => glyphs.push({ text: l, cx: 0, cy: -h / 2 + lineH * (i + 0.5), w: widths[i], h: fontSize }))
+    w = Math.max(frameW, ...widths)
+    h = Math.max(frameH, contentH)
+    lines.forEach((l, i) => glyphs.push({ text: l, cx: 0, cy: -contentH / 2 + lineH * (i + 0.5), w: widths[i], h: fontSize }))
   } else {
     const step = fontSize * 1.08
     const colW = fontSize * 1.22
-    const rows = Math.max(1, Math.floor(maxH / step))
+    // 文字框高度決定每行幾個字
+    const rows = Math.max(1, Math.floor((frameH || maxH) / step))
     const cols = columnsVertical(layer.text, rows)
-    w = cols.length * colW
-    if (w > maxW) return null
-    h = Math.max(0, ...cols.map((c) => c.length)) * step
+    const contentW = cols.length * colW
+    if (contentW > maxW) return null
+    const contentH = Math.max(0, ...cols.map((c) => c.length)) * step
+    w = Math.max(frameW, contentW)
+    h = Math.max(frameH, contentH)
     cols.forEach((col, ci) => {
-      const cx = w / 2 - colW * (ci + 0.5) // 由右至左
-      col.forEach((ch, ri) => glyphs.push({ text: ch, cx, cy: -h / 2 + step * (ri + 0.5), w: fontSize, h: fontSize }))
+      const cx = contentW / 2 - colW * (ci + 0.5) // 由右至左
+      col.forEach((ch, ri) => glyphs.push({ text: ch, cx, cy: -contentH / 2 + step * (ri + 0.5), w: fontSize, h: fontSize }))
     })
   }
 

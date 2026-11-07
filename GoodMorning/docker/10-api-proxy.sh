@@ -1,7 +1,7 @@
 #!/bin/sh
 # 有設定 BACKEND_URL 才產生 /api/ 反向代理；沒設定（mock 模式）就不產生，nginx 不會因找不到後端而無法啟動。
-#   BACKEND_URL=http://backend:8080                     → /api/me 原樣轉發到 http://backend:8080/api/me
-#   BACKEND_URL=http://xxx.elb.amazonaws.com/api/v1     → /api/me 轉發到 http://xxx.elb.amazonaws.com/api/v1/me
+#   BACKEND_URL=http://xxx.elb.amazonaws.com   → /api/v1/me 原樣轉發到 http://xxx.elb.amazonaws.com/api/v1/me
+#   BACKEND_URL 若帶路徑（例如 http://host/prefix），開頭的 /api/ 會換成該路徑
 set -eu
 mkdir -p /etc/nginx/conf.d/api
 rm -f /etc/nginx/conf.d/api/api.conf

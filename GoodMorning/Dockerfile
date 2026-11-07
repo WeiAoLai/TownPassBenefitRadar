@@ -4,9 +4,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-# mock：瀏覽器內示範資料，不需後端；http：串接 openapi.yaml 的後端（同網域 /api）
+# mock：瀏覽器內示範資料，不需後端；http：串接 openapi.yaml 的後端（同網域 /api/v1）
 ARG VITE_API_MODE=mock
-ARG VITE_API_BASE_URL=/api
+ARG VITE_API_BASE_URL=/api/v1
 ARG VITE_DEMO_USERS=user-a,user-b,user-c
 ENV VITE_API_MODE=$VITE_API_MODE VITE_API_BASE_URL=$VITE_API_BASE_URL VITE_DEMO_USERS=$VITE_DEMO_USERS
 RUN npm run build
