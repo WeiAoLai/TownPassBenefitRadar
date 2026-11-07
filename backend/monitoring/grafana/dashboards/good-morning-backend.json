@@ -1,307 +1,221 @@
 {
-  "annotations": {
-    "list": []
-  },
+  "annotations": {"list": []},
+  "description": "提供後端維運與故障排查使用，依序檢查 API、JVM／資料庫與應用程式錯誤紀錄。",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
   "links": [],
   "panels": [
+    {"collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}, "id": 100, "panels": [], "title": "API 健康與效能", "type": "row"},
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 0
-      },
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Prometheus 最近一次是否成功抓取後端。離線時先檢查 API container、management port 8081 與 Prometheus target。",
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "text": "離線"}, "1": {"color": "green", "text": "正常"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
       "id": 1,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"good-morning\"}[5m]))",
-          "legendFormat": "requests/sec",
-          "refId": "A"
-        }
-      ],
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "max(up{job=\"good-morning\"})", "instant": true, "refId": "A"}],
+      "title": "API 服務狀態",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "最近五分鐘每秒請求數，排除 Actuator。突增時搭配 endpoint 排行確認流量來源。",
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 5, "x": 4, "y": 1},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{application=\"good-morning\",uri!~\"/actuator.*\"}[5m]))", "refId": "A"}],
       "title": "Request rate",
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "max": 1,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 0.01
-              }
-            ]
-          },
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "sum(rate(http_server_requests_seconds_count{application=\"good-morning\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"good-morning\"}[5m])), 0.000001)",
-          "legendFormat": "5xx ratio",
-          "refId": "A"
-        }
-      ],
-      "title": "5xx error ratio",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "最近五分鐘所有 API 的 5xx 比例。超過 1% 為紅色，應立即查看下方 ERROR log 與 dependency failure。",
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.005}, {"color": "red", "value": 0.01}]}, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 5, "x": 9, "y": 1},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{application=\"good-morning\",status=~\"5..\",uri!~\"/actuator.*\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"good-morning\",uri!~\"/actuator.*\"}[5m])), 0.000001)", "refId": "A"}],
+      "title": "5xx 錯誤率",
       "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 3,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"good-morning\"}[5m])))",
-          "legendFormat": "p95",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"good-morning\"}[5m])))",
-          "legendFormat": "p50",
-          "refId": "B"
-        }
-      ],
-      "title": "HTTP latency",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 8
-      },
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "95% API 請求會在此時間內完成。超過 1 秒為紅色；請從 endpoint p95 排行找出最慢路徑。",
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 1}]}, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 5, "x": 14, "y": 1},
       "id": 4,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum(jvm_memory_used_bytes{application=\"good-morning\",area=\"heap\"})",
-          "legendFormat": "used",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(jvm_memory_max_bytes{application=\"good-morning\",area=\"heap\"})",
-          "legendFormat": "max",
-          "refId": "B"
-        }
-      ],
-      "title": "JVM heap",
-      "type": "timeseries"
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"good-morning\",uri!~\"/actuator.*\"}[5m])))", "refId": "A"}],
+      "title": "整體 p95 延遲",
+      "type": "stat"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 8
-      },
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Spring Boot process CPU 使用率。超過 80% 為紅色；若延遲同時升高，檢查影像處理或流量尖峰。",
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.7}, {"color": "red", "value": 0.8}]}, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 5, "x": 19, "y": 1},
       "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "expr": "hikaricp_connections_active{application=\"good-morning\"}",
-          "legendFormat": "active",
-          "refId": "A"
-        },
-        {
-          "expr": "hikaricp_connections_pending{application=\"good-morning\"}",
-          "legendFormat": "pending",
-          "refId": "B"
-        }
-      ],
-      "title": "Database connections",
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "process_cpu_usage{application=\"good-morning\"}", "refId": "A"}],
+      "title": "Process CPU",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "依 method 與 URI 顯示 request rate。流量最高的 endpoint 通常是容量規劃與快取優化的第一順位。",
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 8, "x": 0, "y": 5},
+      "id": 6,
+      "options": {"cellHeight": "sm", "showHeader": true},
+      "targets": [{"expr": "sort_desc(sum by (method, uri) (rate(http_server_requests_seconds_count{application=\"good-morning\",uri!~\"/actuator.*\",uri!=\"UNKNOWN\"}[5m])))", "format": "table", "instant": true, "legendFormat": "{{method}} {{uri}}", "refId": "A"}],
+      "title": "Endpoint 請求率排行",
+      "type": "table"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "依 method 與 URI 顯示 p95 latency。超過 1 秒的 endpoint 應優先檢查 DB query、S3 與 QR code／影像處理。",
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 1}]}, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 8, "x": 8, "y": 5},
+      "id": 7,
+      "options": {"cellHeight": "sm", "showHeader": true},
+      "targets": [{"expr": "sort_desc(histogram_quantile(0.95, sum by (le, method, uri) (rate(http_server_requests_seconds_bucket{application=\"good-morning\",uri!~\"/actuator.*\",uri!=\"UNKNOWN\"}[5m]))))", "format": "table", "instant": true, "legendFormat": "{{method}} {{uri}}", "refId": "A"}],
+      "title": "Endpoint p95 延遲排行",
+      "type": "table"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "依 method 與 URI 顯示 5xx 比例。超過 1% 為紅色；搭配 traceId 與下方 log 找出錯誤原因。",
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.005}, {"color": "red", "value": 0.01}]}, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 9, "w": 8, "x": 16, "y": 5},
+      "id": 8,
+      "options": {"cellHeight": "sm", "showHeader": true},
+      "targets": [{"expr": "sort_desc(sum by (method, uri) (rate(http_server_requests_seconds_count{application=\"good-morning\",status=~\"5..\",uri!~\"/actuator.*\",uri!=\"UNKNOWN\"}[5m])) / clamp_min(sum by (method, uri) (rate(http_server_requests_seconds_count{application=\"good-morning\",uri!~\"/actuator.*\",uri!=\"UNKNOWN\"}[5m])), 0.000001))", "format": "table", "instant": true, "legendFormat": "{{method}} {{uri}}", "refId": "A"}],
+      "title": "Endpoint 5xx 比例",
+      "type": "table"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "各 HTTP status 每秒出現次數。4xx 增加通常是輸入或前端呼叫問題；5xx 增加代表後端或依賴服務異常。",
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 14},
+      "id": 9,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "sum by (status) (rate(http_server_requests_seconds_count{application=\"good-morning\",uri!~\"/actuator.*\"}[5m]))", "legendFormat": "HTTP {{status}}", "refId": "A"}],
+      "title": "HTTP status 分布",
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "max": 1,
-          "min": 0,
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 8
-      },
-      "id": 6,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "expr": "process_cpu_usage{application=\"good-morning\"}",
-          "legendFormat": "process",
-          "refId": "A"
-        }
-      ],
-      "title": "Process CPU",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "整體 p50、p95、p99 latency 趨勢。p99 單獨升高代表少數慢請求，應查看 endpoint 排行與 error log。",
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 14},
+      "id": 10,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"good-morning\",uri!~\"/actuator.*\"}[5m])))", "legendFormat": "p50", "refId": "A"}, {"expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"good-morning\",uri!~\"/actuator.*\"}[5m])))", "legendFormat": "p95", "refId": "B"}, {"expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"good-morning\",uri!~\"/actuator.*\"}[5m])))", "legendFormat": "p99", "refId": "C"}],
+      "title": "HTTP latency 百分位",
       "type": "timeseries"
+    },
+    {"collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 21}, "id": 200, "panels": [], "title": "JVM 與資料庫資源", "type": "row"},
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Heap 已用容量占最大容量比例。超過 80% 為紅色；若持續上升且 GC 後不下降，可能有記憶體洩漏或配置不足。",
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.7}, {"color": "red", "value": 0.8}]}, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 8, "x": 0, "y": 22},
+      "id": 11,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"expr": "sum(jvm_memory_used_bytes{application=\"good-morning\",area=\"heap\"}) / clamp_min(sum(jvm_memory_max_bytes{application=\"good-morning\",area=\"heap\"}), 1)", "legendFormat": "Heap", "refId": "A"}],
+      "title": "JVM Heap 使用率",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "GC pause p95。若暫停時間與 Heap 同時升高，表示 JVM 正承受記憶體回收壓力。",
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 8, "x": 8, "y": 22},
+      "id": 12,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(jvm_gc_pause_seconds_bucket{application=\"good-morning\"}[5m])))", "legendFormat": "GC pause p95", "refId": "A"}],
+      "title": "GC 暫停時間",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "JVM live 與 peak thread 數。live thread 持續攀升時需檢查 thread leak、阻塞 I/O 或未釋放 executor。",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 8, "x": 16, "y": 22},
+      "id": 13,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "jvm_threads_live_threads{application=\"good-morning\"}", "legendFormat": "live", "refId": "A"}, {"expr": "jvm_threads_peak_threads{application=\"good-morning\"}", "legendFormat": "peak", "refId": "B"}],
+      "title": "JVM Thread",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "HikariCP active、idle 與 max connections。active 長期接近 max 時可能需要優化慢查詢或調整 pool。",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 29},
+      "id": 14,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "hikaricp_connections_active{application=\"good-morning\"}", "legendFormat": "active", "refId": "A"}, {"expr": "hikaricp_connections_idle{application=\"good-morning\"}", "legendFormat": "idle", "refId": "B"}, {"expr": "hikaricp_connections_max{application=\"good-morning\"}", "legendFormat": "max", "refId": "C"}],
+      "title": "DB connection pool",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "等待取得 DB connection 的請求數。正常應為 0；大於 0 立即顯示紅色，代表 pool 耗盡或查詢過慢。",
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 6, "x": 12, "y": 29},
+      "id": 15,
+      "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "hikaricp_connections_pending{application=\"good-morning\"}", "refId": "A"}],
+      "title": "DB pending connections",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Spring Boot process CPU 使用率。持續超過 80% 時，先比對流量、GC 與慢 endpoint。",
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.7}, {"color": "red", "value": 0.8}]}, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 6, "x": 18, "y": 29},
+      "id": 16,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"expr": "process_cpu_usage{application=\"good-morning\"}", "legendFormat": "CPU", "refId": "A"}],
+      "title": "Process CPU 趨勢",
+      "type": "timeseries"
+    },
+    {"collapsed": false, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 36}, "id": 300, "panels": [], "title": "錯誤與依賴服務 Log", "type": "row"},
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "description": "最近的 WARN 與 ERROR application log。展開單筆可查看 traceId，並用相同 traceId 搜尋完整 request 流程。",
+      "gridPos": {"h": 11, "w": 12, "x": 0, "y": 37},
+      "id": 17,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"expr": "{compose_project=\"good-morning\", compose_service=\"api\"} |~ \"level=(WARN|ERROR)\"", "refId": "A"}],
+      "title": "WARN／ERROR Log",
+      "type": "logs"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "description": "只顯示 S3、其他 dependency failure 與未處理例外。出現資料時先確認外部服務、網路、權限與同一 traceId 的 request log。",
+      "gridPos": {"h": 11, "w": 12, "x": 12, "y": 37},
+      "id": 18,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"expr": "{compose_project=\"good-morning\", compose_service=\"api\"} |~ \"api_dependency_failure|unhandled_exception|STORAGE_UNAVAILABLE\"", "refId": "A"}],
+      "title": "Dependency failure",
+      "type": "logs"
     }
   ],
   "refresh": "10s",
   "schemaVersion": 41,
-  "tags": [
-    "good-morning",
-    "spring-boot"
-  ],
-  "templating": {
-    "list": []
-  },
-  "time": {
-    "from": "now-1h",
-    "to": "now"
-  },
+  "tags": ["good-morning", "operations", "中文"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
   "timepicker": {},
   "timezone": "browser",
-  "title": "Good Morning Backend",
+  "title": "Good Morning｜維運排查",
   "uid": "good-morning-backend",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

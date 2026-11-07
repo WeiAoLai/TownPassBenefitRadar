@@ -1,0 +1,153 @@
+{
+  "annotations": {"list": []},
+  "description": "提供展示與簡報使用的系統健康及業務活動總覽；預設觀察最近十五分鐘。",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Prometheus 能否抓到後端服務。顯示離線時，先檢查 API container、8081 management port 與 Prometheus target。",
+      "fieldConfig": {"defaults": {"mappings": [{"options": {"0": {"color": "red", "text": "離線"}, "1": {"color": "green", "text": "正常"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 3, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "max(up{job=\"good-morning\"})", "instant": true, "refId": "A"}],
+      "title": "API 服務狀態",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "最近五分鐘平均每秒 API 請求數，已排除 Actuator。數值會隨 demo 操作即時變化。",
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 3, "x": 3, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{application=\"good-morning\",uri!~\"/actuator.*\"}[5m]))", "refId": "A"}],
+      "title": "即時請求量",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "非 5xx 的請求比例。低於 99% 會顯示紅色，代表後端錯誤率超過 1%，應查看維運排查 Dashboard 的錯誤 log。",
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 0.99}]}, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 3, "x": 6, "y": 0},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "1 - (sum(rate(http_server_requests_seconds_count{application=\"good-morning\",status=~\"5..\",uri!~\"/actuator.*\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"good-morning\",uri!~\"/actuator.*\"}[5m])), 0.000001))", "refId": "A"}],
+      "title": "非 5xx 成功率",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "95% API 請求會在此時間內完成。超過 0.5 秒為黃色、超過 1 秒為紅色，需依 endpoint 排查 DB、S3 或影像處理。",
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "red", "value": 1}]}, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 3, "x": 9, "y": 0},
+      "id": 4,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"good-morning\",uri!~\"/actuator.*\"}[5m])))", "refId": "A"}],
+      "title": "API p95 延遲",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "目前時間範圍內成功提交的作品建立交易數；DB rollback 或 S3 失敗不會計入。",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 3, "x": 12, "y": 0},
+      "id": 5,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(increase(good_morning_artworks_created_total[$__range])) or vector(0)", "instant": true, "refId": "A"}],
+      "title": "作品建立數",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "目前時間範圍內非作者完成的有效下載數；作者自行下載不計入，避免灌高人氣。",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 3, "x": 15, "y": 0},
+      "id": 6,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(increase(good_morning_artworks_downloaded_total[$__range])) or vector(0)", "instant": true, "refId": "A"}],
+      "title": "有效下載數",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "目前時間範圍內真正新增的按讚數；重複 PUT 不會重複計算。",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 3, "x": 18, "y": 0},
+      "id": 7,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(increase(good_morning_artwork_likes_total{action=\"like\"}[$__range])) or vector(0)", "instant": true, "refId": "A"}],
+      "title": "新增按讚數",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "目前時間範圍內真正移除的按讚數；重複 DELETE 不會重複計算。",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 4, "w": 3, "x": 21, "y": 0},
+      "id": 8,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "sum(increase(good_morning_artwork_likes_total{action=\"unlike\"}[$__range])) or vector(0)", "instant": true, "refId": "A"}],
+      "title": "取消按讚數",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Spring Boot process CPU 使用率。超過 70% 為黃色、80% 為紅色；持續偏高時需檢查流量與影像處理負載。",
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.7}, {"color": "red", "value": 0.8}]}, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 4},
+      "id": 9,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"expr": "process_cpu_usage{application=\"good-morning\"}", "legendFormat": "CPU", "refId": "A"}],
+      "title": "CPU 使用率",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "JVM Heap 已用容量占最大容量比例。超過 80% 為紅色；若伴隨頻繁 GC，需檢查記憶體壓力。",
+      "fieldConfig": {"defaults": {"max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.7}, {"color": "red", "value": 0.8}]}, "unit": "percentunit"}, "overrides": []},
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 4},
+      "id": 10,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "list", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "single", "sort": "none"}},
+      "targets": [{"expr": "sum(jvm_memory_used_bytes{application=\"good-morning\",area=\"heap\"}) / clamp_min(sum(jvm_memory_max_bytes{application=\"good-morning\",area=\"heap\"}), 1)", "legendFormat": "Heap", "refId": "A"}],
+      "title": "JVM Heap 使用率",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "API request rate 與 p95 延遲趨勢。流量未增加但延遲上升時，應切換至維運排查 Dashboard 查看 endpoint 與資源。",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": [{"matcher": {"id": "byName", "options": "p95 延遲"}, "properties": [{"id": "unit", "value": "s"}]}]},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 4},
+      "id": 11,
+      "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{application=\"good-morning\",uri!~\"/actuator.*\"}[5m]))", "legendFormat": "每秒請求", "refId": "A"}, {"expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"good-morning\",uri!~\"/actuator.*\"}[5m])))", "legendFormat": "p95 延遲", "refId": "B"}],
+      "title": "流量與延遲趨勢",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "description": "即時顯示作品建立、按讚與下載事件。沒有資料時可先操作前端；若操作後仍無資料，檢查 Alloy 與 Loki。",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 10},
+      "id": 12,
+      "options": {"dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+      "targets": [{"expr": "{compose_project=\"good-morning\", compose_service=\"api\"} |~ \"artwork_(created|like_set|downloaded)\"", "refId": "A"}],
+      "title": "即時業務活動",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 41,
+  "tags": ["good-morning", "demo", "中文"],
+  "templating": {"list": []},
+  "time": {"from": "now-15m", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Good Morning｜Demo 總覽",
+  "uid": "good-morning-demo",
+  "version": 1,
+  "weekStart": ""
+}
