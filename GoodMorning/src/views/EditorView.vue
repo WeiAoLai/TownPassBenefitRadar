@@ -2,7 +2,8 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api'
-import { friendlyMessage } from '../api/errors'
+import { ApiError, friendlyMessage } from '../api/errors'
+import { DAILY_ARTWORK_LIMIT, DAILY_LIMIT_CODE, countToday, hoursUntilReset } from '../config/limits'
 import type { Artwork, Background, CurrentUser, Policy } from '../api/types'
 import BottomSheet from '../components/BottomSheet.vue'
 import BadgeCelebration from '../components/BadgeCelebration.vue'
@@ -87,6 +88,23 @@ const policies = ref<Policy[]>([])
 const loading = ref({ bg: true, cat: true, pol: false })
 const loadError = ref<string | null>(null)
 const saving = ref(false)
+
+/* ---------------- 每日製作上限（台北時間，一天 DAILY_ARTWORK_LIMIT 張） ---------------- */
+/** 今天已存幾張；null = 還不知道（載入中或查詢失敗，不擋使用者，交給後端判斷） */
+const todayCount = ref<number | null>(null)
+const remaining = computed(() => (todayCount.value == null ? null : Math.max(0, DAILY_ARTWORK_LIMIT - todayCount.value)))
+const limitReached = computed(() => remaining.value === 0)
+const limitMessage = computed(() => `今天的 ${DAILY_ARTWORK_LIMIT} 張做完了，${hoursUntilReset()} 小時後可以再做`)
+
+async function loadTodayCount() {
+  try {
+    // 我的作品依時間新到舊，前 N 張就足以判斷今天是否已達上限
+    const res = await api.listMyArtworks(0, DAILY_ARTWORK_LIMIT)
+    todayCount.value = countToday(res.content.map((a) => a.createdAt))
+  } catch {
+    todayCount.value = null
+  }
+}
 const randomizing = ref(false)
 const showQrZone = ref(true)
 const bgTainted = ref(false)
@@ -266,6 +284,7 @@ async function loadAll() {
       draft.backgroundId = bgs.find((b) => b.unlocked)?.id ?? null
     }
     if (!category.value || !cats.includes(category.value)) category.value = cats[0] ?? ''
+    loadTodayCount()
   } catch (e) {
     loadError.value = friendlyMessage(e)
   } finally {
@@ -388,9 +407,21 @@ const missing = computed(() => {
   return null
 })
 
+/** 底部提示：已達上限 > 還缺什麼 > 今天還剩幾張 */
+const saveHint = computed(() => {
+  if (limitReached.value) return limitMessage.value
+  if (missing.value) return missing.value
+  if (remaining.value != null && remaining.value < DAILY_ARTWORK_LIMIT) return `今天還能存 ${remaining.value} 張`
+  return null
+})
+
 async function save() {
   // 儲存後若拿到新徽章會播慶祝音效；瀏覽器要在「點擊當下」才允許解鎖聲音，所以放在最前面
   unlockAudio()
+  if (limitReached.value) {
+    toast(limitMessage.value, 'info', 5000)
+    return
+  }
   if (missing.value) {
     toast(missing.value, 'info')
     if (!draft.backgroundId) tool.value = 'bg'
@@ -433,10 +464,13 @@ async function save() {
     const unlocked = bgs.filter((b) => b.unlocked && backgrounds.value.some((o) => o.id === b.id && !o.unlocked))
     me.value = after ?? me.value
     backgrounds.value = bgs
+    if (todayCount.value != null) todayCount.value += 1
     saved.value = { artwork, before, after, unlocked }
     const gained = after?.badge
     if (gained && gained.level !== before?.badge?.level) celebrate.value = { level: gained.level, name: gained.name }
   } catch (e) {
+    // 後端說今天已滿（例如在別支手機做過）：同步前端狀態
+    if (e instanceof ApiError && e.code === DAILY_LIMIT_CODE) todayCount.value = DAILY_ARTWORK_LIMIT
     // 草稿保留，使用者可以直接再按一次儲存
     toast(friendlyMessage(e), 'error')
   } finally {
@@ -779,8 +813,8 @@ const canvasLabel = computed(() => {
 
     <!-- Figma Section_one line text_button/m：固定在畫面底部，按鈕不會被捲走 -->
     <div class="section-bar actionbar">
-      <p class="one-line" :id="missing ? 'save-hint' : undefined" aria-live="polite">
-        {{ missing ?? '按住圖上的文字可以拖曳位置' }}
+      <p class="one-line" :id="saveHint ? 'save-hint' : undefined" aria-live="polite">
+        {{ saveHint ?? '按住圖上的文字可以拖曳位置' }}
       </p>
       <div class="btns">
         <button type="button" class="btn" :disabled="randomizing || !!loadError" @click="randomize">
@@ -789,11 +823,11 @@ const canvasLabel = computed(() => {
         <button
           type="button"
           class="btn primary"
-          :disabled="saving || !!loadError"
-          :aria-describedby="missing ? 'save-hint' : undefined"
+          :disabled="saving || !!loadError || limitReached"
+          :aria-describedby="saveHint ? 'save-hint' : undefined"
           @click="save"
         >
-          <Icon name="check" :size="20" /> {{ saving ? '儲存中…' : '儲存作品' }}
+          <Icon name="check" :size="20" /> {{ saving ? '儲存中…' : limitReached ? '今天已做滿' : '儲存作品' }}
         </button>
       </div>
     </div>
@@ -807,6 +841,9 @@ const canvasLabel = computed(() => {
         <p class="saved-count">
           這是你的第 <strong>{{ saved.after?.artworkCount ?? '—' }}</strong> 張作品
         </p>
+        <p v-if="remaining != null" class="saved-left small muted">
+          {{ remaining > 0 ? `今天還能再做 ${remaining} 張` : `今天的 ${DAILY_ARTWORK_LIMIT} 張做完了，明天再來！` }}
+        </p>
         <div v-for="b in saved.unlocked" :key="b.id" class="reward">
           <span class="reward-title">解鎖新背景「{{ b.name }}」</span>
           <button type="button" class="btn" @click="useUnlocked(b)">馬上用</button>
@@ -815,7 +852,7 @@ const canvasLabel = computed(() => {
           <button type="button" class="btn primary block large" @click="saveToPhone">
             <Icon name="download" :size="20" /> 存到手機相簿
           </button>
-          <button type="button" class="btn block large" @click="makeAnother">再做一張</button>
+          <button v-if="!limitReached" type="button" class="btn block large" @click="makeAnother">再做一張</button>
           <button type="button" class="btn text block" @click="router.push('/me')">看我的作品</button>
         </div>
       </div>
@@ -1268,6 +1305,10 @@ span.block {
 }
 .saved-count {
   text-align: center;
+}
+.saved-left {
+  text-align: center;
+  margin-top: -6px;
 }
 .reward {
   display: flex;

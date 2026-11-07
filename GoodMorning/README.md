@@ -13,7 +13,7 @@
 | US-01 選用景點背景 | 製作 › 背景 | 10 張臺北地標照片（Unsplash），鎖定的背景顯示「存 N 張解鎖」，並標示攝影師 |
 | US-02 依政策類別載入標語 | 製作 › 政策 | 類別 chip → 政策清單（單選），選定後標語自動帶入 |
 | US-03 隨機產生 | 製作 › 隨機 | `GET /policies/random`，並隨機挑問候語、文字樣式、已解鎖背景 |
-| US-04 儲存作品 | 製作 › 儲存 | 前端輸出 1080 × 1080 PNG → `POST /artworks`（multipart） |
+| US-04 儲存作品 | 製作 › 儲存 | 前端輸出 1080 × 1080 PNG → `POST /artworks`（multipart）；**每人每天最多 3 張**（台北時間） |
 | US-05 展示作品與解鎖背景 | 我的 | 個人作品格、待解鎖背景、儲存成功時提示新解鎖背景 |
 | US-06 作品排行榜 | 排行榜 | `GET /leaderboard`，顯示 competition rank 與分數 |
 | US-07 徽章 | 我的、排行榜、作品卡 | 目前等級、下一級進度條、十級徽章一覽 |
@@ -107,7 +107,7 @@ VITE_API_MODE=http API_PROXY_TARGET=http://localhost:8080 npm run dev
 
 ```sh
 npm run typecheck
-npm test          # 15 個單元測試：排行榜、徽章、排版、背景圖庫 JSON
+npm test          # 單元測試：排行榜、徽章、排版、背景圖庫 JSON、對比、分享、每日上限
 npm run build
 ```
 
@@ -120,7 +120,8 @@ npm run build
 5. **QR Code 版面建議**（mock 已依此實作，見 `src/editor/qr.ts`）：右下角距邊 28px、白底圓角卡 260 × 320、6px 主色（#5AB4C5）外框、QR 220 × 220、quiet zone 2 模組、錯誤修正 M、下方台北通 logo（官方 `logo_S.svg`，取自 taipei-doit/TownPass，GPL-3.0）＋「掃我看政策」。前端預覽的虛線提示框使用同一組數字，後端若改版面請同步 `QR_LAYOUT`。
 6. **錯誤碼**：前端依 HTTP status 顯示白話訊息（`src/api/errors.ts`），`code` 目前用到 `ARTWORK_IMAGE_INVALID`；其他 code 歡迎補進對照。
 7. **presigned URL 15 分鐘到期**：圖片載入失敗時，前端會重抓一次清單取得新 URL。
-8. **部署**：`Dockerfile` 以 nginx 提供靜態檔，`/api/` 反向代理到 `BACKEND_URL`（預設 `http://backend:8080`），上傳上限 12 MB。根目錄 `.github/workflows/deploy.yml` 目前的前端路徑是 `./frontend`，要部署本服務請把 `WORKING_DIRECTORY` 改為 `./GoodMorning`。
+8. **每日製作上限（後端必須實作）**：每人每天最多 3 張，以台北時間 00:00 為界。超過時 `POST /artworks` 回 `429`，Problem Details 的 `code` 為 `DAILY_LIMIT_REACHED`；前端看到這個 code 就顯示「今天已經做了 3 張，明天再來做吧！」並停用儲存鈕。openapi v0.1.0 尚未定義，請後端補上。前端用 `GET /me/artworks?size=3` 前 3 筆的 `createdAt` 算今天做了幾張，只用來提示，真正的限制以後端為準（換手機或清資料都擋得住）。上限數字在 `src/config/limits.ts` 的 `DAILY_ARTWORK_LIMIT`，前後端要一致。
+9. **部署**：`Dockerfile` 以 nginx 提供靜態檔，`/api/` 反向代理到 `BACKEND_URL`（預設 `http://backend:8080`），上傳上限 12 MB。根目錄 `.github/workflows/deploy.yml` 目前的前端路徑是 `./frontend`，要部署本服務請把 `WORKING_DIRECTORY` 改為 `./GoodMorning`。
 
 ```sh
 # mock 模式（不需後端，demo 用）
@@ -154,6 +155,7 @@ docker run --rm -p 8080:80 -e BACKEND_URL=http://host.docker.internal:9000 good-
 | 5 解鎖背景 | 圓山大飯店、國立故宮博物院，存滿 3 張解鎖 | `public/data/backgrounds.json` `unlockThreshold` |
 | 9 QR 規格 | 見上方第 4 點 | `editor/qr.ts` |
 | 10 下載格式 | 1080 × 1080 PNG（依 openapi） | — |
+| 每日上限 | 每人每天 3 張，台北時間 00:00 重置；只限制「儲存」，編輯、隨機、下載不受限。達上限時儲存鈕顯示「今天已做滿」、提示幾小時後可再做 | `config/limits.ts`、`EditorView.vue`、mock `createArtwork` |
 | 自己的照片 | openapi `backgroundId` 必填，用自己的照片時**仍送最後選的圖庫背景 id**（只當主題紀錄，不影響解鎖計算）；作品 PNG 本身已含使用者照片。建議後端之後加 `customBackground: boolean` 或讓 `backgroundId` 可為 null | `EditorView.vue` `save()` |
 
 ## 6. TownPass WebView 整合
