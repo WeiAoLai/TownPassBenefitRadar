@@ -112,10 +112,10 @@ onBeforeUnmount(() => {
   padding: 0 44px;
 }
 .sheet-title {
-  font-size: 1.25rem;
-  line-height: 1.75rem;
-  font-weight: 700;
-  color: var(--tp-grey-950);
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
+  color: var(--c-text);
   text-align: center;
 }
 .close {

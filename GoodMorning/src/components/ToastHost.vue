@@ -46,7 +46,7 @@ import { dismiss, liveMessage, toasts } from '../composables/toast'
   color: #fff;
   font-size: var(--tp-font-h3);
   line-height: var(--tp-lh-h3);
-  font-weight: 700;
+  font-weight: 600;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
   text-align: center;
 }
@@ -57,7 +57,7 @@ import { dismiss, liveMessage, toasts } from '../composables/toast'
   font-weight: 400;
 }
 .toast.success {
-  background: var(--tp-primary-700);
+  background: var(--c-action);
 }
 /* 深一階的紅：白字 5.64:1（red-500 只有 4.10） */
 .toast.error {

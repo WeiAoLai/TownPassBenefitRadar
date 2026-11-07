@@ -14,9 +14,13 @@ const route = useRoute()
 const art = ref<Artwork | null>(null)
 const error = ref<string | null>(null)
 const loading = ref(true)
+const imageReady = ref(false)
+const imageFailed = ref(false)
 
 async function load() {
   loading.value = true
+  imageReady.value = false
+  imageFailed.value = false
   announce('載入中')
   error.value = null
   try {
@@ -38,9 +42,24 @@ const when = (iso: string) =>
 /** presigned URL 到期時重抓一次 */
 let retried = false
 function onImgError() {
+  imageReady.value = false
+  imageFailed.value = true
   if (retried) return
   retried = true
   load()
+}
+
+async function onImgLoad(event: Event) {
+  const image = event.currentTarget as HTMLImageElement
+  try {
+    await image.decode()
+  } catch {
+    // 部分瀏覽器不支援 decode，load 完成後仍可安全顯示。
+  }
+  if (art.value && image.getAttribute('src') === art.value.imageUrl) {
+    imageReady.value = true
+    imageFailed.value = false
+  }
 }
 
 onMounted(load)
@@ -55,7 +74,19 @@ watch(() => route.params.id, load)
       <button class="btn primary" type="button" @click="load"><Icon name="refresh" /> 再試一次</button>
     </div>
     <article v-else-if="art" class="detail">
-      <img class="img card" :src="art.imageUrl" :alt="`長輩圖：${art.sloganText.replace(/\n/g, ' ')}`" @error="onImgError" />
+      <div class="image-frame card" :aria-busy="!imageReady && !imageFailed">
+        <span v-if="!imageReady && !imageFailed" class="image-placeholder skeleton" aria-hidden="true" />
+        <span v-else-if="imageFailed" class="image-error" role="img" aria-label="圖片載入失敗">圖片載入失敗</span>
+        <img
+          class="img"
+          :class="{ ready: imageReady }"
+          :src="art.imageUrl"
+          :alt="`長輩圖：${art.sloganText.replace(/\n/g, ' ')}`"
+          decoding="async"
+          @load="onImgLoad"
+          @error="onImgError"
+        />
+      </div>
 
       <div class="list">
         <div class="list-row">
@@ -105,10 +136,38 @@ watch(() => route.params.id, load)
   gap: 14px;
 }
 .ph,
-.img {
+.image-frame {
   width: 100%;
   aspect-ratio: 1;
+}
+.image-frame {
+  position: relative;
+  overflow: hidden;
+  background: var(--tp-grey-100);
+}
+.img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 160ms ease-out;
+}
+.img.ready {
+  opacity: 1;
+}
+.image-placeholder,
+.image-error {
+  position: absolute;
+  inset: 0;
+}
+.image-error {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  color: var(--tp-grey-700);
+  text-align: center;
 }
 .avatar {
   flex: none;
@@ -116,11 +175,11 @@ watch(() => route.params.id, load)
   height: 40px;
   border-radius: 50%;
   background: var(--tp-primary-100);
-  color: var(--tp-primary-700);
+  color: var(--c-action);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
+  font-weight: 600;
 }
 .name {
   font-weight: 600;

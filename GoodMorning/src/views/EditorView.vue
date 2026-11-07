@@ -14,7 +14,7 @@ import { announce, toast } from '../composables/toast'
 import { startDownload } from '../composables/artworkActions'
 import { unlockAudio } from '../composables/sound'
 import { draft, resetDraft } from '../editor/draft'
-import { SIZE, type Layout } from '../editor/layout'
+import { SIZE, alignOf, type Layout, type TextAlign } from '../editor/layout'
 import { qrZone } from '../editor/qr'
 import { HANDLE_R, exportPng, handlePoint, isTainted, loadImage, renderScene, styleSwatch } from '../editor/render'
 import { GREETING, POSITIONS, SLOGAN } from '../editor/scene'
@@ -40,6 +40,26 @@ const orientOptions = [
   { value: true, label: '直書', icon: 'vertical' },
   { value: false, label: '橫書', icon: 'horizontal' },
 ]
+/** 對齊：橫書是靠左／置中／靠右，直書是靠上／置中／靠下 */
+const alignOptions = computed(() =>
+  layer.value.vertical
+    ? [
+        { value: 'start' as TextAlign, label: '靠上', icon: 'align-top' },
+        { value: 'center' as TextAlign, label: '置中', icon: 'align-middle' },
+        { value: 'end' as TextAlign, label: '靠下', icon: 'align-bottom' },
+      ]
+    : [
+        { value: 'start' as TextAlign, label: '靠左', icon: 'align-left' },
+        { value: 'center' as TextAlign, label: '置中', icon: 'align-center' },
+        { value: 'end' as TextAlign, label: '靠右', icon: 'align-right' },
+      ],
+)
+const layerAlign = computed<TextAlign>({
+  get: () => alignOf(layer.value),
+  set: (v) => {
+    layer.value.align = v
+  },
+})
 
 const me = ref<CurrentUser | null>(null)
 const backgrounds = ref<Background[]>([])
@@ -77,7 +97,31 @@ async function loadTodayCount() {
 const randomizing = ref(false)
 const showQrZone = ref(true)
 const bgTainted = ref(false)
-const saved = ref<{ artwork: Artwork; before: CurrentUser | null; after: CurrentUser | null; unlocked: Background[] } | null>(null)
+const saved = ref<{
+  artwork: Artwork
+  before: CurrentUser | null
+  after: CurrentUser | null
+  unlocked: Background[]
+  /** 剛在手機上畫好的那張圖（blob URL）：不用再從網路下載，打開視窗就是完整的圖 */
+  preview: string
+} | null>(null)
+// 視窗關掉或換下一張時，釋放上一張預覽圖的記憶體
+watch(saved, (_now, before) => {
+  if (before?.preview && before.preview !== _now?.preview) URL.revokeObjectURL(before.preview)
+})
+
+/** 先把圖片解碼好，再打開視窗，避免圖片在視窗裡一段一段出現 */
+async function decodedUrl(blob: Blob): Promise<string> {
+  const url = URL.createObjectURL(blob)
+  const img = new Image()
+  img.src = url
+  try {
+    await img.decode()
+  } catch {
+    /* 舊瀏覽器沒有 decode()：照樣顯示，只是可能看到逐步載入 */
+  }
+  return url
+}
 /** 剛拿到的新徽章：有值時先顯示全螢幕慶祝畫面，關閉後才出現「儲存成功」視窗 */
 const celebrate = ref<{ level: number; name: string } | null>(null)
 
@@ -502,7 +546,9 @@ async function save() {
     serverBackgrounds.value = server
     backgrounds.value = bgs
     if (todayCount.value != null) todayCount.value += 1
-    saved.value = { artwork, before, after, unlocked }
+    // 「儲存中…」一直維持到預覽圖解碼完成，視窗一打開就是完整的圖
+    const preview = await decodedUrl(blob)
+    saved.value = { artwork, before, after, unlocked, preview }
     const gained = after?.badge
     if (gained && gained.level !== before?.badge?.level) celebrate.value = { level: gained.level, name: gained.name }
   } catch (e) {
@@ -770,7 +816,10 @@ const canvasLabel = computed(() => {
       </div>
 
       <h2 class="panel-title">排列</h2>
-      <Segmented v-model="layer.vertical" :options="orientOptions" label="文字排列方向" />
+      <div class="arrange">
+        <Segmented v-model="layer.vertical" :options="orientOptions" label="文字方向" icon-only />
+        <Segmented v-model="layerAlign" :options="alignOptions" label="對齊" icon-only />
+      </div>
 
       <h2 class="panel-title">字體</h2>
       <div class="chips" role="radiogroup" aria-label="字體">
@@ -853,7 +902,7 @@ const canvasLabel = computed(() => {
 
     <BottomSheet :open="!!saved && !celebrate" title="儲存成功" @close="saved = null">
       <div v-if="saved" class="saved">
-        <img class="saved-img" :src="saved.artwork.imageUrl" alt="剛儲存的長輩圖" />
+        <img class="saved-img" :src="saved.preview" width="1080" height="1080" alt="剛儲存的長輩圖" />
         <p class="saved-count">
           這是你的第 <strong>{{ saved.after?.artworkCount ?? '—' }}</strong> 張作品
         </p>
@@ -1031,9 +1080,9 @@ const canvasLabel = computed(() => {
   flex-shrink: 0;
 }
 .panel-title {
-  font-size: 1.25rem;
-  line-height: 1.75rem;
-  font-weight: 700;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
   margin-top: 6px;
 }
 .search input {
@@ -1066,7 +1115,7 @@ const canvasLabel = computed(() => {
   aspect-ratio: 1;
   border-radius: var(--radius-m);
   overflow: hidden;
-  border: 3px solid transparent;
+  border: 1px solid transparent;
   background: var(--tp-grey-100);
   min-height: 48px;
 }
@@ -1097,7 +1146,7 @@ const canvasLabel = computed(() => {
   padding: 18px 6px 5px;
   font-size: var(--tp-font-body);
   line-height: 1.25;
-  font-weight: 700;
+  font-weight: 600;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
@@ -1182,6 +1231,12 @@ h2.field-label {
   margin: 0;
   font-size: inherit;
 }
+/* 排列：方向（2 個圖示）＋對齊（3 個圖示）排在同一列，按鈕寬度一致 */
+.arrange {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 10px;
+}
 /* 政策類別：原生下拉選單（手機會叫出系統的選擇器） */
 .select-wrap {
   position: relative;
@@ -1199,11 +1254,12 @@ h2.field-label {
   background: var(--tp-grey-50);
   border: 1px solid var(--tp-grey-200);
   font: inherit;
-  font-size: 1.25rem;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
   color: var(--c-text);
 }
 .select:focus-visible {
-  outline: 3px solid var(--c-action);
+  outline: 3px solid var(--c-focus);
   outline-offset: 2px;
 }
 .select:disabled {
@@ -1217,6 +1273,17 @@ h2.field-label {
   pointer-events: none;
   color: var(--tp-grey-800);
 }
+/* 觸控裝置保留系統原生 select 外觀與選擇器。 */
+@media (pointer: coarse), (max-width: 767px) {
+  .select {
+    appearance: auto;
+    -webkit-appearance: menulist;
+    padding-right: 14px;
+  }
+  .select-arrow {
+    display: none;
+  }
+}
 /* 問候語（可編輯）與政策標語（唯讀）共用同一種文字框 */
 .text-box {
   display: block;
@@ -1227,8 +1294,8 @@ h2.field-label {
   background: var(--tp-grey-50);
   border: 1px solid var(--tp-grey-200);
   font: inherit;
-  font-size: 1.25rem;
-  line-height: 1.6;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
   white-space: pre-line;
   color: var(--c-text);
   resize: none;
@@ -1266,13 +1333,13 @@ textarea.text-box {
   gap: 4px;
   padding: 6px 2px;
   border-radius: var(--radius-m);
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   background: var(--c-surface);
 }
 .swatch img {
   width: 60px;
   height: 60px;
-  border-radius: 10px;
+  border-radius: var(--radius-s);
 }
 .swatch[aria-checked='true'] {
   border-color: var(--c-action);
@@ -1287,7 +1354,7 @@ textarea.text-box {
   align-items: center;
   justify-content: center;
   background: var(--c-surface);
-  border: 1.5px solid var(--tp-grey-200);
+  border: 1px solid var(--tp-grey-200);
   color: var(--tp-grey-700);
 }
 .round:active {
@@ -1309,7 +1376,7 @@ textarea.text-box {
 .pos {
   width: 48px;
   height: 48px;
-  border-radius: 10px;
+  border-radius: var(--radius-s);
   background: var(--tp-grey-100);
   display: flex;
   align-items: center;
@@ -1340,6 +1407,9 @@ span.block {
 }
 .saved-img {
   width: 70%;
+  height: auto;
+  /* 先保留正方形的位置，圖片出現時視窗不會跳動 */
+  aspect-ratio: 1;
   margin: 0 auto;
   border-radius: var(--radius-m);
   box-shadow: var(--shadow-1);

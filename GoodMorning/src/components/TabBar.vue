@@ -6,7 +6,6 @@ const route = useRoute()
 const tabs = [
   { key: 'feed', to: '/', label: '作品牆', icon: 'home' },
   { key: 'create', to: '/create', label: '製作', icon: 'brush' },
-  { key: 'rank', to: '/leaderboard', label: '排行榜', icon: 'trophy' },
   { key: 'me', to: '/me', label: '我的', icon: 'user' },
 ] as const
 </script>
@@ -39,7 +38,7 @@ const tabs = [
   background: var(--c-surface);
   border-top: 1px solid var(--c-line);
 }
-/* 長輩友善化：標籤 16px 半粗、圖示 28、高度 60；目前所在頁用深色＋粗體＋上方色條，不只靠顏色（原主色文字對白底 2.39:1） */
+/* 長輩友善化：標籤 16px、圖示 28、高度 60；目前所在頁用深色＋Semibold＋上方色條，不只靠顏色（原主色文字對白底 2.39:1） */
 .tab {
   flex: 1 1 0;
   min-width: 0;
@@ -53,11 +52,12 @@ const tabs = [
   text-decoration: none;
   font-size: var(--tp-font-body);
   line-height: var(--tp-lh-body);
-  font-weight: 600;
+  /* Figma：未選 Regular、選取 Semibold */
+  font-weight: 400;
 }
 .tab.active {
   color: var(--c-action);
-  font-weight: 800;
+  font-weight: 600;
 }
 .tab.active::before {
   content: '';

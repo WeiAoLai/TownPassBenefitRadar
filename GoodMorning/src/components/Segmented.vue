@@ -12,8 +12,10 @@ const props = withDefaults(
     label: string
     mode?: 'tabs' | 'radio'
     idPrefix?: string
+    /** 只顯示圖示；文字仍留給讀報軟體 */
+    iconOnly?: boolean
   }>(),
-  { mode: 'radio', idPrefix: 'seg' },
+  { mode: 'radio', idPrefix: 'seg', iconOnly: false },
 )
 const emit = defineEmits<{ 'update:modelValue': [T] }>()
 
@@ -33,7 +35,7 @@ function onKey(e: KeyboardEvent, i: number) {
 </script>
 
 <template>
-  <div class="seg" :role="mode === 'tabs' ? 'tablist' : 'radiogroup'" :aria-label="label">
+  <div class="seg" :class="{ 'icon-only': iconOnly }" :role="mode === 'tabs' ? 'tablist' : 'radiogroup'" :aria-label="label">
     <button
       v-for="(o, i) in options"
       :id="`${idPrefix}-tab-${o.value}`"
@@ -48,8 +50,8 @@ function onKey(e: KeyboardEvent, i: number) {
       @click="emit('update:modelValue', o.value)"
       @keydown="onKey($event, i)"
     >
-      <Icon v-if="o.icon" :name="o.icon" :size="20" />
-      <span>{{ o.label }}</span>
+      <Icon v-if="o.icon" :name="o.icon" :size="iconOnly ? 26 : 20" />
+      <span :class="{ 'visually-hidden': iconOnly && o.icon }">{{ o.label }}</span>
     </button>
   </div>
 </template>
@@ -67,7 +69,7 @@ function onKey(e: KeyboardEvent, i: number) {
 .seg-btn {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 52px;
+  min-height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -75,14 +77,15 @@ function onKey(e: KeyboardEvent, i: number) {
   padding: 0 6px;
   font-size: var(--tp-font-h3);
   line-height: var(--tp-lh-h3);
-  font-weight: 600;
+  /* Figma Tab：未選 Regular、選取 Semibold */
+  font-weight: 400;
   color: var(--tp-grey-800);
   position: relative;
 }
-/* 選取中：primary-700 粗體＋ 4px 底線（原主色 2.39:1） */
+/* 選取中：主色 primary-500 Semibold＋ 4px 底線 */
 .seg[role='tablist'] .seg-btn[aria-selected='true'] {
   color: var(--c-action);
-  font-weight: 800;
+  font-weight: 600;
 }
 .seg[role='tablist'] .seg-btn[aria-selected='true']::after {
   content: '';
@@ -95,26 +98,61 @@ function onKey(e: KeyboardEvent, i: number) {
   background: var(--c-action);
 }
 .seg[role='radiogroup'] {
-  border-bottom: 2px solid var(--tp-grey-400);
+  border-bottom: 1px solid var(--tp-grey-400);
 }
 .seg[role='radiogroup'] .seg-btn {
-  min-height: 52px;
+  min-height: 38px;
   background: var(--c-surface);
-  border: 2px solid var(--tp-grey-400);
+  border: 1px solid var(--tp-grey-400);
   border-bottom: 0;
   border-radius: 8px 8px 0 0;
 }
 .seg[role='radiogroup'] .seg-btn + .seg-btn {
-  margin-left: -2px;
+  margin-left: -1px;
 }
 .seg[role='radiogroup'] .seg-btn[aria-checked='true'] {
   background: var(--tp-primary-50);
-  color: var(--tp-primary-800);
-  font-weight: 800;
+  color: var(--c-action);
+  font-weight: 600;
   box-shadow: inset 0 -4px 0 var(--c-action);
 }
+/*
+ * 圖示按鈕組（icon-only）：一般按鈕外觀（四邊框、圓角 8），整組相連；
+ * 選取中為主色 primary-500 實心底＋白色圖示，不只靠顏色（還有實心底與加粗外框）
+ */
+.seg.icon-only[role='radiogroup'] {
+  border-bottom: 0;
+}
+.seg.icon-only[role='radiogroup'] .seg-btn {
+  min-height: 38px;
+  background: var(--c-surface);
+  color: var(--tp-grey-800);
+  border: 1px solid var(--tp-grey-400);
+  border-radius: 0;
+  box-shadow: none;
+}
+.seg.icon-only[role='radiogroup'] .seg-btn:first-child {
+  border-radius: 8px 0 0 8px;
+}
+.seg.icon-only[role='radiogroup'] .seg-btn:last-child {
+  border-radius: 0 8px 8px 0;
+}
+.seg.icon-only[role='radiogroup'] .seg-btn[aria-checked='true'] {
+  position: relative;
+  z-index: 1;
+  background: var(--c-action);
+  border-color: var(--c-action);
+  color: #fff;
+}
+.seg.icon-only[role='radiogroup'] .seg-btn:active {
+  background: var(--tp-primary-50);
+}
+.seg.icon-only[role='radiogroup'] .seg-btn[aria-checked='true']:active {
+  background: var(--c-action-press);
+}
+/* 窄螢幕時有文字的按鈕只留文字；只有圖示的按鈕（icon-only）不能藏 */
 @media (max-width: 400px) {
-  .seg-btn .icon {
+  .seg:not(.icon-only) .seg-btn .icon {
     display: none;
   }
 }

@@ -55,10 +55,14 @@
   --tp-lh-body: 1.5rem;
 
   /* 語意別名 */
-  /* Figma Semantic colors（3:390）：Background light=white、dark=Grey/50；Disable=Grey/100；Text=Grey/950、700、400 */
+  /*
+   * Figma Semantic colors（3:390，2026-11-08 重新核對）：Background=White／Grey/50；Disable=Gray/100；
+   * Text primary=Grey/800、second=Grey/700、direction（提示）=Gray/400；Alarm=Red/500（hover Red/300）；Reminder=Orange/500（hover Orange/300）
+   * Figma 字重只有 Regular 400／Semibold 600，網頁內不使用其他字重。
+   */
   --c-bg: var(--tp-grey-50);
   --c-surface: #ffffff;
-  --c-text: var(--tp-grey-950);
+  --c-text: var(--tp-grey-800);
   --c-text-2: var(--tp-grey-700);
   /* 對比（WCAG AA 一般文字 4.5:1）：grey-500 在白底只有 3.66，改用 grey-600（白底 5.35、頁面底 4.81） */
   --c-text-3: var(--tp-grey-600);
@@ -66,11 +70,17 @@
   --c-disable: var(--tp-grey-100);
   /* 主色 primary-500 只做裝飾（頭像、進度條、背景色塊）；白字 2.39:1、主色字 on 白 2.39:1，不能拿來放字或當唯一的狀態提示 */
   --c-brand: var(--tp-primary-500);
-  --c-brand-strong: var(--tp-primary-700);
+  --c-brand-strong: var(--tp-primary-500);
   --c-brand-soft: var(--tp-primary-50);
-  /* 可操作元件（按鈕、選取狀態、焦點框、連結）用 primary-700：白字 5.89、on primary-50 5.45、on 頁面底 5.30 */
-  --c-action: var(--tp-primary-700);
-  --c-action-press: var(--tp-primary-800);
+  /*
+   * 可操作元件（按鈕、選取狀態、連結）統一用 Figma 主色 primary-500（產品決定，2026-11-08）。
+   * 取捨：白字 on primary-500、primary-500 字 on 白都只有 2.39:1，未達 WCAG AA 4.5:1（README 無障礙對照表需記錄）。
+   * 按下狀態深一階 primary-600，才有按壓回饋。
+   */
+  --c-action: var(--tp-primary-500);
+  --c-action-press: var(--tp-primary-600);
+  /* 鍵盤焦點框維持 primary-700（對白底 5.89:1）：primary-500 只有 2.39:1，焦點會看不見 */
+  --c-focus: var(--tp-primary-700);
   --c-on-brand: #ffffff;
   --c-accent: var(--tp-secondary-500);
   --c-accent-soft: var(--tp-secondary-50);

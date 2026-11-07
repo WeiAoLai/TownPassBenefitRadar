@@ -63,6 +63,8 @@ button {
   border: 0;
   background: none;
   padding: 0;
+  /* 產品決定（2026-11-08）：所有按鈕外觀最小高度 38 */
+  min-height: 38px;
 }
 
 img {
@@ -81,9 +83,9 @@ a {
   color: var(--c-brand-strong);
 }
 
-/* 焦點框用 primary-700（對白底 5.89:1）；原本的金黃色對白底只有 1.75:1，看不見 */
+/* 焦點框用 --c-focus（primary-700，對白底 5.89:1）；主色 primary-500 只有 2.39:1，看不見 */
 :focus-visible {
-  outline: 3px solid var(--c-action);
+  outline: 3px solid var(--c-focus);
   outline-offset: 2px;
 }
 
@@ -110,9 +112,9 @@ a {
 
 /* Figma List item/title：48 高、H3 Semibold */
 .section-title {
-  font-size: 1.25rem;
-  line-height: 1.75rem;
-  font-weight: 700;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
   margin: 0;
   padding: 18px 4px 8px;
   color: var(--c-text);
@@ -163,30 +165,39 @@ a {
 
 /*
  * ===== 按鈕：Figma Button/m（48）、Button/L（56），圓角 8 =====
- * 長輩友善化：高度 52／60、字 18px 半粗、框 2px、顏色改用 primary-700（白字 5.89:1，原本主色只有 2.39:1）
+ * 產品決定（2026-11-08）：所有按鈕外觀最小高度 38、框 1px、顏色用 Figma 主色 primary-500；字 18px 半粗。
+ * 外觀 38 低於台北通 TS 觸控最小 48，所以用 ::after 把可點範圍上下撐到 48（不影響排版）。
  */
 .btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 52px;
-  min-width: 52px;
-  padding: 12px 18px;
+  min-height: 38px;
+  min-width: 48px;
+  padding: 4px 16px;
   border-radius: 8px;
   font-size: var(--tp-font-h3);
   line-height: var(--tp-lh-h3);
   font-weight: 600;
   background: var(--c-surface);
   color: var(--c-action);
-  border: 2px solid var(--c-action);
+  /* 所有按鈕框線 1px（產品決定，2026-11-08） */
+  border: 1px solid var(--c-action);
   text-decoration: none;
+}
+.btn::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(100%, 48px);
+  transform: translateY(-50%);
 }
 .btn:active {
   background: var(--tp-primary-50);
-}
-.btn.large {
-  min-height: 60px;
 }
 .btn.block {
   width: 100%;
@@ -234,7 +245,7 @@ a {
 .section-bar .one-line:empty {
   display: none;
 }
-/* 底部提示是操作指引，字放大到 18px 半粗，用 primary-700（原本主色 2.39:1 幾乎看不到） */
+/* 底部提示是操作指引，字放大到 18px 半粗，用主色 primary-500 */
 .section-bar .one-line {
   color: var(--c-action);
   font-size: var(--tp-font-h3);
@@ -249,10 +260,6 @@ a {
 .section-bar .btns > .btn {
   flex: 1 1 0;
   min-width: 0;
-  /* 底部常駐按鈕壓矮一點，讓出畫面給預覽與工具；仍維持觸控最小 48px（台北通 TS） */
-  min-height: 48px;
-  padding-top: 6px;
-  padding-bottom: 6px;
   line-height: 1.4;
 }
 
@@ -294,14 +301,17 @@ button.list-row:active {
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  /* 列距 10：上下各撐出 5px 可點範圍時，兩列不會互相重疊 */
+  gap: 10px 8px;
 }
+/* 與 .btn 一致：外觀最小高度 38，::after 把可點範圍上下撐到 48（台北通 TS） */
 .chip {
+  position: relative;
   flex: none;
-  min-height: 48px;
+  min-height: 38px;
   padding: 0 16px;
   border-radius: 8px;
-  border: 2px solid var(--tp-grey-400);
+  border: 1px solid var(--tp-grey-400);
   background: var(--c-surface);
   color: var(--tp-grey-800);
   white-space: nowrap;
@@ -309,20 +319,29 @@ button.list-row:active {
   align-items: center;
   gap: 6px;
 }
-/* 選取中：深色框＋粗體＋打勾，不只靠顏色分辨（文字 primary-800 on primary-50 為 9.33:1） */
+.chip::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(100%, 48px);
+  transform: translateY(-50%);
+}
+/* 選取中：主色框＋Semibold＋打勾，不只靠顏色分辨 */
 .chip[aria-pressed='true'],
 .chip[aria-checked='true'] {
   background: var(--tp-primary-50);
   border-color: var(--c-action);
-  color: var(--tp-primary-800);
-  font-weight: 700;
+  color: var(--c-action);
+  font-weight: 600;
 }
 .chip[aria-pressed='true']::before,
 .chip[aria-checked='true']::before {
   content: '✓';
   /* 支援的瀏覽器：給讀報軟體空白替代文字，狀態已由 aria-checked／aria-pressed 提供，不重複唸 */
   content: '✓' / '';
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .card {
@@ -416,7 +435,7 @@ h1:focus {
 .switch-state {
   flex: none;
   min-width: 1.5em;
-  font-weight: 800;
+  font-weight: 600;
   text-align: right;
   color: var(--tp-grey-800);
 }

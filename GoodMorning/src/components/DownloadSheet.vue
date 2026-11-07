@@ -110,7 +110,7 @@ function retry() {
   padding: 10px 14px;
   border-radius: var(--radius-m);
   background: var(--c-brand-soft);
-  color: var(--tp-primary-800);
+  color: var(--c-action);
 }
 .actions {
   display: grid;

@@ -225,14 +225,14 @@ onBeforeUnmount(release)
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 48px;
+  min-height: 38px;
   padding: 0 16px;
   border-radius: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.85);
   background: rgba(11, 13, 14, 0.45);
   color: #fff;
   font-size: var(--tp-font-body);
-  font-weight: 700;
+  font-weight: 600;
 }
 .sound:focus-visible,
 .share:focus-visible,
@@ -294,19 +294,19 @@ onBeforeUnmount(release)
   }
 }
 .cheer {
-  font-size: 2.25rem;
-  line-height: 2.75rem;
-  font-weight: 800;
+  font-size: var(--tp-font-h1);
+  line-height: var(--tp-lh-h1);
+  font-weight: 600;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 .sub {
-  font-size: 1.375rem;
-  line-height: 1.875rem;
+  font-size: var(--tp-font-h2);
+  line-height: var(--tp-lh-h2);
 }
 .name {
-  font-size: 1.75rem;
-  line-height: 2.25rem;
-  font-weight: 800;
+  font-size: var(--tp-font-h2);
+  line-height: var(--tp-lh-h2);
+  font-weight: 600;
   color: var(--tp-secondary-300);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
@@ -322,18 +322,31 @@ onBeforeUnmount(release)
 .share,
 .ok {
   width: 100%;
-  min-height: 64px;
-  border-radius: 12px;
+  /* 與 .btn 一致：外觀最小高度 38、圓角 8；::after 把可點範圍撐到 48 */
+  position: relative;
+  min-height: 38px;
+  border-radius: var(--radius-s);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 1.375rem;
-  font-weight: 800;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
+}
+.share::after,
+.ok::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(100%, 48px);
+  transform: translateY(-50%);
 }
 /* 分享：白框透明底，白字對深色底約 12:1 */
 .share {
-  border: 3px solid #fff;
+  border: 1px solid #fff;
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
@@ -353,9 +366,9 @@ onBeforeUnmount(release)
 }
 
 .copied {
-  font-size: 1.125rem;
-  line-height: 1.625rem;
-  font-weight: 700;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
   color: var(--tp-secondary-300);
   text-align: center;
 }
@@ -369,10 +382,10 @@ onBeforeUnmount(release)
 }
 .link {
   width: 100%;
-  min-height: 48px;
+  min-height: 38px;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 2px solid #fff;
+  border: 1px solid #fff;
   background: #fff;
   color: var(--tp-grey-950);
   font-size: var(--tp-font-body);

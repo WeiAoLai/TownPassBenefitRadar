@@ -5,7 +5,7 @@ import { titleOverride } from '../composables/pageTitle'
 declare module 'vue-router' {
   interface RouteMeta {
     title: string
-    tab?: 'feed' | 'create' | 'rank' | 'me'
+    tab?: 'feed' | 'create' | 'me'
     back?: boolean
   }
 }
@@ -23,9 +23,7 @@ export const router = createRouter({
     },
     {
       path: '/leaderboard',
-      name: 'rank',
-      component: () => import('../views/LeaderboardView.vue'),
-      meta: { title: '作品排行榜', tab: 'rank' },
+      redirect: '/',
     },
     { path: '/me', name: 'me', component: () => import('../views/MeView.vue'), meta: { title: '我的作品', tab: 'me' } },
     {

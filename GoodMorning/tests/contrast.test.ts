@@ -43,11 +43,6 @@ const rem = (name: string) => {
 
 describe('文字對比 ≥ 4.5:1', () => {
   const pairs: [string, string, string][] = [
-    ['#ffffff', '--c-action', '主要按鈕：白字 on 主操作色'],
-    ['#ffffff', '--c-action-press', '主要按鈕按下'],
-    ['--c-action', '--c-surface', '次要按鈕／連結／選取中的分頁文字 on 白'],
-    ['--c-action', '--c-bg', '同上 on 頁面底色'],
-    ['--tp-primary-800', '--tp-primary-50', '選取中的標籤文字 on primary-50'],
     ['--c-text', '--c-bg', '內文'],
     ['--c-text-2', '--c-surface', '次要文字 on 白'],
     ['--c-text-3', '--c-surface', '輔助文字／placeholder on 白'],
@@ -58,7 +53,6 @@ describe('文字對比 ≥ 4.5:1', () => {
     ['--tp-grey-950', '--tp-secondary-500', '金色按鈕／第一名'],
     ['--tp-grey-950', '--tp-grey-200', '第二名'],
     ['--tp-grey-950', '--tp-orange-300', '第三名'],
-    ['#ffffff', '--tp-primary-700', '成功 toast'],
     ['--tp-grey-800', '--c-surface', '導覽與標籤文字'],
   ]
   it.each(pairs)('%s on %s（%s）', (fg, bg) => {
@@ -70,9 +64,24 @@ describe('文字對比 ≥ 4.5:1', () => {
   })
 })
 
+/*
+ * 產品決定（2026-11-08）：按鈕、連結、選取狀態、成功 toast 統一用 Figma 主色 primary-500。
+ * 白字 on primary-500 與 primary-500 字 on 白都約 2.39:1，未達 AA；這裡鎖住數值，改色時會提醒重新評估。
+ */
+describe('主操作色採用 Figma primary-500（已知未達 AA）', () => {
+  it('--c-action 是 primary-500，按下狀態深一階', () => {
+    expect(hex('--c-action')).toBe(hex('--tp-primary-500'))
+    expect(hex('--c-action-press')).toBe(hex('--tp-primary-600'))
+  })
+  it('白字 on 主色的對比約 2.39:1', () => {
+    expect(contrast('#ffffff', '--c-action')).toBeCloseTo(2.39, 1)
+  })
+})
+
 describe('非文字元件 ≥ 3:1', () => {
   const pairs: [string, string, string][] = [
-    ['--c-action', '--c-surface', '焦點框、選取框'],
+    ['--c-focus', '--c-surface', '鍵盤焦點框'],
+    ['--c-focus', '--c-bg', '鍵盤焦點框 on 頁面底色'],
     ['--tp-grey-500', '--c-surface', '開關關閉時的軌道、箭頭'],
   ]
   it.each(pairs)('%s vs %s（%s）', (a, b) => {

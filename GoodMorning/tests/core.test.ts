@@ -117,6 +117,27 @@ describe('文字排版', () => {
     expect(l.glyphs[0].cx).toBeCloseTo(SIZE / 2)
   })
 
+  it('橫書對齊：靠左、置中、靠右', () => {
+    const text = '一二三四五六\n一二'
+    const at = (align: 'start' | 'center' | 'end') => layoutLayer({ ...base, text, size: 100, align }, mono)
+    const left = at('start'), mid = at('center'), right = at('end')
+    // 第二行（短行）的位置：靠左貼框左緣、靠右貼框右緣、置中在中線
+    const short = (l: typeof left) => l.glyphs[1]
+    expect(short(left).cx - short(left).w / 2).toBeCloseTo(left.box.x + 25)
+    expect(short(right).cx + short(right).w / 2).toBeCloseTo(right.box.x + right.box.w - 25)
+    expect(short(mid).cx).toBeCloseTo(mid.box.x + mid.box.w / 2)
+  })
+
+  it('直書對齊：靠上、置中、靠下（預設靠上）', () => {
+    const text = '早安平安\n好'
+    const at = (align?: 'start' | 'center' | 'end') => layoutLayer({ ...base, text, size: 100, vertical: true, align }, mono)
+    const lastCol = (l: ReturnType<typeof at>) => l.glyphs[l.glyphs.length - 1]
+    const top = at('start'), def = at(), bottom = at('end'), mid = at('center')
+    expect(lastCol(def).cy).toBeCloseTo(lastCol(top).cy)
+    expect(lastCol(top).cy).toBeLessThan(lastCol(mid).cy)
+    expect(lastCol(mid).cy).toBeLessThan(lastCol(bottom).cy)
+  })
+
   it('空字串不產生字形', () => {
     expect(layoutLayer({ ...base, text: '   ' }, mono).glyphs).toHaveLength(0)
   })

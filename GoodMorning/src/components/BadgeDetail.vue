@@ -55,14 +55,14 @@ const need = computed(() => Math.max(0, def.value.threshold - props.count))
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 1.125rem;
-  line-height: 1.5rem;
-  font-weight: 700;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
   color: var(--tp-grey-800);
   text-align: center;
 }
 .status.got {
-  color: var(--tp-primary-700);
+  color: var(--c-action);
 }
 .note {
   text-align: center;

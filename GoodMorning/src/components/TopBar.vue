@@ -42,7 +42,7 @@ function back() {
   height: calc(var(--topnav-h) + env(safe-area-inset-top));
   padding-top: env(safe-area-inset-top);
   background: var(--c-surface);
-  color: var(--tp-grey-950);
+  color: var(--c-text);
   border-bottom: 1px solid var(--c-line);
 }
 .title {
@@ -54,10 +54,10 @@ function back() {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
-  line-height: 1.75rem;
-  font-weight: 700;
-  color: var(--tp-grey-800);
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
+  color: var(--c-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -20,6 +20,11 @@ export interface TextLayer {
    */
   boxW?: number
   boxH?: number
+  /**
+   * 對齊：橫書是每行靠左／置中／靠右；直書是每行靠上／置中／靠下。
+   * 沒設定時橫書置中、直書靠上（傳統長輩圖的樣子）。
+   */
+  align?: TextAlign
   vertical: boolean
   styleId: string
   font: FontKey
@@ -41,6 +46,10 @@ export interface Layout {
 }
 
 export type Measure = (text: string, fontSize: number) => number
+
+export type TextAlign = 'start' | 'center' | 'end'
+
+export const alignOf = (layer: Pick<TextLayer, 'align' | 'vertical'>): TextAlign => layer.align ?? (layer.vertical ? 'start' : 'center')
 
 /** 不放在行首的標點 */
 const NO_LINE_START = new Set('，。、！？：；」』）》〉…,.!?:;)'.split(''))
@@ -121,7 +130,10 @@ function tryLayout(layer: TextLayer, fontSize: number, measure: Measure): Layout
     const widths = lines.map((l) => measure(l, fontSize))
     w = Math.max(frameW, ...widths)
     h = Math.max(frameH, contentH)
-    lines.forEach((l, i) => glyphs.push({ text: l, cx: 0, cy: -contentH / 2 + lineH * (i + 0.5), w: widths[i], h: fontSize }))
+    const align = alignOf(layer)
+    // 每一行在框內的水平位置
+    const lineX = (lw: number) => (align === 'start' ? -w / 2 + lw / 2 : align === 'end' ? w / 2 - lw / 2 : 0)
+    lines.forEach((l, i) => glyphs.push({ text: l, cx: lineX(widths[i]), cy: -contentH / 2 + lineH * (i + 0.5), w: widths[i], h: fontSize }))
   } else {
     const step = fontSize * 1.08
     const colW = fontSize * 1.22
@@ -133,9 +145,13 @@ function tryLayout(layer: TextLayer, fontSize: number, measure: Measure): Layout
     const contentH = Math.max(0, ...cols.map((c) => c.length)) * step
     w = Math.max(frameW, contentW)
     h = Math.max(frameH, contentH)
+    const align = alignOf(layer)
     cols.forEach((col, ci) => {
       const cx = contentW / 2 - colW * (ci + 0.5) // 由右至左
-      col.forEach((ch, ri) => glyphs.push({ text: ch, cx, cy: -contentH / 2 + step * (ri + 0.5), w: fontSize, h: fontSize }))
+      // 每一行（直行）在框內的垂直位置
+      const colH = col.length * step
+      const top = align === 'start' ? -h / 2 : align === 'end' ? h / 2 - colH : -colH / 2
+      col.forEach((ch, ri) => glyphs.push({ text: ch, cx, cy: top + step * (ri + 0.5), w: fontSize, h: fontSize }))
     })
   }
 

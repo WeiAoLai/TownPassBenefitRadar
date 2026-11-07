@@ -138,18 +138,6 @@ const reminderBusy = ref(false)
 const reminderTime = ref('07:00')
 
 const pad = (n: number) => String(n).padStart(2, '0')
-const reminderHint = computed(() => {
-  switch (reminderState.value) {
-    case 'unavailable':
-      return '在台北通 App 裡打開才能設定提醒'
-    case 'unsupported':
-      return '這個版本的台北通 App 還不支援提醒'
-    case 'loading':
-      return '讀取中…'
-    default:
-      return reminderOn.value ? `每天 ${reminderTime.value} 用通知叫你來做早安圖` : '每天早上用手機通知提醒你做一張早安圖'
-  }
-})
 
 async function loadReminder() {
   if (!inTownPass()) return
@@ -317,10 +305,7 @@ onMounted(() => {
     <div class="list">
       <label class="list-row reminder-row" :class="{ off: reminderState !== 'ready' }">
         <Icon name="bell" />
-        <span class="grow">
-          每天早上提醒我
-          <span class="small muted block" aria-live="polite">{{ reminderHint }}</span>
-        </span>
+        <span class="grow">每天早上提醒我</span>
         <span class="switch-state" aria-hidden="true">{{ reminderOn ? '開' : '關' }}</span>
         <input
           type="checkbox"
@@ -345,28 +330,19 @@ onMounted(() => {
       </label>
       <label class="list-row">
         <Icon name="volume" />
-        <span class="grow">
-          慶祝音效
-          <span class="small muted block">拿到新徽章時播放歡樂音效和一句稱讚；不想聽可以關掉</span>
-        </span>
+        <span class="grow">慶祝音效</span>
         <span class="switch-state" aria-hidden="true">{{ soundOn ? '開' : '關' }}</span>
         <input type="checkbox" role="switch" class="switch" :checked="soundOn" aria-label="慶祝音效" @change="onSoundToggle" />
       </label>
       <label class="list-row">
         <Icon name="sparkle" />
-        <span class="grow">
-          動畫效果
-          <span class="small muted block">關閉後，慶祝畫面等動畫不再播放</span>
-        </span>
+        <span class="grow">動畫效果</span>
         <span class="switch-state" aria-hidden="true">{{ motionOn ? '開' : '關' }}</span>
         <input type="checkbox" role="switch" class="switch" :checked="motionOn" aria-label="動畫效果" @change="onMotionToggle" />
       </label>
       <div v-if="townPassAccount && apiMode === 'mock'" class="list-row">
         <Icon name="user" />
-        <span class="grow">
-          台北通帳號
-          <span class="small muted block">作品會公開顯示你的台北通暱稱，不會顯示真實姓名</span>
-        </span>
+        <span class="grow">台北通帳號</span>
         <span class="muted">已連結</span>
       </div>
       <button v-else type="button" class="list-row" @click="pickUser = true">
@@ -457,9 +433,9 @@ onMounted(() => {
   min-width: 0;
 }
 .badge-line {
-  font-size: 1.125rem;
-  line-height: 1.5rem;
-  font-weight: 700;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
   color: var(--tp-secondary-800);
 }
 /* 目前徽章：大圖放在右邊，點一下可以放大 */
@@ -482,7 +458,7 @@ onMounted(() => {
   transform: scale(0.96);
 }
 .hero-badge.empty {
-  border: 3px dashed var(--tp-grey-300);
+  border: 1px dashed var(--tp-grey-300);
   color: var(--tp-grey-500);
   filter: none;
 }
@@ -505,8 +481,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: var(--tp-font-h2);
+  line-height: var(--tp-lh-h2);
+  font-weight: 600;
 }
 .name {
   font-size: var(--tp-font-h2);
@@ -529,7 +506,7 @@ onMounted(() => {
 .stat strong {
   font-size: var(--tp-font-h2);
   line-height: var(--tp-lh-h2);
-  color: var(--tp-primary-700);
+  color: var(--c-action);
 }
 .progress-label {
   display: flex;
@@ -591,9 +568,9 @@ span.block {
   gap: 14px;
   padding: 28px 10px 8px;
   color: #fff;
-  font-size: 1.125rem;
-  line-height: 1.5rem;
-  font-weight: 700;
+  font-size: var(--tp-font-h3);
+  line-height: var(--tp-lh-h3);
+  font-weight: 600;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
 }
@@ -649,7 +626,7 @@ span.block {
   opacity: 0.55;
 }
 .got-label {
-  color: var(--tp-primary-700);
+  color: var(--c-action);
   font-weight: 600;
 }
 .note {
@@ -664,7 +641,7 @@ span.block {
 .time-input {
   font: inherit;
   font-size: var(--tp-font-h3, 1.125rem);
-  color: var(--tp-primary-700);
+  color: var(--c-action);
   border: 1px solid var(--tp-grey-200);
   border-radius: var(--radius-s, 8px);
   padding: 8px 10px;
