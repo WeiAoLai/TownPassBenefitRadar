@@ -29,6 +29,7 @@ async function fakeTownPass(page: import('@playwright/test').Page) {
 test.describe('我的', () => {
   test('一般瀏覽器示範模式：提醒開關可以操作並記住狀態', async ({ page }) => {
     await page.goto('./#/me')
+    await expect(page.getByRole('heading', { name: '待解鎖背景' })).toHaveCount(0)
     const sw = page.getByRole('switch', { name: '每天早上提醒我' })
     await expect(sw).toBeEnabled()
     await sw.click()

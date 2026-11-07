@@ -3,8 +3,11 @@ import { expect, test } from '@playwright/test'
 test('作品牆可切換排行榜與最新作品', async ({ page }) => {
   await page.goto('./#/')
 
+  await expect(page.getByRole('banner')).toHaveCount(0)
   const ranking = page.getByRole('tab', { name: '排行榜' })
   const latest = page.getByRole('tab', { name: '最新' })
+  const tabsBox = await ranking.locator('..').boundingBox()
+  expect(tabsBox?.y).toBeLessThanOrEqual(10)
   await expect(ranking).toHaveAttribute('aria-selected', 'true')
   const rankingPanel = page.getByRole('tabpanel', { name: '排行榜' })
   await expect(rankingPanel).toBeVisible()

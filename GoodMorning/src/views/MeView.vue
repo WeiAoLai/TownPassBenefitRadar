@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { api, apiMode, demoUser, demoUsers, resetMockData, setDemoUser, townPassAccount } from '../api'
 import { friendlyMessage } from '../api/errors'
-import type { Artwork, Background, CurrentUser } from '../api/types'
+import type { Artwork, CurrentUser } from '../api/types'
 import BadgeCelebration from '../components/BadgeCelebration.vue'
 import BadgeDetail from '../components/BadgeDetail.vue'
 import BottomSheet from '../components/BottomSheet.vue'
@@ -11,11 +11,9 @@ import { BADGES, badgeArtUrl, nextBadge } from '../config/badges'
 import { playCelebration, setSound, soundOn, unlockAudio } from '../composables/sound'
 import { motionOn, setMotion } from '../composables/motion'
 import { announce, toast } from '../composables/toast'
-import { catalogBackgrounds, loadBackgroundCatalog } from '../data/backgrounds'
 import { cancelDailyReminder, getDailyReminder, inTownPass, setDailyReminder } from '../composables/bridge'
 
 const me = ref<CurrentUser | null>(null)
-const backgrounds = ref<Background[]>([])
 const items = ref<Artwork[]>([])
 const page = ref(0)
 const totalPages = ref(0)
@@ -68,15 +66,8 @@ async function load() {
   announce('載入中')
   error.value = null
   try {
-    const [u, arts, cat] = await Promise.all([
-      api.getCurrentUser(),
-      api.listMyArtworks(0, 12),
-      loadBackgroundCatalog().catch(() => null),
-    ])
-    // 背景與解鎖由前端圖庫決定，依這位使用者的作品數計算；圖庫載入失敗才退回後端清單
-    const bgs = cat ? catalogBackgrounds(cat.backgrounds, u.artworkCount) : await api.listBackgrounds()
+    const [u, arts] = await Promise.all([api.getCurrentUser(), api.listMyArtworks(0, 12)])
     me.value = u
-    backgrounds.value = bgs
     items.value = arts.content
     page.value = 1
     totalPages.value = arts.totalPages
@@ -108,8 +99,6 @@ const progress = computed(() => {
   if (!next.value) return 100
   return Math.min(100, Math.round((count.value / next.value.threshold) * 100))
 })
-const locked = computed(() => backgrounds.value.filter((b) => !b.unlocked))
-
 function choose(u: string) {
   setDemoUser(u)
   pickUser.value = false
@@ -280,20 +269,6 @@ onMounted(() => {
         <button type="button" class="btn text block" @click="showBadgeSheet({ mode: 'list' })">
           <Icon name="medal" :size="20" /> 看全部十種徽章
         </button>
-      </section>
-
-      <section v-if="locked.length" aria-labelledby="unlock-title">
-        <h2 id="unlock-title" class="section-title">待解鎖背景</h2>
-        <div class="list">
-          <div v-for="b in locked" :key="b.id" class="list-row">
-            <img :src="b.imageUrl" alt="" class="bg-thumb" />
-            <span class="grow">
-              <span class="row-title">{{ b.name }}</span>
-              <span class="small muted block">再儲存 {{ b.unlockThreshold - me.artworkCount }} 張就解鎖</span>
-            </span>
-            <Icon name="lock" />
-          </div>
-        </div>
       </section>
 
       <section aria-labelledby="mine-title">
@@ -554,13 +529,6 @@ span.block {
 .row-title {
   display: block;
   font-weight: 600;
-}
-.bg-thumb {
-  width: 48px;
-  height: 48px;
-  border-radius: 8px;
-  object-fit: cover;
-  filter: grayscale(0.6);
 }
 /* 兩欄：長輩手機上每張作品約 180px 寬，字才看得清楚（原本三欄約 120px） */
 .mine-grid {
