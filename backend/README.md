@@ -1,0 +1,60 @@
+# Good Morning Backend
+
+台北政策長輩圖 Demo 後端，使用 Spring Boot 4、MariaDB、S3 與 Nginx。開發與測試全程在 container 內執行，本機不需要安裝 Java 或 Maven。
+
+## 本機啟動
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+docker compose ps
+bash scripts/smoke-test.sh
+```
+
+預設入口：
+
+- API：`http://localhost:8088/api`
+- Health：`http://localhost:8088/health`
+- Swagger UI：`http://localhost:8088/api/swagger-ui.html`
+- Checked-in contract：`openapi.yaml`
+
+Demo API 必須帶 `X-Demo-User: user-a`、`user-b` 或 `user-c`。Nginx 接受最多 11 MB request，Spring Boot 只接受 10 MB 圖片；下載端點另設每個來源 IP 每分鐘 30 次、burst 5 的 rate limit。
+
+## 驗證
+
+```bash
+docker compose run --rm api mvn verify
+ruby scripts/check-openapi.rb
+bash scripts/check-db-schema.sh
+bash scripts/smoke-test.sh
+```
+
+完整測試包含 Flyway、MariaDB repository、併發按讚、S3、OpenAPI 契約、QR Code 解碼與 controller/service 測試。
+
+## 環境變數
+
+本機 Compose 預設使用 LocalStack S3，`.env.example` 的 `test` credential 只適用於 LocalStack。真實 AWS 環境應由 ECS task role、EC2 instance profile 或 IRSA 提供 IAM credential，不要把 access key 寫進 image、Git 或部署設定檔。
+
+正式環境至少提供：
+
+```text
+SPRING_PROFILES_ACTIVE=demo
+SPRING_DATASOURCE_URL=jdbc:mariadb://<host>:3306/good_morning?sessionVariables=time_zone='+00:00'
+SPRING_DATASOURCE_USERNAME=<secret reference>
+SPRING_DATASOURCE_PASSWORD=<secret reference>
+AWS_REGION=ap-southeast-2
+AWS_S3_BUCKET=<asset bucket>
+PRESIGNED_URL_TTL=PT15M
+```
+
+部署到真實 AWS 時不要設定 `S3_ENDPOINT` 或 `S3_PUBLIC_ENDPOINT`；這兩個值只供 LocalStack 使用。Bucket 需預先包含背景與徽章 object key，作品則由 API 寫入 `artworks/{userId}/{uuid}.png`。
+
+## 資料與圖片流程
+
+- 前端上傳完成的 `1080 x 1080` PNG。
+- 後端先寫入 S3，成功後才登記 MariaDB；DB transaction 失敗會清理 S3 object。
+- 一般顯示使用 15 分鐘 presigned URL。
+- 下載時即時讀取原圖、在右下角合成政策來源 QR Code，不另存衍生圖片。
+- 非作者成功下載才會原子增加下載數；作者下載不計數。
+
+資料庫 schema 與種子資料由 `src/main/resources/db/migration` 下的 Flyway migrations 管理。
