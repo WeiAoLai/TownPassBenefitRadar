@@ -40,14 +40,18 @@ MVP 採以下限制：
 Browser
   │ HTTPS
   ▼
-Nginx on EC2
-  ├── /      → Frontend
-  └── /api   → Spring Boot container
-                    ├── MariaDB container
-                    └── Private Amazon S3 bucket
+AWS ALB
+  ├── /             → Frontend container on EC2
+  ├── /api/v1       → Spring Boot container :8080
+  └── grafana host  → Grafana container :3000
+                            │
+Spring Boot management :8081 ← Prometheus container
+Spring Boot
+  ├── MariaDB container
+  └── Private Amazon S3 bucket
 ```
 
-- 正式環境由同一個 Nginx 網域提供前後端服務。
+- 正式環境由 ALB 提供 HTTPS termination、host/path routing 與 target health check。
 - Spring Boot 與 MariaDB 僅透過 Docker network 溝通。
 - MariaDB port 不對公網開放。
 - S3 bucket 為 private，不使用 public-read object。
@@ -251,7 +255,7 @@ S3 無法參與 MariaDB transaction，因此使用補償刪除。S3 上傳失敗
 - 作者可下載自己的作品，但作者下載不增加計數。
 - 非作者下載在圖片成功讀取與合成後，以 atomic SQL update 增加 `download_count`。
 - 不建立 download history table。
-- Nginx 對下載 endpoint 設定比一般 API 更嚴格的 rate limit，超限回傳 `429 Too Many Requests`。
+- AWS WAF 對下載 endpoint 設定比一般 API 更嚴格的 rate-based rule，超限 custom response 回傳 `429 Too Many Requests`。
 
 ## 11. 清單、背景、隨機與排行榜
 
@@ -316,8 +320,8 @@ S3 無法參與 MariaDB transaction，因此使用補償刪除。S3 上傳失敗
 - `403 Forbidden`：使用未解鎖背景。
 - `404 Not Found`：作品、背景或政策不存在。
 - `409 Conflict`：作者對自己作品按愛心，或其他狀態衝突。
-- `413 Payload Too Large`：圖片超過 10 MB；Nginx 與 Spring 限制需一致。
-- `429 Too Many Requests`：超過 Nginx rate limit。
+- `413 Payload Too Large`：圖片超過 Spring 設定的 10 MB。
+- `429 Too Many Requests`：超過 AWS WAF rate-based rule。
 - `500 Internal Server Error`：未預期錯誤。
 - `502 Bad Gateway` 或 `503 Service Unavailable`：必要的 S3／DB 暫時不可用，可依部署策略統一為 `503`。
 
@@ -368,15 +372,17 @@ S3 無法參與 MariaDB transaction，因此使用補償刪除。S3 上傳失敗
 
 ### 17.1 EC2 Demo 架構
 
-- 單台 EC2 執行 Docker Compose：Nginx、Spring Boot、MariaDB。
+- 單台 EC2 執行 Docker Compose：Spring Boot、MariaDB、Prometheus、Grafana。
 - Image 可推送至 ECR，再由 EC2 pull。
-- Nginx 使用正式網域與 HTTPS，HTTP 自動導向 HTTPS。
+- ALB 使用正式網域與 ACM 憑證，HTTP 自動導向 HTTPS。
+- ALB API target group 使用 port `8080`，health check 使用 port `8081` 的 `/actuator/health`。
+- Actuator 與 Prometheus metrics 僅存在 management port `8081`；業務 API port 不暴露 management endpoint。
 - MariaDB data directory 使用獨立 EBS volume。
 - Demo 不做 Multi-AZ、自動擴展或高可用。
 
 ### 17.2 Log 與健康檢查
 
-- Spring Boot Actuator 提供 `/actuator/health`。
+- Spring Boot management port `8081` 提供 `/actuator/health` 與 `/actuator/prometheus`。
 - 應用程式 log 寫 stdout，再傳至 CloudWatch Logs。
 - CloudWatch Logs 保留 7 天。
 - Log 不記錄圖片內容、憑證、完整 SSO payload 或個資。
@@ -419,6 +425,6 @@ Repository 應提供 `.env.example`，只包含 placeholder，不得包含可用
 - 政策來源允許網域清單。
 - 背景圖、政策、徽章及其 S3 object key。
 - 正式網域與 TLS 設定。
-- Nginx 一般 API 與下載 API 的實際 rate-limit 數值。
+- AWS WAF 下載 API rate-based rule 的實際門檻。
 - EC2 instance type、EBS 容量與 S3 bucket policy。
 - Demo 結束時間及資料刪除負責人。

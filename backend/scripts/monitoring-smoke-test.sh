@@ -3,7 +3,7 @@ set -euo pipefail
 
 prometheus_url="${PROMETHEUS_URL:-http://localhost:${PROMETHEUS_PORT:-9090}}"
 grafana_url="${GRAFANA_URL:-http://localhost:${GRAFANA_PORT:-3000}}"
-public_api_url="${PUBLIC_API_URL:-http://localhost:${NGINX_PORT:-8088}}"
+public_api_url="${PUBLIC_API_URL:-http://localhost:${API_PORT:-8080}}"
 
 wait_for() {
   local name="$1"
