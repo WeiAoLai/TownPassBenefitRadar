@@ -1,9 +1,9 @@
 package tw.gov.taipei.goodmorning.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.io.IOException;
@@ -12,16 +12,20 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import tw.gov.taipei.goodmorning.dto.ArtworkPageResponse;
 import tw.gov.taipei.goodmorning.dto.ArtworkResponse;
+import tw.gov.taipei.goodmorning.dto.LikeStateResponse;
 import tw.gov.taipei.goodmorning.security.CurrentUser;
+import tw.gov.taipei.goodmorning.service.ArtworkLikeService;
 import tw.gov.taipei.goodmorning.service.ArtworkQueryService;
 import tw.gov.taipei.goodmorning.service.CreateArtworkService;
 
@@ -31,12 +35,15 @@ public class ArtworkController {
 
     private final CreateArtworkService createArtworkService;
     private final ArtworkQueryService artworkQueryService;
+    private final ArtworkLikeService artworkLikeService;
 
     public ArtworkController(
             CreateArtworkService createArtworkService,
-            ArtworkQueryService artworkQueryService) {
+            ArtworkQueryService artworkQueryService,
+            ArtworkLikeService artworkLikeService) {
         this.createArtworkService = createArtworkService;
         this.artworkQueryService = artworkQueryService;
+        this.artworkLikeService = artworkLikeService;
     }
 
     @GetMapping("/artworks")
@@ -60,6 +67,20 @@ public class ArtworkController {
             @AuthenticationPrincipal CurrentUser currentUser,
             @PathVariable @Positive long artworkId) {
         return artworkQueryService.get(currentUser, artworkId);
+    }
+
+    @PutMapping("/artworks/{artworkId}/like")
+    LikeStateResponse likeArtwork(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @PathVariable @Positive long artworkId) {
+        return artworkLikeService.like(currentUser, artworkId);
+    }
+
+    @DeleteMapping("/artworks/{artworkId}/like")
+    LikeStateResponse unlikeArtwork(
+            @AuthenticationPrincipal CurrentUser currentUser,
+            @PathVariable @Positive long artworkId) {
+        return artworkLikeService.unlike(currentUser, artworkId);
     }
 
     @PostMapping(value = "/artworks", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -6,8 +6,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -29,9 +31,11 @@ import tw.gov.taipei.goodmorning.dto.ArtworkPageResponse;
 import tw.gov.taipei.goodmorning.dto.ArtworkResponse;
 import tw.gov.taipei.goodmorning.dto.AuthorSummaryResponse;
 import tw.gov.taipei.goodmorning.dto.BadgeResponse;
+import tw.gov.taipei.goodmorning.dto.LikeStateResponse;
 import tw.gov.taipei.goodmorning.exception.GlobalExceptionHandler;
 import tw.gov.taipei.goodmorning.exception.ProblemDetails;
 import tw.gov.taipei.goodmorning.security.CurrentUser;
+import tw.gov.taipei.goodmorning.service.ArtworkLikeService;
 import tw.gov.taipei.goodmorning.service.ArtworkQueryService;
 import tw.gov.taipei.goodmorning.service.CreateArtworkService;
 
@@ -43,13 +47,15 @@ class ArtworkControllerTest {
 
     private CreateArtworkService service;
     private ArtworkQueryService queries;
+    private ArtworkLikeService likes;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         service = mock(CreateArtworkService.class);
         queries = mock(ArtworkQueryService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new ArtworkController(service, queries))
+        likes = mock(ArtworkLikeService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new ArtworkController(service, queries, likes))
                 .setControllerAdvice(new GlobalExceptionHandler(new ProblemDetails()))
                 .setCustomArgumentResolvers(new CurrentUserArgumentResolver())
                 .build();
@@ -129,6 +135,21 @@ class ArtworkControllerTest {
                 .andExpect(jsonPath("$.id").value(123));
 
         verify(queries).get(PRINCIPAL, 123L);
+    }
+
+    @Test
+    void likesAndUnlikesArtworkIdempotently() throws Exception {
+        when(likes.like(PRINCIPAL, 123L)).thenReturn(new LikeStateResponse(123L, true, 4));
+        when(likes.unlike(PRINCIPAL, 123L)).thenReturn(new LikeStateResponse(123L, false, 3));
+
+        mockMvc.perform(put("/api/artworks/123/like").contextPath("/api"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.liked").value(true))
+                .andExpect(jsonPath("$.likeCount").value(4));
+        mockMvc.perform(delete("/api/artworks/123/like").contextPath("/api"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.liked").value(false))
+                .andExpect(jsonPath("$.likeCount").value(3));
     }
 
     private ArtworkResponse response() {

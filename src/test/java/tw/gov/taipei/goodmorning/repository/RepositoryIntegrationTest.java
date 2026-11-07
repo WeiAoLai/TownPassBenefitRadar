@@ -5,6 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -12,6 +16,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -21,6 +26,8 @@ import tw.gov.taipei.goodmorning.entity.ArtworkLike;
 import tw.gov.taipei.goodmorning.entity.Background;
 import tw.gov.taipei.goodmorning.entity.Policy;
 import tw.gov.taipei.goodmorning.entity.User;
+import tw.gov.taipei.goodmorning.security.CurrentUser;
+import tw.gov.taipei.goodmorning.service.ArtworkLikeService;
 
 @SpringBootTest
 @Testcontainers
@@ -55,6 +62,9 @@ class RepositoryIntegrationTest {
 
     @Autowired
     private ArtworkLikeRepository artworkLikes;
+
+    @Autowired
+    private ArtworkLikeService artworkLikeService;
 
     @Test
     void ssoSubjectMustBeUnique() {
@@ -137,6 +147,69 @@ class RepositoryIntegrationTest {
         assertThatThrownBy(() ->
                         artworkLikes.saveAndFlush(new ArtworkLike(fixtures.owner(), artwork)))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void likeAndUnlikeOperationsAreIdempotentAgainstMariaDb() {
+        var fixtures = createArtworkFixtures();
+        var artwork = artworks.saveAndFlush(new Artwork(
+                fixtures.owner(), fixtures.background(), fixtures.policy(),
+                "早安台北", fixtures.policy().getSourceUrl(), "artworks/test/idempotent.png"));
+        var liker = users.saveAndFlush(new User("liker-subject", "liker-account", "Liker"));
+        var principal = new CurrentUser(
+                liker.getId(), liker.getSsoSubject(), liker.getAccount(), liker.getDisplayName());
+
+        var firstLike = artworkLikeService.like(principal, artwork.getId());
+        var repeatedLike = artworkLikeService.like(principal, artwork.getId());
+        var firstUnlike = artworkLikeService.unlike(principal, artwork.getId());
+        var repeatedUnlike = artworkLikeService.unlike(principal, artwork.getId());
+
+        assertThat(firstLike.likeCount()).isEqualTo(1);
+        assertThat(repeatedLike.likeCount()).isEqualTo(1);
+        assertThat(firstUnlike.likeCount()).isZero();
+        assertThat(repeatedUnlike.likeCount()).isZero();
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void concurrentLikesIncrementTheCounterOnlyOnce() throws Exception {
+        var owner = users.saveAndFlush(new User("concurrent-owner", "concurrent-owner", "Owner"));
+        var liker = users.saveAndFlush(new User("concurrent-liker", "concurrent-liker", "Liker"));
+        var background = backgrounds.saveAndFlush(
+                new Background("Concurrent", "backgrounds/concurrent.png", 0, true));
+        var policy = policies.saveAndFlush(new Policy(
+                "測試", "Concurrent", "Test", "https://example.gov.tw/concurrent",
+                LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), true));
+        var artwork = artworks.saveAndFlush(new Artwork(
+                owner, background, policy, "早安", policy.getSourceUrl(),
+                "artworks/test/concurrent.png"));
+        var principal = new CurrentUser(
+                liker.getId(), liker.getSsoSubject(), liker.getAccount(), liker.getDisplayName());
+        var start = new CountDownLatch(1);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var first = executor.submit(() -> {
+                start.await();
+                return artworkLikeService.like(principal, artwork.getId());
+            });
+            var second = executor.submit(() -> {
+                start.await();
+                return artworkLikeService.like(principal, artwork.getId());
+            });
+            start.countDown();
+
+            assertThat(List.of(
+                            first.get(10, TimeUnit.SECONDS).likeCount(),
+                            second.get(10, TimeUnit.SECONDS).likeCount()))
+                    .containsOnly(1L);
+            assertThat(artworks.findLikeCountById(artwork.getId())).isEqualTo(1L);
+        } finally {
+            artworkLikes.deleteAll();
+            artworks.deleteById(artwork.getId());
+            users.deleteAllById(List.of(owner.getId(), liker.getId()));
+            backgrounds.deleteById(background.getId());
+            policies.deleteById(policy.getId());
+        }
     }
 
     private ArtworkFixtures createArtworkFixtures() {
