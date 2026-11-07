@@ -3,6 +3,7 @@
  * 所有資料都是示範資料（見 fixtures.ts），畫面上會顯示「示範資料」標示。
  */
 import { badgeFor, badgeIconDataUrl, rankArtworks } from '../../config/badges'
+import { DAILY_ARTWORK_LIMIT, DAILY_LIMIT_CODE, countToday } from '../../config/limits'
 import { defaultLayers } from '../../editor/scene'
 import { createCanvas, exportPng, loadImage, renderScene } from '../../editor/render'
 import { composeWithQr } from '../../editor/qr'
@@ -261,6 +262,11 @@ export function createMockApi(
       if (!bg) throw fail(404, 'BACKGROUND_NOT_FOUND', '背景不存在')
       if (countOf(s, u.id) < bg.unlockThreshold) throw fail(403, 'BACKGROUND_LOCKED', '背景尚未解鎖')
       if (!activePolicies().some((p) => p.id === input.policyId)) throw fail(404, 'POLICY_NOT_FOUND', '政策不存在或已結束')
+      // 每人每天最多 DAILY_ARTWORK_LIMIT 張（台北時間）
+      const mine = s.artworks.filter((a) => a.ownerId === u.id).map((a) => a.createdAt)
+      if (countToday(mine) >= DAILY_ARTWORK_LIMIT) {
+        throw fail(429, DAILY_LIMIT_CODE, `每人每天最多製作 ${DAILY_ARTWORK_LIMIT} 張作品`)
+      }
       // 驗證尺寸 1080 × 1080
       const probe = URL.createObjectURL(input.image)
       try {

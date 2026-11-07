@@ -5,8 +5,14 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  /* 依 Figma 字級（16px = 1rem），跟著系統字級縮放 */
-  font-size: 100%;
+  /*
+   * 字級跟著螢幕寬度自適應：以 Pixel Pro（寬 412）為基準 1rem = 16px，
+   * 越窄越小，最小 13px；平板、橫向維持 16px。全站字級都用 rem，會一起縮放。
+   *   寬 430（iPhone Pro Max）16px｜412（Pixel Pro）16px｜390（iPhone 13）14.5px
+   *   375（iPhone SE）13.5px｜360 以下 13px
+   * 用 rem 表示上下限，使用者調大瀏覽器預設字級時仍會跟著放大。
+   */
+  font-size: clamp(0.8125rem, calc(6.82vw - 0.756rem), 1rem);
 }
 
 body {

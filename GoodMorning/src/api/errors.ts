@@ -1,3 +1,4 @@
+import { DAILY_ARTWORK_LIMIT, DAILY_LIMIT_CODE } from '../config/limits'
 import type { Problem } from './types'
 
 export class ApiError extends Error {
@@ -49,6 +50,7 @@ export function friendlyMessage(err: unknown): string {
       case 413:
         return '圖片太大了（超過 10 MB），請換一張背景再試。'
       case 429:
+        if (err.code === DAILY_LIMIT_CODE) return `今天已經做了 ${DAILY_ARTWORK_LIMIT} 張，明天再來做吧！`
         return `操作太頻繁，請等 ${err.retryAfter ?? 30} 秒再試。`
       case 503:
         return '系統忙碌中，請稍後再試。'
