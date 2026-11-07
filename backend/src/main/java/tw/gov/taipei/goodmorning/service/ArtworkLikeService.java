@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tw.gov.taipei.goodmorning.dto.LikeStateResponse;
 import tw.gov.taipei.goodmorning.exception.ApiException;
+import tw.gov.taipei.goodmorning.observability.BusinessMetrics;
 import tw.gov.taipei.goodmorning.repository.ArtworkLikeRepository;
 import tw.gov.taipei.goodmorning.repository.ArtworkRepository;
 import tw.gov.taipei.goodmorning.security.CurrentUser;
@@ -18,10 +19,15 @@ public class ArtworkLikeService {
 
     private final ArtworkRepository artworks;
     private final ArtworkLikeRepository likes;
+    private final BusinessMetrics metrics;
 
-    public ArtworkLikeService(ArtworkRepository artworks, ArtworkLikeRepository likes) {
+    public ArtworkLikeService(
+            ArtworkRepository artworks,
+            ArtworkLikeRepository likes,
+            BusinessMetrics metrics) {
         this.artworks = artworks;
         this.likes = likes;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -37,6 +43,7 @@ public class ArtworkLikeService {
         var changed = likes.insertIfAbsent(currentUser.id(), artworkId) == 1;
         if (changed) {
             artworks.incrementLikeCount(artworkId);
+            metrics.artworkLiked();
         }
         var likeCount = artworks.findLikeCountById(artworkId);
         LOGGER.info(
@@ -54,6 +61,7 @@ public class ArtworkLikeService {
         var changed = likes.deleteByUserIdAndArtworkId(currentUser.id(), artworkId) == 1;
         if (changed) {
             artworks.decrementLikeCount(artworkId);
+            metrics.artworkUnliked();
         }
         var likeCount = artworks.findLikeCountById(artworkId);
         LOGGER.info(

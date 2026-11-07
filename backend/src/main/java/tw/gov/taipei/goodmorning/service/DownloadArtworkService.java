@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.core.exception.SdkException;
 import tw.gov.taipei.goodmorning.dto.ArtworkDownload;
 import tw.gov.taipei.goodmorning.exception.ApiException;
+import tw.gov.taipei.goodmorning.observability.BusinessMetrics;
 import tw.gov.taipei.goodmorning.repository.ArtworkRepository;
 import tw.gov.taipei.goodmorning.security.CurrentUser;
 
@@ -19,14 +20,17 @@ public class DownloadArtworkService {
     private final ArtworkRepository artworks;
     private final ObjectStorage storage;
     private final QrCodeComposer composer;
+    private final BusinessMetrics metrics;
 
     public DownloadArtworkService(
             ArtworkRepository artworks,
             ObjectStorage storage,
-            QrCodeComposer composer) {
+            QrCodeComposer composer,
+            BusinessMetrics metrics) {
         this.artworks = artworks;
         this.storage = storage;
         this.composer = composer;
+        this.metrics = metrics;
     }
 
     @Transactional
@@ -42,6 +46,7 @@ public class DownloadArtworkService {
         var counted = !artwork.getOwner().getId().equals(currentUser.id());
         if (counted) {
             artworks.incrementDownloadCount(artworkId);
+            metrics.artworkDownloaded();
         }
         LOGGER.info(
                 "artwork_downloaded artworkId={} userId={} counted={}",

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import tw.gov.taipei.goodmorning.exception.ApiException;
+import tw.gov.taipei.goodmorning.observability.BusinessMetrics;
 import tw.gov.taipei.goodmorning.repository.ArtworkLikeRepository;
 import tw.gov.taipei.goodmorning.repository.ArtworkRepository;
 import tw.gov.taipei.goodmorning.security.CurrentUser;
@@ -23,13 +24,15 @@ class ArtworkLikeServiceTest {
 
     private ArtworkRepository artworks;
     private ArtworkLikeRepository likes;
+    private BusinessMetrics metrics;
     private ArtworkLikeService service;
 
     @BeforeEach
     void setUp() {
         artworks = mock(ArtworkRepository.class);
         likes = mock(ArtworkLikeRepository.class);
-        service = new ArtworkLikeService(artworks, likes);
+        metrics = mock(BusinessMetrics.class);
+        service = new ArtworkLikeService(artworks, likes, metrics);
     }
 
     @Test
@@ -41,6 +44,7 @@ class ArtworkLikeServiceTest {
         var result = service.like(PRINCIPAL, 10L);
 
         verify(artworks).incrementLikeCount(10L);
+        verify(metrics).artworkLiked();
         assertThat(result.artworkId()).isEqualTo(10L);
         assertThat(result.liked()).isTrue();
         assertThat(result.likeCount()).isEqualTo(3L);
@@ -55,6 +59,7 @@ class ArtworkLikeServiceTest {
         var result = service.like(PRINCIPAL, 10L);
 
         verify(artworks, never()).incrementLikeCount(10L);
+        verify(metrics, never()).artworkLiked();
         assertThat(result.likeCount()).isEqualTo(3L);
     }
 
@@ -80,6 +85,7 @@ class ArtworkLikeServiceTest {
         var result = service.unlike(PRINCIPAL, 10L);
 
         verify(artworks).decrementLikeCount(10L);
+        verify(metrics).artworkUnliked();
         assertThat(result.liked()).isFalse();
         assertThat(result.likeCount()).isEqualTo(2L);
     }
@@ -93,6 +99,7 @@ class ArtworkLikeServiceTest {
         service.unlike(PRINCIPAL, 10L);
 
         verify(artworks, never()).decrementLikeCount(10L);
+        verify(metrics, never()).artworkUnliked();
     }
 
     @Test

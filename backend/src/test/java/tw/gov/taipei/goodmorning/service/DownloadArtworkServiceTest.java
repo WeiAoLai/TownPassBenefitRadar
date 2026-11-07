@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tw.gov.taipei.goodmorning.entity.Artwork;
 import tw.gov.taipei.goodmorning.entity.User;
+import tw.gov.taipei.goodmorning.observability.BusinessMetrics;
 import tw.gov.taipei.goodmorning.repository.ArtworkRepository;
 import tw.gov.taipei.goodmorning.security.CurrentUser;
 
@@ -27,6 +28,7 @@ class DownloadArtworkServiceTest {
     private ArtworkRepository artworks;
     private ObjectStorage storage;
     private QrCodeComposer composer;
+    private BusinessMetrics metrics;
     private DownloadArtworkService service;
     private Artwork artwork;
 
@@ -35,7 +37,8 @@ class DownloadArtworkServiceTest {
         artworks = mock(ArtworkRepository.class);
         storage = mock(ObjectStorage.class);
         composer = mock(QrCodeComposer.class);
-        service = new DownloadArtworkService(artworks, storage, composer);
+        metrics = mock(BusinessMetrics.class);
+        service = new DownloadArtworkService(artworks, storage, composer, metrics);
 
         var owner = mock(User.class);
         when(owner.getId()).thenReturn(7L);
@@ -56,6 +59,7 @@ class DownloadArtworkServiceTest {
         assertThat(download.content()).isEqualTo(COMPOSED_PNG);
         assertThat(download.filename()).isEqualTo("artwork-42.png");
         verify(artworks, never()).incrementDownloadCount(42L);
+        verify(metrics, never()).artworkDownloaded();
     }
 
     @Test
@@ -64,6 +68,7 @@ class DownloadArtworkServiceTest {
 
         assertThat(download.content()).isEqualTo(COMPOSED_PNG);
         verify(artworks).incrementDownloadCount(42L);
+        verify(metrics).artworkDownloaded();
     }
 
     @Test
@@ -75,5 +80,6 @@ class DownloadArtworkServiceTest {
                 .isInstanceOf(IllegalStateException.class);
 
         verify(artworks, never()).incrementDownloadCount(42L);
+        verify(metrics, never()).artworkDownloaded();
     }
 }

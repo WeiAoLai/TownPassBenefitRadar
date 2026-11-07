@@ -31,6 +31,7 @@ import tw.gov.taipei.goodmorning.entity.Background;
 import tw.gov.taipei.goodmorning.entity.Policy;
 import tw.gov.taipei.goodmorning.entity.User;
 import tw.gov.taipei.goodmorning.exception.ApiException;
+import tw.gov.taipei.goodmorning.observability.BusinessMetrics;
 import tw.gov.taipei.goodmorning.repository.ArtworkRepository;
 import tw.gov.taipei.goodmorning.repository.BackgroundRepository;
 import tw.gov.taipei.goodmorning.repository.PolicyRepository;
@@ -53,6 +54,7 @@ class CreateArtworkServiceTest {
     private ObjectStorage storage;
     private PngArtworkValidator validator;
     private BadgeService badges;
+    private BusinessMetrics metrics;
     private CreateArtworkService service;
     private User owner;
 
@@ -65,8 +67,9 @@ class CreateArtworkServiceTest {
         storage = mock(ObjectStorage.class);
         validator = mock(PngArtworkValidator.class);
         badges = mock(BadgeService.class);
+        metrics = mock(BusinessMetrics.class);
         service = new CreateArtworkService(
-                users, backgrounds, policies, artworks, storage, validator, badges, CLOCK);
+                users, backgrounds, policies, artworks, storage, validator, badges, metrics, CLOCK);
         owner = new User("demo-user-a", "user-a", "小明");
         when(users.findById(PRINCIPAL.id())).thenReturn(Optional.of(owner));
     }
@@ -169,6 +172,7 @@ class CreateArtworkServiceTest {
         order.verify(artworks).saveAndFlush(any());
         order.verify(storage).readUrl(anyString());
         order.verify(storage).delete(anyString());
+        verify(metrics, never()).artworkCreated();
     }
 
     @Test
@@ -211,6 +215,7 @@ class CreateArtworkServiceTest {
         assertThat(response.sloganText()).isEqualTo("自訂標語");
         assertThat(response.imageUrl()).isEqualTo("https://assets.example/artwork.png");
         assertThat(response.ownedByMe()).isTrue();
+        verify(metrics).artworkCreated();
     }
 
     @Test
