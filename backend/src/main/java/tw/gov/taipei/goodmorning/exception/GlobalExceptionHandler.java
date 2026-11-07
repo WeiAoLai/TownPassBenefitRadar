@@ -18,6 +18,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -83,6 +84,16 @@ public class GlobalExceptionHandler {
         var status = HttpStatus.valueOf(exception.getStatusCode().value());
         var code = status == HttpStatus.NOT_FOUND ? "RESOURCE_NOT_FOUND" : "REQUEST_REJECTED";
         return response(request, status, code, exception.getReason());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    ResponseEntity<ProblemDetail> handleNoResourceFound(
+            NoResourceFoundException exception, HttpServletRequest request) {
+        return response(
+                request,
+                HttpStatus.NOT_FOUND,
+                "RESOURCE_NOT_FOUND",
+                "The requested resource was not found");
     }
 
     @ExceptionHandler(Exception.class)

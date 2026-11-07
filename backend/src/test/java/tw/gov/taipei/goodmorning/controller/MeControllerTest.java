@@ -57,7 +57,7 @@ class MeControllerTest {
 
     @Test
     void missingDemoUserHeaderReturnsProblemDetail() throws Exception {
-        mockMvc.perform(get("/api/me").contextPath("/api"))
+        mockMvc.perform(get("/api/v1/me").contextPath("/api"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().exists(TraceContext.TRACE_ID_HEADER))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
@@ -74,8 +74,16 @@ class MeControllerTest {
     }
 
     @Test
-    void unknownDemoAliasReturnsProblemDetail() throws Exception {
+    void unversionedBusinessEndpointIsNotExposed() throws Exception {
         mockMvc.perform(get("/api/me")
+                        .contextPath("/api")
+                        .header("X-Demo-User", "user-a"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void unknownDemoAliasReturnsProblemDetail() throws Exception {
+        mockMvc.perform(get("/api/v1/me")
                         .contextPath("/api")
                         .header("X-Demo-User", "not-allowed"))
                 .andExpect(status().isUnauthorized())
@@ -85,7 +93,7 @@ class MeControllerTest {
 
     @Test
     void validAliasCreatesAndReturnsTheCurrentUser() throws Exception {
-        mockMvc.perform(get("/api/me")
+        mockMvc.perform(get("/api/v1/me")
                         .contextPath("/api")
                         .header("X-Demo-User", "user-a"))
                 .andExpect(status().isOk())
@@ -104,7 +112,7 @@ class MeControllerTest {
 
     @Test
     void clientOwnerIdCannotChangeTheAuthenticatedUser() throws Exception {
-        mockMvc.perform(get("/api/me")
+        mockMvc.perform(get("/api/v1/me")
                         .contextPath("/api")
                         .queryParam("ownerId", "999999")
                         .header("X-Demo-User", "user-b"))

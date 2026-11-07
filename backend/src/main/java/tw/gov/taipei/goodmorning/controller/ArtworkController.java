@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +34,7 @@ import tw.gov.taipei.goodmorning.service.DownloadArtworkService;
 
 @Validated
 @RestController
+@RequestMapping(ApiPaths.V1)
 public class ArtworkController {
 
     private final CreateArtworkService createArtworkService;
@@ -111,7 +113,9 @@ public class ArtworkController {
             HttpServletRequest request) throws IOException {
         var artwork = createArtworkService.create(
                 currentUser, image.getBytes(), backgroundId, policyId, sloganText);
-        var location = URI.create("%s/artworks/%d".formatted(request.getContextPath(), artwork.id()));
+        var location = URI.create(
+                "%s%s/artworks/%d"
+                        .formatted(request.getContextPath(), ApiPaths.V1, artwork.id()));
         return ResponseEntity.created(location).body(artwork);
     }
 }

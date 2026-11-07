@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 長輩圖政策宣傳 API
-  version: 0.1.0
+  version: 1.0.0
   description: |
     長輩圖政策宣傳專案 MVP 的前後端 API 契約。
     Demo 環境以 X-Demo-User header 識別目前使用者。
@@ -17,7 +17,7 @@ tags:
 security:
   - DemoUser: []
 paths:
-  /me:
+  /v1/me:
     get:
       tags: [Me]
       operationId: getCurrentUser
@@ -34,7 +34,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /me/artworks:
+  /v1/me/artworks:
     get:
       tags: [Me, Artworks]
       operationId: listMyArtworks
@@ -56,7 +56,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /backgrounds:
+  /v1/backgrounds:
     get:
       tags: [Backgrounds]
       operationId: listBackgrounds
@@ -75,7 +75,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /policy-categories:
+  /v1/policy-categories:
     get:
       tags: [Policies]
       operationId: listPolicyCategories
@@ -97,7 +97,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /policies:
+  /v1/policies:
     get:
       tags: [Policies]
       operationId: listPolicies
@@ -127,7 +127,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /policies/random:
+  /v1/policies/random:
     get:
       tags: [Policies]
       operationId: getRandomPolicy
@@ -149,7 +149,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /artworks:
+  /v1/artworks:
     get:
       tags: [Artworks]
       operationId: listArtworks
@@ -194,7 +194,7 @@ paths:
               description: 新作品 URI
               schema:
                 type: string
-                example: /api/artworks/123
+                example: /api/v1/artworks/123
           content:
             application/json:
               schema:
@@ -214,7 +214,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /artworks/{artworkId}:
+  /v1/artworks/{artworkId}:
     get:
       tags: [Artworks]
       operationId: getArtwork
@@ -235,7 +235,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /artworks/{artworkId}/like:
+  /v1/artworks/{artworkId}/like:
     put:
       tags: [Artworks]
       operationId: likeArtwork
@@ -279,7 +279,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /artworks/{artworkId}/download:
+  /v1/artworks/{artworkId}/download:
     get:
       tags: [Artworks]
       operationId: downloadArtwork
@@ -314,7 +314,7 @@ paths:
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
 
-  /leaderboard:
+  /v1/leaderboard:
     get:
       tags: [Leaderboard]
       operationId: getLeaderboard

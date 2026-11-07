@@ -14,7 +14,7 @@ bash scripts/monitoring-smoke-test.sh
 
 預設入口：
 
-- API：`http://localhost:8088/api`
+- API v1 base URL：`http://localhost:8088/api/v1`
 - Health：`http://localhost:8088/health`
 - Swagger UI：`http://localhost:8088/api/swagger-ui.html`
 - Checked-in contract：`openapi.yaml`

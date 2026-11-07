@@ -53,7 +53,7 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void oversizedMultipartRequestsReturnPayloadTooLarge() {
-        var request = new MockHttpServletRequest("POST", "/api/artworks");
+        var request = new MockHttpServletRequest("POST", "/api/v1/artworks");
 
         var response = handler.handleUploadTooLarge(
                 new MaxUploadSizeExceededException(10 * 1024 * 1024), request);

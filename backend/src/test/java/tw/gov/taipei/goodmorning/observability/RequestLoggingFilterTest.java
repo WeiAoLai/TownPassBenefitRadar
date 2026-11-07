@@ -19,7 +19,7 @@ class RequestLoggingFilterTest {
         var appender = new ListAppender<ILoggingEvent>();
         appender.start();
         logger.addAppender(appender);
-        var request = new MockHttpServletRequest("GET", "/api/artworks");
+        var request = new MockHttpServletRequest("GET", "/api/v1/artworks");
         request.addHeader(TraceContext.TRACE_ID_HEADER, "frontend-request-123");
         var response = new MockHttpServletResponse();
         var filter = new RequestLoggingFilter();
@@ -42,7 +42,7 @@ class RequestLoggingFilterTest {
                         assertThat(event.getFormattedMessage())
                                 .contains("http_request")
                                 .contains("method=GET")
-                                .contains("path=/api/artworks")
+                                .contains("path=/api/v1/artworks")
                                 .contains("status=200")
                                 .contains("userId=7");
                         assertThat(event.getMDCPropertyMap())
@@ -57,7 +57,7 @@ class RequestLoggingFilterTest {
 
     @Test
     void replacesAnUnsafeRequestId() throws Exception {
-        var request = new MockHttpServletRequest("GET", "/api/me");
+        var request = new MockHttpServletRequest("GET", "/api/v1/me");
         request.addHeader(TraceContext.TRACE_ID_HEADER, "contains spaces and should be rejected");
         var response = new MockHttpServletResponse();
 
