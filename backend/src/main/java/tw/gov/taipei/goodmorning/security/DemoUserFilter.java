@@ -70,6 +70,7 @@ public class DemoUserFilter extends OncePerRequestFilter {
         var path = request.getRequestURI().substring(request.getContextPath().length());
         return path.startsWith("/actuator/")
                 || path.startsWith("/openapi")
+                || path.equals("/contract/openapi.yaml")
                 || path.startsWith("/swagger-ui");
     }
 }

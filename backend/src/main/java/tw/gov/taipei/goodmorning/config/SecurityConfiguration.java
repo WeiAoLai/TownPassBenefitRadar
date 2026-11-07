@@ -33,6 +33,7 @@ public class SecurityConfiguration {
                                 "/actuator/health",
                                 "/actuator/prometheus",
                                 "/openapi/**",
+                                "/contract/openapi.yaml",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html")
                         .permitAll()

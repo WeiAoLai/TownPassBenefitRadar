@@ -17,6 +17,7 @@ bash scripts/monitoring-smoke-test.sh
 - API v1 base URL：`http://localhost:8080/api/v1`
 - Management health：`http://localhost:8081/actuator/health`
 - Swagger UI：`http://localhost:8080/api/swagger-ui.html`
+- Swagger 使用的 OpenAPI YAML：`http://localhost:8080/api/contract/openapi.yaml`
 - Checked-in contract：`openapi.yaml`
 
 Demo API 必須帶 `X-Demo-User: user-a`、`user-b` 或 `user-c`。Spring Boot 只接受 10 MB 圖片。AWS 正式入口的下載 rate limit 由 WAF rate-based rule 負責，本機 Compose 不模擬 WAF。
