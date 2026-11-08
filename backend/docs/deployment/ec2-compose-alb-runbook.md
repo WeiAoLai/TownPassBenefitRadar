@@ -9,7 +9,7 @@
 - MinIO 不直接對外：瀏覽器只會經 frontend Nginx 的 `/<AWS_S3_BUCKET>/` 取圖（Nginx 只放行 GET／HEAD，bucket 是私有的，沒有簽名的請求會被擋下）；管理 console 只綁 EC2 loopback `127.0.0.1:9001`。
 - **資料只存在這台 EC2 的 `minio-data` volume**：主機損毀或執行 `docker compose down -v`，所有作品圖片都會消失（原本的 S3 不會）。請為 EBS volume 定期做 snapshot，或另外備份該 volume。
 
-建立環境檔：
+在 `/home/ubuntu/taipei-code-fest-app` 建立環境檔。可先把 repo 的 `.env.example` 傳到 EC2，或在第一次 workflow 上傳後使用已解開的範例檔。已有 `.env` 時直接編輯該檔。
 
 ```bash
 cp .env.example .env
@@ -36,13 +36,15 @@ GRAFANA_ROOT_URL=http://<ALB-DNS>/grafana/
 
 若 ALB 有 TLS listener，`GRAFANA_ROOT_URL` 與 `S3_PUBLIC_ENDPOINT` 都改用 `https://`。`GRAFANA_ROOT_URL` 必須保留 `/grafana/` 與結尾斜線。
 
-## 2. 一次啟動整組服務
+## 2. 部署整組服務
+
+在 GitHub Actions secrets 設定 `EC2_HOST`（stack 的 `EC2PublicIP`）與 `EC2_SSH_KEY`（對應 `KeyName` 的私鑰）。Push 到 `main` 或手動執行 **Deploy Full Stack to EC2**。Workflow 上傳 Git 追蹤的部署檔案，讀取 EC2 上的 `.env`，等待 Compose healthchecks，再測試 Nginx、API 和 Grafana。
 
 在 repository 根目錄執行：
 
 ```bash
 docker compose config --quiet
-docker compose up -d --build
+docker compose up --build --wait --wait-timeout 300
 docker compose ps
 ```
 
@@ -131,6 +133,8 @@ curl --silent --output /dev/null --write-out '%{http_code}\n' \
 - `http://<ALB-DNS>/api/swagger-ui/index.html`：Swagger UI
 - `http://<ALB-DNS>/grafana/`：Grafana
 - 前端的作品牆、徽章與背景圖片能正常顯示（圖片網址為 `http://<ALB-DNS>/<bucket>/...?X-Amz-...`）
+
+到 EC2 Target Groups 確認 `frontend-tg` 的 EC2 為 `healthy`，並從瀏覽器開啟一張由 S3 預簽網址提供的圖片。
 
 Grafana 的 **Good Morning** folder 應自動出現 dashboards。Metrics 最多等一個 15 秒 scrape interval；Logs 可在 Explore 選 Loki 後查詢：
 

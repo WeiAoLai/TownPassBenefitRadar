@@ -21,7 +21,9 @@ services:
       - S3_BUCKET=${AWS_S3_BUCKET:-taipei-code-fest-assets}
     restart: always
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+        restart: true
 
   # ==============================
   # 後端服務 (Spring Boot) - 融合隊友的 dev/runtime 架構與 8080/8081 分離
@@ -234,7 +236,7 @@ services:
       alloy:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/grafana/api/health"]
       interval: 5s
       timeout: 3s
       retries: 20
